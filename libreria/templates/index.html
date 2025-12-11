@@ -54,11 +54,31 @@
             </div>
         </div>
 
-        <!-- Donut inventario -->
-        <div class="col-md-6 mb-4">
+    <!-- ======= TABLA DE CATEGORÍAS ======= -->
+    <div class="row mt-4">
+        <div class="col-12">
             <div class="card p-4 shadow-sm">
-                <h5 class="text-center">Distribución del Inventario por Categoría</h5>
-                <canvas id="graficaInventario" class="mt-3"></canvas>
+                <h5 class="mb-3">Inventario Detallado por Categoría</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Categoría</th>
+                                <th scope="col" class="text-end">Cantidad de Productos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in inventario_por_categoria %}
+                            <tr>
+                                <td>{{ item.nombre }}</td>
+                                <td class="text-end">{{ item.num_productos }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">No hay productos con categoría para mostrar.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -105,26 +125,30 @@ document.addEventListener("DOMContentLoaded", function() {
     // GRÁFICA 2: Inventario
     // ===================================
     const canvasInventario = document.getElementById('graficaInventario');
-    if (canvasInventario) {
-        const ctxInventario = canvasInventario.getContext('2d');
-        new Chart(ctxInventario, {
-            type: 'doughnut',
-            data: {
-                labels: getData('cat-labels-data'),
-                datasets: [{
-                    label: 'Productos por Categoría',
-                    data: getData('cat-values-data'),
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.7)',
-                        'rgba(54, 162, 235, 0.7)',
-                        'rgba(255, 206, 86, 0.7)',
-                        'rgba(75, 192, 192, 0.7)',
-                        'rgba(153, 102, 255, 0.7)'
-                    ]
-                }]
-            },
-            options: { responsive: true }
-        });
+    const labelsCategorias = document.getElementById('cat-labels-data');
+    const valuesCategorias = document.getElementById('cat-values-data');
+
+    // Solo intentar crear la gráfica si el canvas y los datos existen
+    if (canvasInventario && labelsCategorias && valuesCategorias) {
+        // Verificamos que los datos no estén vacíos
+        const catLabels = JSON.parse(labelsCategorias.textContent);
+        const catValues = JSON.parse(valuesCategorias.textContent);
+
+        if (catLabels.length > 0 && catValues.length > 0) {
+            const ctxInventario = canvasInventario.getContext('2d');
+            new Chart(ctxInventario, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        label: 'Productos por Categoría',
+                        data: catValues,
+                        backgroundColor: ['rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)']
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
     }
 });
 </script>

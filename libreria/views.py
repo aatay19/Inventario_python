@@ -14,6 +14,10 @@ from django.contrib import messages
 
 import json
 
+# En tu archivo views.py (ejemplo de la lógica actual)
+from django.db.models import Count
+# ...
+
 def index(request):
     # --- CÁLCULO PARA LAS TARJETAS (CARDS) ---
 
@@ -66,6 +70,15 @@ def index(request):
     ]
     values_categorias = [item['num_productos'] for item in distribucion_inventario]
 
+    # 7. Datos para la tabla de inventario por categoría
+    # Reutilizamos la consulta anterior y la adaptamos para la tabla
+    inventario_por_categoria = []
+    for item in distribucion_inventario:
+        inventario_por_categoria.append({
+            'nombre': categoria_display_map.get(item['categoria'], item['categoria']),
+            'num_productos': item['num_productos']
+        })
+
     # --- CONTEXTO PARA LA PLANTILLA ---
     context = {
         'total_proveedores': total_proveedores,
@@ -76,6 +89,7 @@ def index(request):
         'values_productos': json.dumps(values_productos),
         'labels_categorias': json.dumps(labels_categorias),
         'values_categorias': json.dumps(values_categorias),
+        'inventario_por_categoria': inventario_por_categoria,
     }
 
     return render(request, 'index.html', context)
