@@ -46,7 +46,7 @@ class HistorialProveedoresNotas(models.Model):
 class CategoriaChoices(models.TextChoices):
     ELECTRONICA = 'ELECTRONICA', 'electrónica'
     ROPA = 'ROPA', 'Ropa'
-    ALIMENTACION = 'alimentación'
+    ALIMENTACION = 'ALIMENTACION', 'Alimentación'
     HOGAR = 'HOGAR', 'Hogar'
     OTRO = 'OTRO', 'Otro'
     BEBIDAS = 'BEBIDAS', 'Bebidas'

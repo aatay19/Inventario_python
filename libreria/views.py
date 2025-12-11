@@ -3,16 +3,82 @@ from django.http import HttpResponse
 from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas,MovimientosInventario
 from .forms import ClienteForm,ProveedorForm,InventarioForm,HistorialProveedoresNotasForm, MovimientosInventarioForm
 from django.core.paginator import Paginator
-from django.db.models import Q, F
+from django.db.models import Q, F, Sum, Count
 from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from django.contrib import messages
 # Create your views here.
+# libreria/views.py
 
-def base(request):
-    return render(request, 'index.html')
+import json
+
+def index(request):
+    # --- CÁLCULO PARA LAS TARJETAS (CARDS) ---
+
+    # 1. Total de proveedores
+    total_proveedores = Proveedor.objects.count()
+
+    # 2. Total de productos
+    total_productos = Inventario.objects.count()
+
+    # 3. Valor total del inventario (usando 'cantidad' y 'precio_venta' de tu modelo)
+    valor_inventario = Inventario.objects.aggregate(
+        total=Sum(F('cantidad') * F('precio_venta'))
+    )['total'] or 0
+
+    # 4. Producto más vendido (basado en MovimientosInventario de tipo 'SALIDA')
+    producto_mas_vendido = MovimientosInventario.objects.filter(
+        tipo_movimiento='SALIDA'
+    ).values('producto__nombre_producto').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido').first()
+
+    producto_top = {
+        'nombre': producto_mas_vendido['producto__nombre_producto'] if producto_mas_vendido else "N/A",
+        'total': producto_mas_vendido['total_vendido'] if producto_mas_vendido else 0
+    }
+
+    # --- DATOS PARA LAS GRÁFICAS ---
+
+    # 5. Gráfica de barras: Top 5 productos más vendidos
+    top_5_productos_vendidos = MovimientosInventario.objects.filter(
+        tipo_movimiento='SALIDA'
+    ).values('producto__nombre_producto').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido')[:5]
+
+    labels_productos = [item['producto__nombre_producto'] for item in top_5_productos_vendidos]
+    values_productos = [item['total_vendido'] for item in top_5_productos_vendidos]
+
+    # 6. Gráfica de dona: Distribución de productos por categoría
+    # Obtenemos los nombres legibles de las categorías desde el modelo
+    categoria_display_map = dict(Inventario._meta.get_field('categoria').choices)
+
+    distribucion_inventario = Inventario.objects.values('categoria').annotate(
+        num_productos=Count('id_producto')
+    ).filter(num_productos__gt=0).order_by('-num_productos')
+
+    # Usamos el mapa para obtener el nombre legible. Si no lo encuentra, usa el original.
+    labels_categorias = [
+        categoria_display_map.get(item['categoria'], item['categoria']) for item in distribucion_inventario
+    ]
+    values_categorias = [item['num_productos'] for item in distribucion_inventario]
+
+    # --- CONTEXTO PARA LA PLANTILLA ---
+    context = {
+        'total_proveedores': total_proveedores,
+        'total_productos': total_productos,
+        'valor_inventario': valor_inventario,
+        'producto_top': producto_top,
+        'labels_productos': json.dumps(labels_productos),
+        'values_productos': json.dumps(values_productos),
+        'labels_categorias': json.dumps(labels_categorias),
+        'values_categorias': json.dumps(values_categorias),
+    }
+
+    return render(request, 'index.html', context)
 
 #======================================
 #clienets vista
