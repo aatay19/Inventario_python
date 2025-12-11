@@ -10,7 +10,7 @@ class ProductoModelChoiceField(ModelChoiceField):
     """
     def label_from_instance(self, obj):
         # Formato: "Nombre (Stock: 10) - Precio: Bs 123.45"
-        return f"{obj.nombre_producto} (Stock: {obj.cantidad}) - Precio: Bs {obj.precio_venta}"
+        return f"{obj.nombre_producto} (Stock: {obj.cantidad}) - Precio: Bs {obj.precio_venta:,.2f}"
 
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -88,6 +88,13 @@ class MovimientosInventarioForm(forms.ModelForm):
         queryset=Inventario.objects.order_by('nombre_producto'),
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Hacemos que el campo proveedor no sea requerido a nivel de HTML.
+        # La validación real se hará en el método clean().
+        self.fields['proveedor'].required = False
+
     class Meta:
         model = MovimientosInventario
         fields = ['producto', 'tipo_movimiento', 'cantidad', 'proveedor']
@@ -97,14 +104,20 @@ class MovimientosInventarioForm(forms.ModelForm):
         tipo_movimiento = cleaned_data.get("tipo_movimiento")
         cantidad = cleaned_data.get("cantidad")
         producto = cleaned_data.get("producto")
+        proveedor = cleaned_data.get("proveedor")
 
-        # Solo validar si los campos necesarios están presentes
+        # Validación 1: Si es una SALIDA, verificar que haya stock suficiente.
         if tipo_movimiento == 'SALIDA' and producto and cantidad is not None:
             if cantidad > producto.cantidad:
                 raise forms.ValidationError(
                     f"No se puede registrar la salida. Stock insuficiente para '{producto.nombre_producto}'. "
                     f"Disponibles: {producto.cantidad}, se intentó sacar: {cantidad}."
                 )
+
+        # Validación 2: Si es una ENTRADA, el proveedor es obligatorio.
+        if tipo_movimiento == 'ENTRADA' and not proveedor:
+            self.add_error('proveedor', 'Para un movimiento de entrada, es obligatorio seleccionar un proveedor.')
+
         return cleaned_data
 
     def save(self, commit=True):

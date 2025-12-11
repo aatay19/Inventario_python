@@ -44,17 +44,17 @@ def index(request):
         'total': producto_mas_vendido['total_vendido'] if producto_mas_vendido else 0
     }
 
-    # --- DATOS PARA LAS GRÁFICAS ---
+    # --- DATOS PARA TABLAS Y GRÁFICAS ---
 
-    # 5. Gráfica de barras: Top 5 productos más vendidos
+    # 5. Datos para la tabla: Top 5 productos más vendidos
     top_5_productos_vendidos = MovimientosInventario.objects.filter(
         tipo_movimiento='SALIDA'
     ).values('producto__nombre_producto').annotate(
         total_vendido=Sum('cantidad')
     ).order_by('-total_vendido')[:5]
-
-    labels_productos = [item['producto__nombre_producto'] for item in top_5_productos_vendidos]
-    values_productos = [item['total_vendido'] for item in top_5_productos_vendidos]
+    
+    # Adaptamos la consulta para que coincida con lo que espera el template: {'nombre': ..., 'total_vendido': ...}
+    top_productos = [{'nombre': item['producto__nombre_producto'], 'total_vendido': item['total_vendido']} for item in top_5_productos_vendidos]
 
     # 6. Gráfica de dona: Distribución de productos por categoría
     # Obtenemos los nombres legibles de las categorías desde el modelo
@@ -85,44 +85,13 @@ def index(request):
         'total_productos': total_productos,
         'valor_inventario': valor_inventario,
         'producto_top': producto_top,
-        'labels_productos': json.dumps(labels_productos),
-        'values_productos': json.dumps(values_productos),
-        'labels_categorias': json.dumps(labels_categorias),
-        'values_categorias': json.dumps(values_categorias),
         'inventario_por_categoria': inventario_por_categoria,
+        # Pasamos la variable correcta para la tabla de top productos
+        'top_productos': top_productos,
     }
 
     return render(request, 'index.html', context)
 
-#======================================
-#clienets vista
-#========================================
-def clientes_index(request):
-    Clientes = Cliente.objects.all()
-    return render(request, 'clientes/index.html',{'Clientes': Clientes})
-
-def clientes_crear(request):
-    formulario_cliente = ClienteForm(request.POST or None)
-    if formulario_cliente.is_valid():
-        formulario_cliente.save()
-        return redirect('/clientes')
-    return render(request, 'clientes/crear.html', {'formulario_cliente': formulario_cliente})
-
-def clientes_editar(request,id):
-    cliente = Cliente.objects.get(id=id)
-    formulario_cliente = ClienteForm(request.POST or None, instance=cliente)
-    if formulario_cliente.is_valid() and request.POST:
-        formulario_cliente.save()
-        return redirect('/clientes')
-    return render(request, 'clientes/editar.html',{'formulario_cliente': formulario_cliente})
-
-def clientes_eliminar(request,id):
-    cliente = Cliente.objects.get(id=id)
-    cliente.delete()
-    return redirect('/clientes')
-
-def clientes_ver(request):
-    return render(request, 'clientes/ver.html')
 
 #======================================
 #proveedores vista
@@ -132,7 +101,7 @@ def proveedores_index(request):
     # parámetros GET
     q = request.GET.get('q', '').strip()
     order = request.GET.get('order', 'nombre_asc')
-    page_size = 25
+    page_size = 10
 
     # queryset base
     qs = Proveedor.objects.all()
@@ -196,7 +165,7 @@ def inventario_index(request):
     categoria = request.GET.get('categoria', '').strip()
     order = request.GET.get('order', 'name_asc')  # 'name_asc','name_desc','cantidad_desc','cantidad_asc'
     low = request.GET.get('low', '').strip()  # si '1' o 'true' -> filtrar los bajos
-    page_size = 25
+    page_size = 10
 
     # Filtro por texto en nombre, descripción o código
     if q:
@@ -314,7 +283,7 @@ def historial_proveedores_notas_index(request):
         qs = qs.order_by('-fecha_registro')
 
     # Paginación servidor (ajusta page_size según necesites)
-    page_size = 25
+    page_size = 10
     paginator = Paginator(qs, page_size)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -355,8 +324,36 @@ def historial_proveedores_notas_eliminar(request,id_historialproveedor):
 #========================================
 
 def movimientos_inventario_index(request):
-    movimientos = MovimientosInventario.objects.select_related('producto', 'proveedor').order_by('-fecha_movimiento')
-    return render(request, 'movimientos/index.html', {'movimientos': movimientos})
+    # Parámetros GET para filtros y orden
+    q = request.GET.get('q', '').strip()
+    order = request.GET.get('order', 'desc')
+    page_size = 10
+
+    # Queryset base con optimización para evitar consultas N+1
+    qs = MovimientosInventario.objects.select_related('producto', 'proveedor')
+
+    # Filtro de búsqueda por nombre de producto o proveedor
+    if q:
+        qs = qs.filter(
+            Q(producto__nombre_producto__icontains=q) |
+            Q(proveedor__nombre__icontains=q)
+        )
+
+    # Ordenamiento
+    if order == 'asc':
+        qs = qs.order_by('fecha_movimiento')
+    else:
+        qs = qs.order_by('-fecha_movimiento') # 'desc' es el default
+
+    # Paginación
+    paginator = Paginator(qs, page_size)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj, 'q': q, 'order': order
+    }
+    return render(request, 'movimientos/index.html', context)
 
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)

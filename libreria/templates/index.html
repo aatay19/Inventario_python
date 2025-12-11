@@ -29,7 +29,7 @@
         <div class="col-md-4 col-lg-3">
             <div class="card card-dashboard p-4">
                 <h5>Valor Total del Inventario</h5>
-                <h2><strong>${{ valor_inventario|floatformat:2|default:"0.00" }}</strong></h2>
+                <h2><strong>Bs {{ valor_inventario|floatformat:2|default:"0.00" }}</strong></h2>
                 <span class="text-muted">Monto estimado actual</span>
             </div>
         </div>
@@ -45,12 +45,31 @@
     </div>
 
     <!-- ======= GRÁFICAS ======= -->
-    <div class="row mt-5">
-        <!-- Gráfica de barras -->
-        <div class="col-md-6 mb-4">
+    <div class="row mt-4">
+        <!-- Tabla de Top Productos -->
+        <div class="col-12 mb-4">
             <div class="card p-4 shadow-sm">
-                <h5 class="text-center">Top Productos Más Vendidos</h5>
-                <canvas id="graficaProductos" class="mt-3"></canvas>
+                <h5 class="mb-3">Top Productos Más Vendidos</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Producto</th>
+                                <th scope="col" class="text-end">Cantidad Vendida</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for producto in top_productos %}
+                            <tr>
+                                <td>{{ producto.nombre }}</td>
+                                <td class="text-end">{{ producto.total_vendido }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">No hay datos de ventas para mostrar.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -84,46 +103,15 @@
     </div>
 </div>
 
-{{ labels_productos|json_script:"labels-data" }}
-{{ values_productos|json_script:"values-data" }}
-{{ labels_categorias|json_script:"cat-labels-data" }}
-{{ values_categorias|json_script:"cat-values-data" }}
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Plugin para mostrar etiquetas de datos en las barras -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     
-    // Función auxiliar para leer los datos (hace el código más limpio)
-    function getData(id) {
-        return JSON.parse(document.getElementById(id).textContent);
-    }
-
-    // ===================================
-    // GRÁFICA 1: Productos
-    // ===================================
-    const canvasProductos = document.getElementById('graficaProductos');
-    if (canvasProductos) {
-        const ctxProductos = canvasProductos.getContext('2d');
-        new Chart(ctxProductos, {
-            type: 'bar',
-            data: {
-                labels: getData('labels-data'),
-                datasets: [{
-                    label: 'Cantidad Vendida',
-                    data: getData('values-data'),
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
-    }
-
-    // ===================================
-    // GRÁFICA 2: Inventario
-    // ===================================
+    // NOTA: El código de la gráfica de barras de productos ha sido eliminado.
+    // Si tenías otras gráficas aquí, su código permanecería.
     const canvasInventario = document.getElementById('graficaInventario');
     const labelsCategorias = document.getElementById('cat-labels-data');
     const valuesCategorias = document.getElementById('cat-values-data');

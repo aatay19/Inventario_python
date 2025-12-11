@@ -22,7 +22,7 @@
   {% endif %}
 
   <!-- Formulario de filtros (GET) -->
-  <form method="get" class="row g-2 mb-3">
+  <form method="get" class="row g-3 mb-4">
     <div class="col-md-4">
       <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre o descripción...">
     </div>
@@ -63,6 +63,7 @@
           <th>Nombre del producto</th>
           <th>Código</th>
           <th>Descripción</th>
+          <th>Precio</th>
           <th>Categoría</th>
           <th>Cantidad</th>
           <th>Acciones</th>
@@ -75,6 +76,7 @@
           <td>{{ producto.nombre_producto }}</td>
           <td>{{ producto.codigo_producto }}</td>
           <td>{{ producto.descripcion|truncatechars:80 }}</td>
+          <td>Bs {{producto.precio_venta}}</td>
           <td>{{ producto.categoria }}</td>
           <td>
             {% if producto.cantidad <= producto.stock_minimo %}

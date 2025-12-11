@@ -3,15 +3,7 @@ from . import views
  
 urlpatterns = [
     path('', views.index, name='index'),
-    #clientes urls
-    path('clientes/', views.clientes_index, name='clientes.index'),
-    path('clientes/crear', views.clientes_crear, name='clientes.crear'),
-    path('clientes/editar', views.clientes_editar, name='clientes.editar'),
-    path('clientes/eliminar<int:id>', views.clientes_eliminar, name='clientes.eliminar'),
-    path('clientes/ver', views.clientes_ver, name='clientes.ver'),
-    path('clientes/editar/<int:id>', views.clientes_editar, name='clientes.editar'),
-
-
+    
     #proveedores urls
     path('proveedores/', views.proveedores_index, name='proveedores.index'),
     path('proveedores/crear', views.proveedores_crear, name='proveedores.crear'),
