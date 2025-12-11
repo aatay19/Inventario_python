@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Movimientos de Inventario{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Movimientos de Inventario</h2>
+        <a href="{% url 'movimientos.crear' %}" class="btn btn-primary">Registrar Movimiento</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <!-- Formulario de filtros -->
+            <form method="get" class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por producto o proveedor...">
+                </div>
+                <div class="col-md-4">
+                    <select name="order" class="form-select">
+                        <option value="desc" {% if order == 'desc' %}selected{% endif %}>Más recientes primero</option>
+                        <option value="asc" {% if order == 'asc' %}selected{% endif %}>Más antiguos primero</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Tipo</th>
+                            <th>Cantidad</th>
+                            <th>Fecha</th>
+                            <th>Proveedor</th>
+                            <th>Descripción</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in movimientos %}
+                        <tr>
+                            <td>{{ movimiento.producto.nombre_producto }}</td>
+                            <td>
+                                {% if movimiento.tipo_movimiento == 'ENTRADA' %}
+                                    <span class="badge bg-success">Entrada</span>
+                                {% elif movimiento.tipo_movimiento == 'SALIDA' %}
+                                    <span class="badge bg-warning text-dark">Salida</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ movimiento.cantidad }}</td>
+                            <td>{{ movimiento.fecha_movimiento|date:"d/m/Y H:i" }}</td>
+                            <td>{{ movimiento.proveedor.nombre|default:"N/A" }}</td>
+                            <td>{{ movimiento.descripcion|truncatechars:50|default:"-" }}</td>
+                            <td>
+                                <a href="{% url 'movimientos.editar'  movimiento.id_movimiento %}" class="btn btn-warning btn-sm text-white">Editar</a>
+                                <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.');">Eliminar</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No hay movimientos registrados que coincidan con la búsqueda.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

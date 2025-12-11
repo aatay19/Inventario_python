@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Registrar Movimiento de Inventario{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h4 class="card-title mb-0">Registrar Movimiento de Inventario</h4>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if formulario.non_field_errors %}
+                    <div class="alert alert-danger">{{ formulario.non_field_errors }}</div>
+                {% endif %}
+
+                {{ formulario.as_p }}
+                <button type="submit" class="btn btn-success">Guardar Movimiento</button>
+                <a href="{% url 'movimientos.index' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

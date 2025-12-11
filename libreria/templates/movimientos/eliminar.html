@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Confirmar Eliminación{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card border-danger shadow-sm">
+        <div class="card-header bg-danger text-white">
+            <h4 class="card-title mb-0">Confirmar Eliminación</h4>
+        </div>
+        <div class="card-body">
+            <p>¿Estás seguro de que deseas eliminar el movimiento de <strong>{{ movimiento.tipo_movimiento|lower }}</strong> de <strong>{{ movimiento.cantidad }}</strong> unidades del producto <strong>"{{ movimiento.producto.nombre_producto }}"</strong>?</p>
+            <p class="text-danger">Esta acción ajustará el stock del producto y no se puede deshacer.</p>
+
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+                <a href="{% url 'movimientos.index' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

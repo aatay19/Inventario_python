@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Crear Historial{% endblock %}
+{% block content %}
+
+
+
+<div class="card">
+    <div class="card-header">
+        <h4>Crear Un Historial del Proveedor</h4>
+    </div>
+
+    <div class="card-body">
+        <h4 class="card-title">Datos del Historial</h4>
+        {%include 'HistorialProveedoresNotas/form.html'%}
+    </div>
+</div>
+            
+            {% for nota in notas %}
+
+            
+            {% endfor %}
+            
+            
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Crear Proveedor {% endblock %}
+{% block content %}
+
+
+<div class="card">
+    <div class="card-header">
+        <h4>Crear Un Nuevo Proveedor</h4>
+    </div>
+
+    <div class="card-body">
+        <h4 class="card-title">Datos del proveedor</h4>
+        {%include 'proveedores/form.html'%}
+    </div>
+</div>
+
+            
+            
+            {% for campo in formulario_proveedor %}
+
+            
+            {% endfor %}
+            
+            
+{% endblock %}

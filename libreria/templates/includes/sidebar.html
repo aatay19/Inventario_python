@@ -1,0 +1,58 @@
+<div id="sidebar" class="sidebar bg-dark text-white p-3">
+    <h4 class="mb-4 text-center">Inventario test</h4>
+
+    <ul class="nav flex-column">
+
+        <!-- CLIENTE -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-person me-2"></i> Cliente</span>
+                
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'clientes.crear' %}">➤ Crear</a></li>
+                <li><a class="nav-link small" href="{% url 'clientes.index' %}">➤ Lista de Clientes</a></li>
+            </ul>
+        </li>
+
+        <!-- PRODUCTOS -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-box-seam me-2"></i> Productos</span>
+                
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'inventario.index' %}">➤ lista de productos</a></li>
+                <li><a class="nav-link small" href="#">➤ Crear producto</a></li>
+            </ul>
+        </li>
+
+        <!-- PROVEEDORES -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-buildings me-2"></i> Proveedores</span>
+                
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'proveedores.crear' %}">➤ Registrar proveedor</a></li>
+                <li><a class="nav-link small" href="{% url  'proveedores.index' %}">➤ Lista de proveedores</a></li>
+                <li><a class="nav-link small" href="{% url 'HistorialProveedoresNotas.index' %}">➤ Historial de los proveedores</a></li>
+            </ul>
+        </li>
+
+
+        <!-- COMPRAS -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-cart-check me-2"></i> Movimientos Inventario</span>
+                
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.index' %}">➤ Lista de Movimientos</a></li>
+
+            </ul>
+        </li>
+
+    </ul>
+</div>

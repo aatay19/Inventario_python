@@ -1,0 +1,20 @@
+<form enctype="multipart/form-data" method="post">
+    {% csrf_token %}
+    {% for campo in formulario_cliente %}  
+ 
+ 
+    <div class="mb-3">
+        <label for="nombre" class="form-label">{{ campo.label }}</label>
+        <input type="{{ campo.field.widget.input_type }}" 
+        id="" 
+        name="{{campo.name}}" 
+        class="form-control" 
+        placeholder="{{ campo.label }}"
+        value="{{campo.value | default:'' }}"
+        required>
+    </div>
+    <div class="col-12 help-text">{{campo.errors}}</div>
+  {% endfor %}
+
+<input name="" id="" class="btn btn-success" type="submit" value="Guardar Cliente">  
+</form>
