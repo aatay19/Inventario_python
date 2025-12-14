@@ -3,10 +3,10 @@ from django.http import HttpResponse
 from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas,MovimientosInventario
 from .forms import ClienteForm,ProveedorForm,InventarioForm,HistorialProveedoresNotasForm, MovimientosInventarioForm
 from django.core.paginator import Paginator
-from django.db.models import Q, F, Sum, Count
+from django.db.models import Q, F, Sum, Count, Value
 from django.utils import timezone
 from django.db import transaction
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.shortcuts import get_object_or_404
 from django.contrib import messages
 # Create your views here.
@@ -79,6 +79,28 @@ def index(request):
             'num_productos': item['num_productos']
         })
 
+    # 8. Datos para la tabla de resumen de movimientos
+    # Para evitar problemas de zona horaria, definimos 'hoy' como un rango de tiempo.
+    # Obtenemos la fecha actual en la zona horaria local del proyecto.
+    local_today = timezone.localtime(timezone.now()).date()
+    
+    # Creamos un rango desde el inicio del día (00:00:00) hasta el final (23:59:59.999999).
+    # Esto asegura que la consulta a la base de datos sea precisa.
+    start_of_day = timezone.make_aware(datetime.combine(local_today, datetime.min.time()))
+    end_of_day = timezone.make_aware(datetime.combine(local_today, datetime.max.time()))
+    
+    # Agregamos para obtener un resumen de movimientos
+    resumen_movimientos = MovimientosInventario.objects.aggregate(
+        total_entradas=Count('id_movimiento', filter=Q(tipo_movimiento='ENTRADA')),
+        total_salidas=Count('id_movimiento', filter=Q(tipo_movimiento='SALIDA')),
+        hoy_entradas=Count('id_movimiento', filter=Q(tipo_movimiento='ENTRADA', fecha_movimiento__range=(start_of_day, end_of_day))),
+        hoy_salidas=Count('id_movimiento', filter=Q(tipo_movimiento='SALIDA', fecha_movimiento__range=(start_of_day, end_of_day))),
+    )
+    # Si no hay movimientos, los valores serán 0, lo cual es correcto.
+    # No es necesario un manejo especial de 'None'.
+
+
+
     # --- CONTEXTO PARA LA PLANTILLA ---
     context = {
         'total_proveedores': total_proveedores,
@@ -88,6 +110,7 @@ def index(request):
         'inventario_por_categoria': inventario_por_categoria,
         # Pasamos la variable correcta para la tabla de top productos
         'top_productos': top_productos,
+        'resumen_movimientos': resumen_movimientos,
     }
 
     return render(request, 'index.html', context)

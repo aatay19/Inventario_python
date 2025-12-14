@@ -46,8 +46,8 @@
 
     <!-- ======= GRÁFICAS ======= -->
     <div class="row mt-4">
-        <!-- Tabla de Top Productos -->
-        <div class="col-12 mb-4">
+        <!-- Tabla de Top Productos (ahora más pequeña para hacer espacio) -->
+        <div class="col-lg-6 mb-4">
             <div class="card p-4 shadow-sm">
                 <h5 class="mb-3">Top Productos Más Vendidos</h5>
                 <div class="table-responsive">
@@ -73,6 +73,36 @@
             </div>
         </div>
 
+        <!-- Tabla de Resumen de Movimientos -->
+        <div class="col-lg-6 mb-4">
+            <div class="card p-4 shadow-sm">
+                <h5 class="mb-3">Resumen de Movimientos</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Periodo</th>
+                                <th scope="col" class="text-end">Entradas</th>
+                                <th scope="col" class="text-end">Salidas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Hoy</strong></td>
+                                <td class="text-end">{{ resumen_movimientos.hoy_entradas|default:"0" }}</td>
+                                <td class="text-end">{{ resumen_movimientos.hoy_salidas|default:"0" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Total Histórico</strong></td>
+                                <td class="text-end">{{ resumen_movimientos.total_entradas|default:"0" }}</td>
+                                <td class="text-end">{{ resumen_movimientos.total_salidas|default:"0" }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- ======= TABLA DE CATEGORÍAS ======= -->
     <div class="row mt-4">
         <div class="col-12">

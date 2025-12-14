@@ -20,11 +20,18 @@ class Proveedor(models.Model):
     razonsocial = models.CharField(max_length=150, verbose_name="Razon Social")
     rif = models.CharField(max_length=20, verbose_name="RIF", unique=True)
     direccion = models.TextField()
+    dias_descuentos = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name="Días de Descuentos",
+        help_text="Ej: Lunes, Miércoles y Viernes"
+    )
 
     def __str__(self):
         fila= "id: " + str(self.id) + " - " + self.nombre + " - " + self.telefono + " - " + self.razonsocial + " - " + self.rif + " - " + self.direccion
         return fila
     
+
 class HistorialProveedoresNotas(models.Model):
     """Notas históricas, acuerdos y condiciones comerciales con el proveedor."""
     id_historialproveedor = models.AutoField(primary_key=True)
