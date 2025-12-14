@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
- 
+  
 urlpatterns = [
     path('', views.index, name='index'),
     
@@ -32,5 +32,6 @@ urlpatterns = [
     path('movimientos/eliminar<int:id_movimiento>', views.movimientos_inventario_eliminar, name='movimientos.eliminar'),
     path('movimientos/editar<int:id_movimiento>', views.movimientos_inventario_editar, name='movimientos.editar'),
 
-
+    # URL para la API de decodificación de código de barras
+    path('api/decodificar-codigo/', views.decodificar_codigo_barras, name='decodificar_codigo'),
 ]

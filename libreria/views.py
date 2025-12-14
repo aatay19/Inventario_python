@@ -9,9 +9,13 @@ from django.db import transaction
 from datetime import timedelta, datetime
 from django.shortcuts import get_object_or_404
 from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from PIL import Image
+from pyzbar.pyzbar import decode
 # Create your views here.
 # libreria/views.py
-
+ 
 import json
 
 # En tu archivo views.py (ejemplo de la lógica actual)
@@ -476,3 +480,40 @@ def movimientos_inventario_eliminar(request, id_movimiento):
         return redirect('movimientos.index')
     
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
+
+
+#======================================
+# API para decodificar código de barras
+#========================================
+
+@csrf_exempt # Usamos csrf_exempt para simplificar el ejemplo con AJAX. En producción, considera usar el token CSRF de Django.
+def decodificar_codigo_barras(request):
+    if request.method == 'POST' and request.FILES.get('imagen'):
+        try:
+            imagen_subida = request.FILES['imagen']
+            
+            # Abrir la imagen usando Pillow
+            img = Image.open(imagen_subida)
+
+            # Usar pyzbar para decodificar los códigos de barras
+            codigos_decodificados = decode(img)
+
+            if not codigos_decodificados:
+                return JsonResponse({'error': 'No se encontró ningún código de barras en la imagen.'}, status=400)
+
+            # Extraer los datos del primer código encontrado
+            primer_codigo = codigos_decodificados[0]
+            codigo_data = primer_codigo.data.decode('utf-8')
+            codigo_type = primer_codigo.type
+
+            # Devolver el resultado como JSON
+            return JsonResponse({
+                'success': True,
+                'codigo': codigo_data,
+                'tipo': codigo_type
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Ocurrió un error al procesar la imagen: {str(e)}'}, status=500)
+
+    return JsonResponse({'error': 'Método no permitido o falta el archivo de imagen.'}, status=405)
