@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from PIL import Image
+from PIL import Image, ImageEnhance
 from pyzbar.pyzbar import decode
 # Create your views here.
 # libreria/views.py
@@ -492,10 +492,32 @@ def decodificar_codigo_barras(request):
         try:
             imagen_subida = request.FILES['imagen']
             
-            # Abrir la imagen usando Pillow
+            # --- INICIO DE MEJORAS DE IMAGEN ---
             img = Image.open(imagen_subida)
 
-            # Usar pyzbar para decodificar los códigos de barras
+            # 1. Convertir a escala de grises (mejora la detección)
+            img = img.convert('L')
+
+            # 2. Aumentar el contraste para que las barras sean más nítidas
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(2.0) # El valor 2.0 es un buen punto de partida, puedes ajustarlo
+
+            # 3. (NUEVO) Binarización: Convertir la imagen a blanco y negro puros.
+            #    Esto es muy efectivo para que el lector se enfoque solo en las barras.
+            #    Un umbral de 128 es un buen valor inicial.
+            umbral = 128
+            img = img.point(lambda p: 255 if p > umbral else 0)
+            img = img.convert('1') # Convertir al modo de 1-bit (blanco y negro)
+
+
+            # --- PASO DE DEPURACIÓN: GUARDAR LA IMAGEN PROCESADA ---
+            # Descomenta la siguiente línea para guardar la imagen final.
+            # Se guardará en la carpeta principal de tu proyecto.
+            # Revisa este archivo para ver si el código de barras es legible.
+            img.save("imagen_procesada_final.png")
+
+            # --- FIN DE MEJORAS DE IMAGEN ---
+
             codigos_decodificados = decode(img)
 
             if not codigos_decodificados:
