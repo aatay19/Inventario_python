@@ -1,0 +1,41 @@
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <div class="row">
+        <!-- Columna 1: Datos de Cuenta (User) -->
+        <div class="col-md-6">
+            <h5 class="mb-3 border-bottom pb-2 text-primary">Datos de Cuenta</h5>
+            {% for campo in user_form %}
+            <div class="mb-3">
+                <label for="{{ campo.id_for_label }}" class="form-label fw-bold">{{ campo.label }}</label>
+                {{ campo }}
+                {% if campo.help_text %}
+                    <div class="form-text text-muted">{{ campo.help_text }}</div>
+                {% endif %}
+                {% if campo.errors %}
+                    <div class="text-danger small mt-1">{{ campo.errors.0 }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Columna 2: Datos de Perfil (PerfilUsuario) -->
+        <div class="col-md-6">
+            <h5 class="mb-3 border-bottom pb-2 text-primary">Información Personal</h5>
+            {% for campo in perfil_form %}
+            <div class="mb-3">
+                <label for="{{ campo.id_for_label }}" class="form-label fw-bold">{{ campo.label }}</label>
+                {{ campo }}
+                {% if campo.errors %}
+                    <div class="text-danger small mt-1">{{ campo.errors.0 }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+        <a href="{% url 'usuarios.index' %}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Usuario</button>
+    </div>
+</form>

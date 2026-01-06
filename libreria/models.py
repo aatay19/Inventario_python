@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Cliente(models.Model):
     id= models.AutoField(primary_key=True)
@@ -105,7 +107,15 @@ class MovimientosInventario(models.Model):
         return f"{self.tipo_movimiento} - {self.producto.nombre_producto} - {self.cantidad} unidades el {self.fecha_movimiento:%Y-%m-%d}"
 
 class PerfilUsuario(models.Model):
+    ROL_CHOICES = [
+        ('admin', 'Administrador'),
+        ('almacenista', 'Almacenista'),
+        ('vendedor', 'Vendedor'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")
+    cedula = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="Cédula")
+    rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='vendedor', verbose_name="Rol")
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
     direccion = models.TextField(blank=True, verbose_name="Dirección")
     foto = models.ImageField(upload_to='perfiles/', blank=True, null=True, verbose_name="Foto de Perfil")
@@ -116,3 +126,15 @@ class PerfilUsuario(models.Model):
     class Meta:
         verbose_name = "Perfil de Usuario"
         verbose_name_plural = "Perfiles de Usuarios"
+
+@receiver(post_save, sender=User)
+def crear_perfil_usuario(sender, instance, created, **kwargs):
+    if created:
+        PerfilUsuario.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def guardar_perfil_usuario(sender, instance, **kwargs):
+    if not hasattr(instance, 'perfilusuario'):
+        PerfilUsuario.objects.create(user=instance)
+    else:
+        instance.perfilusuario.save()

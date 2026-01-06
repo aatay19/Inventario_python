@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas,MovimientosInventario
-from .forms import ClienteForm,ProveedorForm,InventarioForm,HistorialProveedoresNotasForm, MovimientosInventarioForm
+from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas,MovimientosInventario,PerfilUsuario
+from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm
 from django.core.paginator import Paginator
 from django.db.models import Q, F, Sum, Count, Value
 from django.utils import timezone
@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageEnhance
 from pyzbar.pyzbar import decode
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
 # Create your views here.
 # libreria/views.py
@@ -26,6 +27,10 @@ from django.db.models import Count
 def custom_logout(request):
     logout(request)
     return redirect('login')
+
+# --- Decorador para verificar rol de Administrador ---
+def es_admin(user):
+    return hasattr(user, 'perfilusuario') and user.perfilusuario.rol == 'admin'
 
 @login_required
 def index(request):
@@ -562,3 +567,80 @@ def decodificar_codigo_barras(request):
             return JsonResponse({'error': f'Ocurrió un error al procesar la imagen: {str(e)}'}, status=500)
 
     return JsonResponse({'error': 'Método no permitido o falta el archivo de imagen.'}, status=405)
+
+#usuarios views
+@login_required
+# Solo admin puede ver la lista
+@user_passes_test(es_admin, login_url='index')
+def usuarios_index(request):
+    # Parámetros GET
+    q = request.GET.get('q', '').strip()
+    page_size = 10
+
+    # Usamos el modelo Cliente que ya está importado
+    qs = PerfilUsuario.objects.select_related('user').all()
+
+    if q:
+        qs = qs.filter(
+            Q(user__first_name__icontains=q) |
+            Q(user__last_name__icontains=q) |
+            Q(user__username__icontains=q) |
+            Q(direccion__icontains=q) |
+            Q(telefono__icontains=q)
+        )
+    
+    paginator = Paginator(qs.order_by('user__first_name'), page_size)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'usuarios/index.html', {'page_obj': page_obj, 'q': q})
+
+@login_required
+ # Solo admin puede crear
+@user_passes_test(es_admin, login_url='index')
+def usuarios_crear(request):
+    if request.method == 'POST':
+        user_form = UserForm(request.POST)
+        perfil_form = PerfilUsuarioForm(request.POST, request.FILES)
+        if user_form.is_valid() and perfil_form.is_valid():
+            user = user_form.save()
+            
+            # Al guardar el usuario, la señal ya creó el perfil. Lo recuperamos y actualizamos.
+            perfil = user.perfilusuario
+            perfil_form = PerfilUsuarioForm(request.POST, request.FILES, instance=perfil)
+            
+            if perfil_form.is_valid():
+                perfil_form.save()
+                messages.success(request, 'Usuario creado exitosamente.')
+                return redirect('usuarios.index')
+    else:
+        user_form = UserForm()
+        perfil_form = PerfilUsuarioForm()
+    return render(request, 'usuarios/crear.html', {'user_form': user_form, 'perfil_form': perfil_form})
+
+@login_required
+@user_passes_test(es_admin, login_url='index')
+def usuarios_editar(request,id):
+    perfil = get_object_or_404(PerfilUsuario, id=id)
+    user = perfil.user
+    if request.method == 'POST':
+        user_form = UserForm(request.POST, instance=user)
+        perfil_form = PerfilUsuarioForm(request.POST, request.FILES, instance=perfil)
+        if user_form.is_valid() and perfil_form.is_valid():
+            user_form.save()
+            perfil_form.save()
+            messages.success(request, 'Usuario actualizado exitosamente.')
+            return redirect('usuarios.index')
+    else:
+        user_form = UserForm(instance=user)
+        perfil_form = PerfilUsuarioForm(instance=perfil)
+    return render(request, 'usuarios/editar.html', {'user_form': user_form, 'perfil_form': perfil_form})
+
+@login_required
+@user_passes_test(es_admin, login_url='index') # Solo admin puede eliminar
+@user_passes_test(es_admin, login_url='index')
+def usuarios_eliminar(request,id):
+    perfil = get_object_or_404(PerfilUsuario, id=id)
+    perfil.user.delete() # Esto elimina el usuario y el perfil en cascada
+    messages.success(request, 'Usuario eliminado exitosamente.')
+    return redirect('usuarios.index')

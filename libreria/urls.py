@@ -36,6 +36,13 @@ urlpatterns = [
     path('movimientos/eliminar<int:id_movimiento>', views.movimientos_inventario_eliminar, name='movimientos.eliminar'),
     path('movimientos/editar<int:id_movimiento>', views.movimientos_inventario_editar, name='movimientos.editar'),
 
+    #usuarios urls
+    path('usuarios/', views.usuarios_index, name='usuarios.index'),
+    path('usuarios/crear', views.usuarios_crear, name='usuarios.crear'),
+    path('usuarios/editar<int:id>', views.usuarios_editar, name='usuarios.editar'),
+    path('usuarios/eliminar<int:id>', views.usuarios_eliminar, name='usuarios.eliminar'),
+    path('usuarios/editar/<int:id>', views.usuarios_editar, name='usuarios.editar'),
+
     # URL para la API de decodificación de código de barras
     path('api/decodificar-codigo/', views.decodificar_codigo_barras, name='decodificar_codigo'),
 ]
