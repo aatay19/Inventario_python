@@ -128,3 +128,16 @@ STATICFILES_DIRS = [ BASE_DIR / "static" ]
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# 1. Si intento entrar a una página protegida, mándame aquí:
+LOGIN_URL = '/accounts/login/'
+
+# 2. Cuando inicie sesión correctamente, mándame automáticamente al inicio (index):
+LOGIN_REDIRECT_URL = '/'
+
+# 3. Cuando cierre sesión, mándame de vuelta al login:
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# 4. Cerrar la sesión automáticamente al cerrar el navegador
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True

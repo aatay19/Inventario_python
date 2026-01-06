@@ -13,6 +13,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageEnhance
 from pyzbar.pyzbar import decode
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 # Create your views here.
 # libreria/views.py
  
@@ -21,7 +23,11 @@ import json
 # En tu archivo views.py (ejemplo de la lógica actual)
 from django.db.models import Count
 # ...
+def custom_logout(request):
+    logout(request)
+    return redirect('login')
 
+@login_required
 def index(request):
     # --- CÁLCULO PARA LAS TARJETAS (CARDS) ---
 
@@ -124,6 +130,7 @@ def index(request):
 #proveedores vista
 #========================================
 
+@login_required
 def proveedores_index(request):
     # parámetros GET
     q = request.GET.get('q', '').strip()
@@ -158,6 +165,7 @@ def proveedores_index(request):
         'order': order,
     })
 
+@login_required
 def proveedores_crear(request):
     formulario_proveedores = ProveedorForm(request.POST or None)
     if formulario_proveedores.is_valid():
@@ -165,6 +173,7 @@ def proveedores_crear(request):
         return redirect('/proveedores')
     return render(request, 'proveedores/crear.html', {'formulario_proveedores': formulario_proveedores})
 
+@login_required
 def proveedores_editar(request,id):
     proveedor = Proveedor.objects.get(id=id)
     formulario_proveedores = ProveedorForm(request.POST or None, instance=proveedor)
@@ -173,6 +182,7 @@ def proveedores_editar(request,id):
         return redirect('/proveedores')
     return render(request, 'proveedores/editar.html',{'formulario_proveedores': formulario_proveedores})
 
+@login_required
 def proveedores_eliminar(request,id):
     proveedores = Proveedor.objects.get(id=id)
     proveedores.delete()
@@ -183,6 +193,7 @@ def proveedores_eliminar(request,id):
 #inventario vista
 #========================================
 
+@login_required
 def inventario_index(request):
      # Query base
     qs = Inventario.objects.all()
@@ -238,6 +249,7 @@ def inventario_index(request):
     }
     return render(request, 'inventario/index.html', context)
 
+@login_required
 def inventario_crear(request):
     formulario_inventario = InventarioForm(request.POST or None)
     if formulario_inventario.is_valid():
@@ -245,6 +257,7 @@ def inventario_crear(request):
         return redirect('/inventario')
     return render(request, 'inventario/crear.html',{'formulario_inventario': formulario_inventario})
 
+@login_required
 def inventario_editar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     formulario_inventario = InventarioForm(request.POST or None, instance=producto)
@@ -253,6 +266,7 @@ def inventario_editar(request,id_producto):
         return redirect('/inventario')
     return render(request, 'inventario/editar.html',{'formulario_inventario': formulario_inventario})
 
+@login_required
 def inventario_eliminar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()
@@ -263,6 +277,7 @@ def inventario_eliminar(request,id_producto):
 #HistorialProveedoresNotas vista
 #========================================
 
+@login_required
 def historial_proveedores_notas_index(request):
     # Query base: traer notas con proveedor y por fecha (más recientes primero por defecto)
     qs = HistorialProveedoresNotas.objects.select_related('proveedores').order_by('-fecha_registro')
@@ -326,6 +341,7 @@ def historial_proveedores_notas_index(request):
     }
     return render(request, 'HistorialProveedoresNotas/index.html', context)
 
+@login_required
 def historial_proveedores_notas_crear(request):
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None)
     if formulario_nota.is_valid():
@@ -333,6 +349,7 @@ def historial_proveedores_notas_crear(request):
         return redirect('/HistorialProveedoresNotas')
     return render(request, 'HistorialProveedoresNotas/crear.html', {'formulario_nota': formulario_nota})
 
+@login_required
 def historial_proveedores_notas_editar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None, instance=nota)
@@ -341,6 +358,7 @@ def historial_proveedores_notas_editar(request,id_historialproveedor):
         return redirect('/HistorialProveedoresNotas')
     return render(request, 'HistorialProveedoresNotas/editar.html',{'formulario_nota': formulario_nota})
 
+@login_required
 def historial_proveedores_notas_eliminar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     nota.delete()
@@ -350,6 +368,7 @@ def historial_proveedores_notas_eliminar(request,id_historialproveedor):
 #MovimientosInventario vista
 #========================================
 
+@login_required
 def movimientos_inventario_index(request):
     # Parámetros GET para filtros y orden
     q = request.GET.get('q', '').strip()
@@ -382,6 +401,7 @@ def movimientos_inventario_index(request):
     }
     return render(request, 'movimientos/index.html', context)
 
+@login_required
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
     if formulario.is_valid():
@@ -390,6 +410,7 @@ def movimientos_inventario_crear(request):
     return render(request, 'movimientos/crear.html', {'formulario': formulario})
 
 
+@login_required
 def movimientos_inventario_editar(request, id_movimiento):
    # 1. Obtener la instancia original del movimiento que se va a editar.
     movimiento_original = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
@@ -462,6 +483,7 @@ def movimientos_inventario_editar(request, id_movimiento):
     })
 
 
+@login_required
 def movimientos_inventario_eliminar(request, id_movimiento):
     # Usamos select_related para traer el producto en la misma consulta
     movimiento = MovimientosInventario.objects.select_related('producto').get(id_movimiento=id_movimiento)
@@ -486,6 +508,7 @@ def movimientos_inventario_eliminar(request, id_movimiento):
 # API para decodificar código de barras
 #========================================
 
+@login_required
 @csrf_exempt # Usamos csrf_exempt para simplificar el ejemplo con AJAX. En producción, considera usar el token CSRF de Django.
 def decodificar_codigo_barras(request):
     if request.method == 'POST' and request.FILES.get('imagen'):

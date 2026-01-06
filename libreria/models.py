@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class Cliente(models.Model):
     id= models.AutoField(primary_key=True)
@@ -102,3 +103,16 @@ class MovimientosInventario(models.Model):
 
     def __str__(self):
         return f"{self.tipo_movimiento} - {self.producto.nombre_producto} - {self.cantidad} unidades el {self.fecha_movimiento:%Y-%m-%d}"
+
+class PerfilUsuario(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")
+    telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
+    direccion = models.TextField(blank=True, verbose_name="Dirección")
+    foto = models.ImageField(upload_to='perfiles/', blank=True, null=True, verbose_name="Foto de Perfil")
+
+    def __str__(self):
+        return f"Perfil de {self.user.username}"
+
+    class Meta:
+        verbose_name = "Perfil de Usuario"
+        verbose_name_plural = "Perfiles de Usuarios"
