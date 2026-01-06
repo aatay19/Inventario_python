@@ -1,12 +1,57 @@
-<nav class="navbar navbar-light bg-white shadow-sm px-3">
-    <div class="d-flex align-items-center">
+<nav class="navbar navbar-expand navbar-light bg-white shadow-sm px-3">
+    <div class="container-fluid">
+        <div class="d-flex align-items-center">
+            <button class="btn btn-light me-3" id="toggleSidebar">
+                <i class="bi bi-list fs-3"></i>
+            </button>
+            <a href="{% url 'index' %}" class="text-decoration-none text-dark">
+                <h5 class="m-0">Dashboard</h5>
+            </a>
+        </div>
 
-        <button class="btn btn-light me-3" id="toggleSidebar">
-            <i class="bi bi-list fs-3"></i>
-        </button>
+        <!-- Sección de Usuario (Derecha) -->
+        <div class="d-flex align-items-center ms-auto">
+            <div class="text-end me-2 d-none d-md-block" style="line-height: 1.2;">
+                <span class="d-block fw-bold text-dark">
+                    {{ request.user.first_name|default:request.user.username }} {{ request.user.last_name }}
+                </span>
+                {% if request.user.perfilusuario %}
+                    <small class="text-muted" style="font-size: 0.8rem;">
+                        {{ request.user.perfilusuario.get_rol_display }}
+                    </small>
+                {% endif %}
+            </div>
 
-        <a href="{%url 'index' %}"><h5 class="m-0">Dashboard</h5></a>
+            <div class="dropdown">
+                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if request.user.perfilusuario.foto %}
+                        <img src="{{ request.user.perfilusuario.foto.url }}" alt="User" class="rounded-circle border" width="40" height="40" style="object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                            {{ request.user.username|slice:":1"|upper }}
+                        </div>
+                    {% endif %}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end text-small shadow" aria-labelledby="dropdownUser1">
+                    <li><a class="dropdown-item text-danger" href="{% url 'logout' %}">Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        </div>
     </div>
-
-
 </nav>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const toggleBtn = document.getElementById('toggleSidebar');
+        const sidebar = document.getElementById('sidebar');
+        
+        if (toggleBtn && sidebar) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Al alternar d-none, el sidebar desaparece y el contenido principal (navbar incluido)
+                // se expandirá automáticamente si están dentro de un contenedor flex (d-flex).
+                sidebar.classList.toggle('d-none');
+            });
+        }
+    });
+</script>
