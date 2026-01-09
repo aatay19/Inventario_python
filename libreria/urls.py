@@ -28,6 +28,8 @@ urlpatterns = [
     path('inventario/editar<int:id_producto>', views.inventario_editar, name='inventario.editar'),
     path('inventario/eliminar<int:id_producto>', views.inventario_eliminar, name='inventario.eliminar'),
     path('inventario/editar<int:id_producto>', views.inventario_editar, name='inventario.editar'),
+    path('inventario/exportar/excel', views.exportar_inventario_excel, name='inventario.exportar_excel'),
+    path('inventario/exportar/pdf', views.exportar_inventario_pdf, name='inventario.exportar_pdf'),
 
     # MovimientosInventario urls
     path('movimientos/', views.movimientos_inventario_index, name='movimientos.index'),

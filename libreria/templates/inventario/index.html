@@ -7,6 +7,8 @@
 
   <div class="btn-group mb-3" role="group">
     <a href="{% url 'inventario.crear' %}" class="btn btn-primary">Crear Productos</a>
+    <a href="{% url 'inventario.exportar_excel' %}" class="btn btn-success ms-2">Exportar Excel</a>
+    <a href="{% url 'inventario.exportar_pdf' %}" class="btn btn-danger ms-2">Exportar PDF</a>
   </div>
 
   <!-- Banner de alerta si hay stock bajo -->
@@ -50,7 +52,7 @@
       <input type="hidden" name="low" value="{{ low }}">
       <button type="submit" class="btn btn-primary w-100">Filtrar</button>
     </div>
-  </form>
+  </form> 
 
   <div id="tabla-producto" class="card shadow-sm p-4 mt-2">
     <h5>Listado de Productos</h5>
@@ -63,9 +65,12 @@
           <th>Nombre del producto</th>
           <th>Código</th>
           <th>Descripción</th>
-          <th>Precio</th>
+          <th>Costo</th>
           <th>Categoría</th>
           <th>Cantidad</th>
+          <th>Unidad Empaque</th>
+          <th>Cant. x Empaque</th>
+          <th>Total Empaques</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -76,7 +81,7 @@
           <td>{{ producto.nombre_producto }}</td>
           <td>{{ producto.codigo_producto }}</td>
           <td>{{ producto.descripcion|truncatechars:80 }}</td>
-          <td>Bs {{producto.precio_venta}}</td>
+          <td>Bs {{producto.costo_actual}}</td>
           <td>{{ producto.categoria }}</td>
           <td>
             {% if producto.cantidad <= producto.stock_minimo %}
@@ -85,6 +90,9 @@
               {{ producto.cantidad }}
             {% endif %}
           </td>
+          <td>{{ producto.get_unidad_empaque_display }}</td>
+          <td>{{ producto.cantidad_por_empaque }}</td>
+          <td>{{ producto.total_empaques|floatformat:2 }}</td>
           <td>
             <a href="{% url 'inventario.editar' producto.id_producto %}" class="btn btn-warning btn-sm text-white">Editar</a>
             <a href="{% url 'inventario.eliminar' producto.id_producto %}" class="btn btn-danger btn-sm">Eliminar</a>
@@ -92,7 +100,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center">No hay productos registrados.</td>
+          <td colspan="11" class="text-center">No hay productos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>

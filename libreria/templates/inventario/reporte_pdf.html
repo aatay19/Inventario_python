@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Inventario</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 2cm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 12px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .meta-info {
+            margin-bottom: 20px;
+            text-align: right;
+            font-size: 10px;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .text-right {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reporte General de Inventario</h1>
+    <div class="meta-info">
+        Fecha de emisión: {{ fecha_emision|date:"d/m/Y H:i" }}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th class="text-right">Cant.</th>
+                <th class="text-right">Costo Unit.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in productos %}
+            <tr>
+                <td>{{ p.codigo_producto }}</td>
+                <td>{{ p.nombre_producto }}</td>
+                <td>{{ p.get_categoria_display }}</td>
+                <td class="text-right">{{ p.cantidad }}</td>
+                <td class="text-right">{{ p.costo_actual }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <br>
+    <h3>Resumen:</h3>
+    <p><strong>Total de Productos:</strong> {{ total_items }}</p>
+    <p><strong>Valor Total del Inventario:</strong> Bs {{ valor_total_inventario|floatformat:2 }}</p>
+</body>
+</html>

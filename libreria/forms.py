@@ -11,7 +11,7 @@ class ProductoModelChoiceField(ModelChoiceField):
     """
     def label_from_instance(self, obj):
         # Formato: "Nombre (Stock: 10) - Precio: Bs 123.45"
-        return f"{obj.nombre_producto} (Stock: {obj.cantidad}) - Precio: Bs {obj.precio_venta:,.2f}"
+        return f"{obj.nombre_producto} (Stock: {obj.cantidad}) - Costo: Bs {obj.costo_actual:,.2f}"
 
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -24,9 +24,24 @@ class ProveedorForm(forms.ModelForm):
         fields = '__all__'    
 
 class InventarioForm(forms.ModelForm):
+    total_empaques = forms.CharField(
+        required=False, 
+        label="Total de Empaques",
+        widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'})
+    )
+
     class Meta:    
         model = Inventario
         fields = '__all__'
+        # Orden solicitado:
+        # 1. CÓDIGO, 2. LECTURA (UI), 3. NOMBRE, 4. DESCRIPCIÓN, 5. CATEGORIA, 
+        # 6. CANTIDAD UNITARIA, 7. UNIDAD DEL EMPAQUE, 8. CANTIDAD POR EMPAQUE, 
+        # 9. TOTAL DE EMPAQUES, 10. COSTO ACTUAL, 11. COSTO ANTERIOR
+        field_order = [
+            'codigo_producto', 'nombre_producto', 'descripcion', 'categoria', 
+            'cantidad', 'unidad_empaque', 'cantidad_por_empaque', 'total_empaques', 
+            'costo_actual', 'costo_anterior', 'stock_minimo', 'stock_maximo'
+        ]
         widgets = {
             'codigo_producto': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -37,11 +52,24 @@ class InventarioForm(forms.ModelForm):
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'categoria': forms.Select(attrs={'class': 'form-control'}),
             'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'unidad_empaque': forms.Select(attrs={'class': 'form-control'}),
+            'cantidad_por_empaque': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'costo_actual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'precio_venta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'costo_anterior': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'stock_minimo': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'stock_maximo': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Calcular total_empaques si hay instancia
+        if self.instance and self.instance.pk:
+            self.fields['total_empaques'].initial = self.instance.total_empaques
+        
+        # Reordenar campos explícitamente para asegurar el orden en el template
+        if self.Meta.field_order:
+            self.fields = {k: self.fields[k] for k in self.Meta.field_order if k in self.fields}
+
 
     def clean_codigo_producto(self):
         codigo = self.cleaned_data.get('codigo_producto')

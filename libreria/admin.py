@@ -19,7 +19,7 @@ class HistorialProveedoresNotasInline(admin.StackedInline):
 
 @admin.register(Inventario)
 class InventarioAdmin(admin.ModelAdmin):
-    list_display = ('id_producto', 'codigo_producto','nombre_producto', 'categoria', 'cantidad', 'precio_venta')
+    list_display = ('id_producto', 'codigo_producto','nombre_producto', 'categoria', 'cantidad', 'costo_actual')
     list_filter = ('categoria',)
     search_fields = ('nombre_producto','codigo_producto', 'descripcion')
 

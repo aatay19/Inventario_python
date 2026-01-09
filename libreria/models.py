@@ -61,6 +61,12 @@ class CategoriaChoices(models.TextChoices):
     OTRO = 'OTRO', 'Otro'
     BEBIDAS = 'BEBIDAS', 'Bebidas'
 
+class UnidadEmpaqueChoices(models.TextChoices):
+    BULTO = 'BULTO', 'Bulto'
+    CAJA = 'CAJA', 'Caja'
+    PAQUETE = 'PAQUETE', 'Paquete'
+    UNIDAD = 'UNIDAD', 'Unidad'
+
 
 class Inventario(models.Model):
     id_producto = models.AutoField(primary_key=True)
@@ -80,14 +86,27 @@ class Inventario(models.Model):
         default=CategoriaChoices.OTRO,
         verbose_name="Categoria del Producto"
     )
-    cantidad = models.IntegerField(verbose_name="Cantidad en Stock")
+    cantidad = models.IntegerField(verbose_name="Cantidad Unitaria")
+    unidad_empaque = models.CharField(
+        max_length=20,
+        choices=UnidadEmpaqueChoices.choices,
+        default=UnidadEmpaqueChoices.UNIDAD,
+        verbose_name="Unidad del Empaque"
+    )
+    cantidad_por_empaque = models.IntegerField(default=1, verbose_name="Cantidad por Empaque")
     costo_actual = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Costo Actual")
-    precio_venta = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio de Venta") 
+    costo_anterior = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Costo Anterior", null=True, blank=True)
     stock_minimo = models.IntegerField(verbose_name="Stock Minimo")
     stock_maximo = models.IntegerField(verbose_name="Stock Maximo")
 
+    @property
+    def total_empaques(self):
+        if self.cantidad_por_empaque and self.cantidad_por_empaque > 0:
+            return self.cantidad / self.cantidad_por_empaque
+        return 0
+
     def __str__(self):
-        fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + self.descripcion + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.precio_venta) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)
+        fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + self.descripcion + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)
         return fila   
     
 class MovimientosInventario(models.Model):
@@ -112,7 +131,7 @@ class PerfilUsuario(models.Model):
         ('almacenista', 'Almacenista'),
         ('vendedor', 'Vendedor'),
     ]
-
+ 
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")
     cedula = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="Cédula")
     rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='vendedor', verbose_name="Rol")

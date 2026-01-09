@@ -16,6 +16,9 @@ from pyzbar.pyzbar import decode
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
+import openpyxl
+from django.template.loader import get_template
+from xhtml2pdf import pisa
 # Create your views here.
 # libreria/views.py
  
@@ -42,9 +45,9 @@ def index(request):
     # 2. Total de productos
     total_productos = Inventario.objects.count()
 
-    # 3. Valor total del inventario (usando 'cantidad' y 'precio_venta' de tu modelo)
+    # 3. Valor total del inventario (usando 'cantidad' y 'costo_actual' de tu modelo)
     valor_inventario = Inventario.objects.aggregate(
-        total=Sum(F('cantidad') * F('precio_venta'))
+        total=Sum(F('cantidad') * F('costo_actual'))
     )['total'] or 0
 
     # 4. Producto más vendido (basado en MovimientosInventario de tipo 'SALIDA')
@@ -277,6 +280,72 @@ def inventario_eliminar(request,id_producto):
     producto.delete()
     return redirect('/inventario')
 
+# --- EXPORTACIÓN DE INFORMES ---
+
+@login_required
+def exportar_inventario_excel(request):
+    # Crear un libro de trabajo (workbook)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Inventario"
+
+    # Encabezados
+    headers = ["Código", "Producto", "Categoría", "Cantidad", "Unidad Empaque", "Costo Actual", "Valor Total"]
+    ws.append(headers)
+
+    # Obtener datos (puedes aplicar los mismos filtros que en el index si quisieras, aquí exportamos todo)
+    productos = Inventario.objects.all()
+
+    for p in productos:
+        valor_total = p.cantidad * p.costo_actual
+        ws.append([
+            p.codigo_producto,
+            p.nombre_producto,
+            p.get_categoria_display(),
+            p.cantidad,
+            p.get_unidad_empaque_display(),
+            p.costo_actual,
+            valor_total
+        ])
+
+    # Preparar la respuesta HTTP
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="inventario_reporte.xlsx"'
+    
+    wb.save(response)
+    return response
+
+@login_required
+def exportar_inventario_pdf(request):
+    # Obtener datos
+    productos = Inventario.objects.all().order_by('nombre_producto')
+    
+    # Calcular totales generales para el reporte
+    total_items = productos.count()
+    valor_total_inventario = sum(p.cantidad * p.costo_actual for p in productos)
+
+    context = {
+        'productos': productos,
+        'total_items': total_items,
+        'valor_total_inventario': valor_total_inventario,
+        'fecha_emision': timezone.now()
+    }
+
+    # Renderizar template
+    template_path = 'inventario/reporte_pdf.html'
+    template = get_template(template_path)
+    html = template.render(context)
+
+    # Crear respuesta PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="inventario_reporte.pdf"'
+
+    # Generar PDF
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('Hubo un error al generar el PDF <pre>' + html + '</pre>')
+    return response
 
 #======================================
 #HistorialProveedoresNotas vista
@@ -643,4 +712,4 @@ def usuarios_eliminar(request,id):
     perfil = get_object_or_404(PerfilUsuario, id=id)
     perfil.user.delete() # Esto elimina el usuario y el perfil en cascada
     messages.success(request, 'Usuario eliminado exitosamente.')
-    return redirect('usuarios.index')
+    return redirect('usuarios.index') 
