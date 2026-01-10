@@ -137,7 +137,6 @@ class PerfilUsuario(models.Model):
     rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='vendedor', verbose_name="Rol")
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
     direccion = models.TextField(blank=True, verbose_name="Dirección")
-    foto = models.ImageField(upload_to='perfiles/', blank=True, null=True, verbose_name="Foto de Perfil")
 
     def __str__(self):
         return f"Perfil de {self.user.username}"

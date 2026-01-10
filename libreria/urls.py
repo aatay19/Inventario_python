@@ -14,6 +14,7 @@ urlpatterns = [
     path('proveedores/editar<int:id>', views.proveedores_editar, name='proveedores.editar'),
     path('proveedores/eliminar<int:id>', views.proveedores_eliminar, name='proveedores.eliminar'),
     path('proveedores/editar/<int:id>', views.proveedores_editar, name='proveedores.editar'),
+    path('proveedores/importar', views.proveedores_importar, name='proveedores.importar'),
     # HistorialProveedoresNotas urls
     path('HistorialProveedoresNotas/', views.historial_proveedores_notas_index, name='HistorialProveedoresNotas.index'),
     path('HistorialProveedoresNotas/crear', views.historial_proveedores_notas_crear, name='HistorialProveedoresNotas.crear'),
@@ -30,6 +31,7 @@ urlpatterns = [
     path('inventario/editar<int:id_producto>', views.inventario_editar, name='inventario.editar'),
     path('inventario/exportar/excel', views.exportar_inventario_excel, name='inventario.exportar_excel'),
     path('inventario/exportar/pdf', views.exportar_inventario_pdf, name='inventario.exportar_pdf'),
+    path('inventario/importar', views.inventario_importar, name='inventario.importar'),
 
     # MovimientosInventario urls
     path('movimientos/', views.movimientos_inventario_index, name='movimientos.index'),

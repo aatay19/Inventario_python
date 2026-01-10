@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Proveedores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Importación Masiva de Proveedores</h4>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <strong>Instrucciones:</strong>
+                <p>Sube un archivo Excel (.xlsx) o CSV con las siguientes columnas en orden (sin encabezados o con encabezado en la fila 1):</p>
+                <ol>
+                    <li>Nombre del Proveedor (Obligatorio)</li>
+                    <li>Teléfono</li>
+                    <li>Razón Social</li>
+                    <li>RIF (Debe ser único)</li>
+                    <li>Dirección</li>
+                </ol>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.as_p }}
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-upload"></i> Subir y Procesar
+                    </button>
+                    <a href="{% url 'proveedores.index' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

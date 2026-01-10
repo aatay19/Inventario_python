@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas,MovimientosInventario,PerfilUsuario
-from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm
+from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm, ImportarArchivoForm
 from django.core.paginator import Paginator
 from django.db.models import Q, F, Sum, Count, Value
 from django.utils import timezone
@@ -17,6 +17,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
 import openpyxl
+import csv
+import io
 from django.template.loader import get_template
 from xhtml2pdf import pisa
 # Create your views here.
@@ -196,6 +198,63 @@ def proveedores_eliminar(request,id):
     proveedores.delete()
     return redirect('/proveedores')
 
+@login_required
+def proveedores_importar(request):
+    if request.method == 'POST':
+        form = ImportarArchivoForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = request.FILES['archivo']
+            nombre_archivo = archivo.name.lower()
+            registros_creados = 0
+            errores = []
+
+            try:
+                # Determinar si es Excel o CSV
+                datos = []
+                if nombre_archivo.endswith('.xlsx'):
+                    wb = openpyxl.load_workbook(archivo)
+                    ws = wb.active
+                    # Iterar filas, saltando la cabecera (min_row=2)
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        # Esperamos: Nombre, Telefono, Razon Social, RIF, Direccion
+                        if row[0]: # Si hay nombre
+                            datos.append(row)
+                elif nombre_archivo.endswith('.csv') or nombre_archivo.endswith('.txt'):
+                    archivo_data = archivo.read().decode('utf-8')
+                    io_string = io.StringIO(archivo_data)
+                    reader = csv.reader(io_string, delimiter=',')
+                    next(reader, None) # Saltar cabecera
+                    for row in reader:
+                        if row and row[0]:
+                            datos.append(row)
+                
+                # Procesar datos
+                for i, fila in enumerate(datos):
+                    try:
+                        # Asumiendo orden: Nombre, Telefono, Razon Social, RIF, Direccion
+                        Proveedor.objects.create(
+                            nombre=fila[0],
+                            telefono=fila[1] if len(fila) > 1 else '',
+                            razonsocial=fila[2] if len(fila) > 2 else '',
+                            rif=fila[3] if len(fila) > 3 else f"S/R-{i}", # RIF es unique, cuidado
+                            direccion=fila[4] if len(fila) > 4 else ''
+                        )
+                        registros_creados += 1
+                    except Exception as e:
+                        errores.append(f"Fila {i+2}: {str(e)}")
+
+                messages.success(request, f'Se importaron {registros_creados} proveedores correctamente.')
+                if errores:
+                    messages.warning(request, f'Hubo errores en {len(errores)} filas. Primera falla: {errores[0]}')
+                return redirect('proveedores.index')
+
+            except Exception as e:
+                messages.error(request, f'Error procesando el archivo: {str(e)}')
+
+    else:
+        form = ImportarArchivoForm()
+
+    return render(request, 'proveedores/importar.html', {'form': form})
 
 #======================================
 #inventario vista
@@ -279,6 +338,71 @@ def inventario_eliminar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()
     return redirect('/inventario')
+
+@login_required
+def inventario_importar(request):
+    if request.method == 'POST':
+        form = ImportarArchivoForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = request.FILES['archivo']
+            nombre_archivo = archivo.name.lower()
+            registros_creados = 0
+            errores = []
+
+            try:
+                datos = []
+                if nombre_archivo.endswith('.xlsx'):
+                    wb = openpyxl.load_workbook(archivo)
+                    ws = wb.active
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        if row[0]: # Si hay código o nombre
+                            datos.append(row)
+                elif nombre_archivo.endswith('.csv') or nombre_archivo.endswith('.txt'):
+                    archivo_data = archivo.read().decode('utf-8')
+                    io_string = io.StringIO(archivo_data)
+                    reader = csv.reader(io_string, delimiter=',')
+                    next(reader, None)
+                    for row in reader:
+                        if row:
+                            datos.append(row)
+
+                for i, fila in enumerate(datos):
+                    try:
+                        # Orden esperado: Codigo, Nombre, Descripcion, Categoria, Cantidad, Costo, StockMin, StockMax
+                        # Mapeo simple de categoría (si no coincide, usa OTRO)
+                        cat_input = str(fila[3]).upper().strip() if len(fila) > 3 else 'OTRO'
+                        categoria_valida = 'OTRO'
+                        for choice in Inventario._meta.get_field('categoria').choices:
+                            if choice[0] == cat_input or choice[1].upper() == cat_input:
+                                categoria_valida = choice[0]
+                                break
+                        
+                        Inventario.objects.create(
+                            codigo_producto=fila[0],
+                            nombre_producto=fila[1] if len(fila) > 1 else 'Sin Nombre',
+                            descripcion=fila[2] if len(fila) > 2 else '',
+                            categoria=categoria_valida,
+                            cantidad=int(fila[4]) if len(fila) > 4 and fila[4] else 0,
+                            costo_actual=float(fila[5]) if len(fila) > 5 and fila[5] else 0.0,
+                            stock_minimo=int(fila[6]) if len(fila) > 6 and fila[6] else 5,
+                            stock_maximo=int(fila[7]) if len(fila) > 7 and fila[7] else 100,
+                            # Valores por defecto para campos no obligatorios en excel simple
+                            unidad_empaque='UNIDAD',
+                            cantidad_por_empaque=1
+                        )
+                        registros_creados += 1
+                    except Exception as e:
+                        errores.append(f"Fila {i+2} ({fila[0] if fila else '?'}): {str(e)}")
+
+                messages.success(request, f'Se importaron {registros_creados} productos.')
+                if errores:
+                    messages.warning(request, f'Errores: {len(errores)}. {errores[0]}')
+                return redirect('inventario.index')
+            except Exception as e:
+                messages.error(request, f'Error general: {str(e)}')
+    else:
+        form = ImportarArchivoForm()
+    return render(request, 'inventario/importar.html', {'form': form})
 
 # --- EXPORTACIÓN DE INFORMES ---
 
@@ -670,13 +794,13 @@ def usuarios_index(request):
 def usuarios_crear(request):
     if request.method == 'POST':
         user_form = UserForm(request.POST)
-        perfil_form = PerfilUsuarioForm(request.POST, request.FILES)
+        perfil_form = PerfilUsuarioForm(request.POST)
         if user_form.is_valid() and perfil_form.is_valid():
             user = user_form.save()
             
             # Al guardar el usuario, la señal ya creó el perfil. Lo recuperamos y actualizamos.
             perfil = user.perfilusuario
-            perfil_form = PerfilUsuarioForm(request.POST, request.FILES, instance=perfil)
+            perfil_form = PerfilUsuarioForm(request.POST, instance=perfil)
             
             if perfil_form.is_valid():
                 perfil_form.save()
@@ -694,7 +818,7 @@ def usuarios_editar(request,id):
     user = perfil.user
     if request.method == 'POST':
         user_form = UserForm(request.POST, instance=user)
-        perfil_form = PerfilUsuarioForm(request.POST, request.FILES, instance=perfil)
+        perfil_form = PerfilUsuarioForm(request.POST, instance=perfil)
         if user_form.is_valid() and perfil_form.is_valid():
             user_form.save()
             perfil_form.save()

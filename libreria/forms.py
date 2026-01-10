@@ -223,11 +223,13 @@ class UserForm(forms.ModelForm):
 class PerfilUsuarioForm(forms.ModelForm):
     class Meta:
         model = PerfilUsuario
-        fields = ['cedula', 'rol', 'telefono', 'direccion', 'foto']
+        fields = ['cedula', 'rol', 'telefono', 'direccion']
         widgets = {
             'cedula': forms.TextInput(attrs={'class': 'form-control'}),
             'rol': forms.Select(attrs={'class': 'form-select'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control'}),
             'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'foto': forms.FileInput(attrs={'class': 'form-control'}),
         }
+
+class ImportarArchivoForm(forms.Form):
+    archivo = forms.FileField(label="Selecciona un archivo Excel (.xlsx) o CSV (.csv/txt)", widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.xlsx, .xls, .csv, .txt'}))
