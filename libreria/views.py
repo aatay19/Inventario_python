@@ -37,6 +37,9 @@ def custom_logout(request):
 def es_admin(user):
     return hasattr(user, 'perfilusuario') and user.perfilusuario.rol == 'admin'
 
+def es_inventario_acceso(user):
+    return hasattr(user, 'perfilusuario') and user.perfilusuario.rol in ['admin', 'inventario']
+
 @login_required
 def index(request):
     # --- CÁLCULO PARA LAS TARJETAS (CARDS) ---
@@ -141,6 +144,7 @@ def index(request):
 #========================================
 
 @login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
 def proveedores_index(request):
     # parámetros GET
     q = request.GET.get('q', '').strip()
@@ -176,6 +180,7 @@ def proveedores_index(request):
     })
 
 @login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
 def proveedores_crear(request):
     formulario_proveedores = ProveedorForm(request.POST or None)
     if formulario_proveedores.is_valid():
@@ -184,6 +189,7 @@ def proveedores_crear(request):
     return render(request, 'proveedores/crear.html', {'formulario_proveedores': formulario_proveedores})
 
 @login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
 def proveedores_editar(request,id):
     proveedor = Proveedor.objects.get(id=id)
     formulario_proveedores = ProveedorForm(request.POST or None, instance=proveedor)
@@ -193,12 +199,14 @@ def proveedores_editar(request,id):
     return render(request, 'proveedores/editar.html',{'formulario_proveedores': formulario_proveedores})
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def proveedores_eliminar(request,id):
     proveedores = Proveedor.objects.get(id=id)
     proveedores.delete()
     return redirect('/proveedores')
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def proveedores_importar(request):
     if request.method == 'POST':
         form = ImportarArchivoForm(request.POST, request.FILES)
@@ -261,6 +269,7 @@ def proveedores_importar(request):
 #========================================
 
 @login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
 def inventario_index(request):
      # Query base
     qs = Inventario.objects.all()
@@ -279,7 +288,7 @@ def inventario_index(request):
             Q(descripcion__icontains=q) |
             Q(codigo_producto__icontains=q)
         )
-
+ 
     # Filtrar por categoría si se pasa
     if categoria:
         qs = qs.filter(categoria=categoria)
@@ -317,6 +326,7 @@ def inventario_index(request):
     return render(request, 'inventario/index.html', context)
 
 @login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
 def inventario_crear(request):
     formulario_inventario = InventarioForm(request.POST or None)
     if formulario_inventario.is_valid():
@@ -325,6 +335,7 @@ def inventario_crear(request):
     return render(request, 'inventario/crear.html',{'formulario_inventario': formulario_inventario})
 
 @login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
 def inventario_editar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     formulario_inventario = InventarioForm(request.POST or None, instance=producto)
@@ -334,12 +345,14 @@ def inventario_editar(request,id_producto):
     return render(request, 'inventario/editar.html',{'formulario_inventario': formulario_inventario})
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def inventario_eliminar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()
     return redirect('/inventario')
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def inventario_importar(request):
     if request.method == 'POST':
         form = ImportarArchivoForm(request.POST, request.FILES)
@@ -407,6 +420,7 @@ def inventario_importar(request):
 # --- EXPORTACIÓN DE INFORMES ---
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def exportar_inventario_excel(request):
     # Crear un libro de trabajo (workbook)
     wb = openpyxl.Workbook()
@@ -440,6 +454,7 @@ def exportar_inventario_excel(request):
     return response
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def exportar_inventario_pdf(request):
     # Obtener datos
     productos = Inventario.objects.all().order_by('nombre_producto')
@@ -476,6 +491,7 @@ def exportar_inventario_pdf(request):
 #========================================
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def historial_proveedores_notas_index(request):
     # Query base: traer notas con proveedor y por fecha (más recientes primero por defecto)
     qs = HistorialProveedoresNotas.objects.select_related('proveedores').order_by('-fecha_registro')
@@ -540,6 +556,7 @@ def historial_proveedores_notas_index(request):
     return render(request, 'HistorialProveedoresNotas/index.html', context)
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def historial_proveedores_notas_crear(request):
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None)
     if formulario_nota.is_valid():
@@ -548,6 +565,7 @@ def historial_proveedores_notas_crear(request):
     return render(request, 'HistorialProveedoresNotas/crear.html', {'formulario_nota': formulario_nota})
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def historial_proveedores_notas_editar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None, instance=nota)
@@ -557,6 +575,7 @@ def historial_proveedores_notas_editar(request,id_historialproveedor):
     return render(request, 'HistorialProveedoresNotas/editar.html',{'formulario_nota': formulario_nota})
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def historial_proveedores_notas_eliminar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     nota.delete()
@@ -567,6 +586,7 @@ def historial_proveedores_notas_eliminar(request,id_historialproveedor):
 #========================================
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def movimientos_inventario_index(request):
     # Parámetros GET para filtros y orden
     q = request.GET.get('q', '').strip()
@@ -600,6 +620,7 @@ def movimientos_inventario_index(request):
     return render(request, 'movimientos/index.html', context)
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
     if formulario.is_valid():
@@ -609,6 +630,7 @@ def movimientos_inventario_crear(request):
 
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def movimientos_inventario_editar(request, id_movimiento):
    # 1. Obtener la instancia original del movimiento que se va a editar.
     movimiento_original = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
@@ -682,6 +704,7 @@ def movimientos_inventario_editar(request, id_movimiento):
 
 
 @login_required
+@user_passes_test(es_admin, login_url='index')
 def movimientos_inventario_eliminar(request, id_movimiento):
     # Usamos select_related para traer el producto en la misma consulta
     movimiento = MovimientosInventario.objects.select_related('producto').get(id_movimiento=id_movimiento)

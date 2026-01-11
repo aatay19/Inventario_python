@@ -40,10 +40,8 @@
                             <td>
                                 {% if usuario.rol == 'admin' %}
                                     <span class="badge bg-danger">Administrador</span>
-                                {% elif usuario.rol == 'almacenista' %}
-                                    <span class="badge bg-warning text-dark">Almacenista</span>
                                 {% else %}
-                                    <span class="badge bg-info text-dark">Vendedor</span>
+                                    <span class="badge bg-info text-dark">Inventario</span>
                                 {% endif %}
                             </td>
                             <td>{{ usuario.direccion }}</td>

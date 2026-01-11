@@ -202,6 +202,12 @@ class UserForm(forms.ModelForm):
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'username': forms.TextInput(attrs={'class': 'form-control'}),
         }
+        labels = {
+            'first_name': 'Nombre',
+            'last_name': 'Apellido',
+            'email': 'Correo Electrónico',
+            'username': 'Nombre de Usuario',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
