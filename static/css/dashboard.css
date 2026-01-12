@@ -72,12 +72,6 @@ body {
     border-left: 4px solid #0d6efd;
 }
 
-/* Sidebar colapsado en móviles */
-.sidebar-collapsed {
-    transform: translateX(-260px);
-}
-
-
 /* ============================
    SUBMENÚS
 ============================ */
@@ -167,9 +161,9 @@ body {
 /* ============================
    RESPONSIVE
 ============================ */
-@media (max-width: 992px) {
+@media (max-width: 991.98px) {
     .sidebar {
-        transform: translateX(-260px);
+        transform: translateX(-250px);
         position: fixed;
         z-index: 2000;
     }
@@ -177,15 +171,32 @@ body {
     .sidebar-open {
         transform: translateX(0);
     }
-
+    
     .main-content {
         margin-left: 0 !important;
+        transition: margin-left 0.3s ease, width 0.3s ease;
+        width: 100%;
+    }
+
+    /* Empujar y contraer el contenido cuando el sidebar está abierto en móvil */
+    .sidebar.sidebar-open ~ .main-content {
+        margin-left: 250px !important;
+        width: calc(100% - 250px) !important;
     }
 }
 
-@media (min-width: 993px) {
+@media (min-width: 992px) {
     .main-content {
         margin-left: 250px;
+        width: calc(100% - 250px);
+        transition: margin-left 0.3s ease, width 0.3s ease;
+    }
+    body.sidebar-collapsed .sidebar {
+        transform: translateX(-250px);
+    }
+    body.sidebar-collapsed .main-content {
+        margin-left: 0;
+        width: 100%;
     }
 }
 

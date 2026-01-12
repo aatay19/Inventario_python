@@ -35,19 +35,3 @@
         </div>
     </div>
 </nav>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const toggleBtn = document.getElementById('toggleSidebar');
-        const sidebar = document.getElementById('sidebar');
-        
-        if (toggleBtn && sidebar) {
-            toggleBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                // Al alternar d-none, el sidebar desaparece y el contenido principal (navbar incluido)
-                // se expandirá automáticamente si están dentro de un contenedor flex (d-flex).
-                sidebar.classList.toggle('d-none');
-            });
-        }
-    });
-</script>

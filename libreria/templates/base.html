@@ -45,22 +45,6 @@
     {% block scripts %}{% endblock %}
 
 </body>
-<script>
-document.getElementById("toggleSidebar").addEventListener("click", function () {
-    const sidebar = document.querySelector(".sidebar");
-
-    if (window.innerWidth < 992) {
-        sidebar.classList.toggle("sidebar-open");
-    } else {
-        if (sidebar.style.transform === "translateX(-260px)") {
-            sidebar.style.transform = "translateX(0)";
-        } else {
-            sidebar.style.transform = "translateX(-260px)";
-        }
-    }
-});
-</script>
-
 
 <script>
 // Abrir/cerrar submenus
@@ -109,16 +93,19 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 <script>
-    // --- BOTÓN DE LAS 3 RAYAS ---
-    toggleSidebar.addEventListener("click", function () {
-
-        if (window.innerWidth < 768) {
-            sidebar.classList.toggle("show");   
-        } else {
-            sidebar.classList.toggle("collapsed");
-        }
+    // --- LÓGICA UNIFICADA PARA EL SIDEBAR ---
+    document.addEventListener("DOMContentLoaded", function () {
+        const toggleButton = document.getElementById('toggleSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const body = document.body;
+        
+        toggleButton.addEventListener('click', function() {
+            if (window.innerWidth < 992) {
+                sidebar.classList.toggle('sidebar-open');
+            } else {
+                body.classList.toggle('sidebar-collapsed');
+            }
+        });
     });
 </script>
-
-
 </html>
