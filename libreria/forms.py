@@ -11,7 +11,8 @@ class ProductoModelChoiceField(ModelChoiceField):
     """
     def label_from_instance(self, obj):
         # Formato: "Nombre (Stock: 10) - Precio: Bs 123.45"
-        return f"{obj.nombre_producto} (Stock: {obj.cantidad}) - Costo: Bs {obj.costo_actual:,.2f}"
+        codigo = f"[{obj.codigo_producto}] " if obj.codigo_producto else ""
+        return f"{codigo}{obj.nombre_producto} (Stock: {obj.cantidad}) - Costo: Bs {obj.costo_actual:,.2f}"
 
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -115,7 +116,7 @@ class MovimientosInventarioForm(forms.ModelForm):
     # Sobrescribimos el campo 'producto' para usar nuestro campo personalizado
     producto = ProductoModelChoiceField(
         queryset=Inventario.objects.order_by('nombre_producto'),
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.Select(attrs={'class': 'form-select select2'})
     )
 
     def __init__(self, *args, **kwargs):
@@ -127,6 +128,9 @@ class MovimientosInventarioForm(forms.ModelForm):
     class Meta:
         model = MovimientosInventario
         fields = ['producto', 'tipo_movimiento', 'cantidad', 'proveedor']
+        widgets = {
+            'proveedor': forms.Select(attrs={'class': 'form-select select2'}),
+        }
 
     def clean(self):
         cleaned_data = super().clean()

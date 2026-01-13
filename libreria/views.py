@@ -491,7 +491,7 @@ def exportar_inventario_pdf(request):
 #========================================
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_index(request):
     # Query base: traer notas con proveedor y por fecha (más recientes primero por defecto)
     qs = HistorialProveedoresNotas.objects.select_related('proveedores').order_by('-fecha_registro')
@@ -556,7 +556,7 @@ def historial_proveedores_notas_index(request):
     return render(request, 'HistorialProveedoresNotas/index.html', context)
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_crear(request):
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None)
     if formulario_nota.is_valid():
@@ -586,7 +586,7 @@ def historial_proveedores_notas_eliminar(request,id_historialproveedor):
 #========================================
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_inventario_index(request):
     # Parámetros GET para filtros y orden
     q = request.GET.get('q', '').strip()
@@ -620,9 +620,14 @@ def movimientos_inventario_index(request):
     return render(request, 'movimientos/index.html', context)
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
+
+    # Si el usuario NO es admin (es rol inventario), restringir opciones a solo ENTRADA
+    if not es_admin(request.user):
+        formulario.fields['tipo_movimiento'].choices = [('ENTRADA', 'Entrada')]
+
     if formulario.is_valid():
         formulario.save()
         return redirect('movimientos.index')
