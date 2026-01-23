@@ -16,6 +16,7 @@ from pyzbar.pyzbar import decode
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
+from django.core.management import call_command
 import openpyxl
 import csv
 import io
@@ -199,14 +200,14 @@ def proveedores_editar(request,id):
     return render(request, 'proveedores/editar.html',{'formulario_proveedores': formulario_proveedores})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def proveedores_eliminar(request,id):
     proveedores = Proveedor.objects.get(id=id)
     proveedores.delete()
     return redirect('/proveedores')
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def proveedores_importar(request):
     if request.method == 'POST':
         form = ImportarArchivoForm(request.POST, request.FILES)
@@ -345,14 +346,14 @@ def inventario_editar(request,id_producto):
     return render(request, 'inventario/editar.html',{'formulario_inventario': formulario_inventario})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def inventario_eliminar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()
     return redirect('/inventario')
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def inventario_importar(request):
     if request.method == 'POST':
         form = ImportarArchivoForm(request.POST, request.FILES)
@@ -420,7 +421,7 @@ def inventario_importar(request):
 # --- EXPORTACIÓN DE INFORMES ---
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def exportar_inventario_excel(request):
     # Crear un libro de trabajo (workbook)
     wb = openpyxl.Workbook()
@@ -454,7 +455,7 @@ def exportar_inventario_excel(request):
     return response
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def exportar_inventario_pdf(request):
     # Obtener datos
     productos = Inventario.objects.all().order_by('nombre_producto')
@@ -565,7 +566,7 @@ def historial_proveedores_notas_crear(request):
     return render(request, 'HistorialProveedoresNotas/crear.html', {'formulario_nota': formulario_nota})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_editar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None, instance=nota)
@@ -575,7 +576,7 @@ def historial_proveedores_notas_editar(request,id_historialproveedor):
     return render(request, 'HistorialProveedoresNotas/editar.html',{'formulario_nota': formulario_nota})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_eliminar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     nota.delete()
@@ -624,9 +625,9 @@ def movimientos_inventario_index(request):
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
 
-    # Si el usuario NO es admin (es rol inventario), restringir opciones a solo ENTRADA
-    if not es_admin(request.user):
-        formulario.fields['tipo_movimiento'].choices = [('ENTRADA', 'Entrada')]
+    # Si el usuario NO es admin (es rol inventario), restringir opciones a solo ENTRADA (ELIMINADO)
+    # if not es_admin(request.user):
+    #     formulario.fields['tipo_movimiento'].choices = [('ENTRADA', 'Entrada')]
 
     if formulario.is_valid():
         formulario.save()
@@ -635,7 +636,7 @@ def movimientos_inventario_crear(request):
 
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_inventario_editar(request, id_movimiento):
    # 1. Obtener la instancia original del movimiento que se va a editar.
     movimiento_original = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
@@ -709,7 +710,7 @@ def movimientos_inventario_editar(request, id_movimiento):
 
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_inventario_eliminar(request, id_movimiento):
     # Usamos select_related para traer el producto en la misma consulta
     movimiento = MovimientosInventario.objects.select_related('producto').get(id_movimiento=id_movimiento)
@@ -865,3 +866,24 @@ def usuarios_eliminar(request,id):
     perfil.user.delete() # Esto elimina el usuario y el perfil en cascada
     messages.success(request, 'Usuario eliminado exitosamente.')
     return redirect('usuarios.index') 
+
+# ======================================
+# BACKUPS / COPIAS DE SEGURIDAD
+# ======================================
+
+@login_required
+@user_passes_test(es_admin, login_url='index')
+def realizar_copia_seguridad(request):
+    # Buffer para capturar los datos en memoria
+    output = io.StringIO()
+    
+    # Ejecutamos 'dumpdata' para exportar 'auth.User' (usuarios) y toda la app 'libreria'
+    # Esto crea un archivo JSON compatible con cualquier base de datos Django
+    call_command('dumpdata', 'auth.User', 'libreria', stdout=output)
+
+    # Preparamos la respuesta para descargar el archivo
+    response = HttpResponse(output.getvalue(), content_type='application/json')
+    filename = f"backup_inventario_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.json"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response

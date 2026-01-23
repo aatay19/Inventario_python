@@ -47,6 +47,9 @@ urlpatterns = [
     path('usuarios/eliminar<int:id>', views.usuarios_eliminar, name='usuarios.eliminar'),
     path('usuarios/editar/<int:id>', views.usuarios_editar, name='usuarios.editar'),
 
+    # Backup
+    path('configuracion/backup', views.realizar_copia_seguridad, name='backup'),
+
     # URL para la API de decodificación de código de barras
     path('api/decodificar-codigo/', views.decodificar_codigo_barras, name='decodificar_codigo'),
 ]

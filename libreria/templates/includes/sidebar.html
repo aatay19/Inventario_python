@@ -58,6 +58,15 @@
             </ul>
         </li>
 
+        <!-- BACKUP (Solo Admin) -->
+        {% if user.perfilusuario.rol == 'admin' %}
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center" href="{% url 'backup' %}">
+                <span><i class="bi bi-database-down me-2"></i> Respaldo (Backup)</span>
+            </a>
+        </li>
+        {% endif %}
+
         <!-- CERRAR SESIÓN -->
         <li class="nav-item mt-4 pt-3 border-top">
             <a class="nav-link d-flex align-items-center text-danger" href="{% url 'logout' %}">
