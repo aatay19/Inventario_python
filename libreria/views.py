@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageEnhance
-from pyzbar.pyzbar import decode
+#from pyzbar.pyzbar import decode
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
@@ -21,7 +21,7 @@ import openpyxl
 import csv
 import io
 from django.template.loader import get_template
-from xhtml2pdf import pisa
+#from xhtml2pdf import pisa
 # Create your views here.
 # libreria/views.py
  
