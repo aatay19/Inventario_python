@@ -13,13 +13,7 @@
         </div>
         <div class="card-body">
             <form method="post">
-                {% csrf_token %}
-                
-                {% if formulario.non_field_errors %}
-                    <div class="alert alert-danger">{{ formulario.non_field_errors }}</div>
-                {% endif %}
-
-                {{ formulario.as_p }}
+                {% include 'movimientos/form.html' %}
                 <button type="submit" class="btn btn-success">Guardar Movimiento</button>
                 <a href="{% url 'movimientos.index' %}" class="btn btn-secondary">Cancelar</a>
             </form>
@@ -32,12 +26,68 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Inicializar Select2
         $('.select2').select2({
             theme: 'bootstrap-5',
             width: '100%',
             placeholder: 'Seleccione una opción',
             allowClear: true
         });
+
+        // Datos de productos inyectados desde la vista (ID -> {factor, unidad})
+        const productosData = {{ productos_data|default:"{}"|safe }};
+        
+        const selectProducto = $('#id_producto');
+        const inputEmpaques = $('#id_cantidad_empaques');
+        const inputTotal = $('#id_cantidad');
+        const selectUnidad = $('#id_unidad_empaque');
+        const labelEmpaques = $('label[for="id_cantidad_empaques"]');
+
+        function getFactorFromUnidad(unidadValue) {
+            if (!unidadValue) return 1;
+            // Extrae el número del final del valor, ej: 'CAJA_24' -> 24
+            const parts = unidadValue.split('_');
+            const factor = parseInt(parts[parts.length - 1], 10);
+            return isNaN(factor) ? 1 : factor;
+        }
+
+        function updateCalculations() {
+            const cantidadEmpaques = parseInt(inputEmpaques.val()) || 0;
+            const selectedUnidadValue = selectUnidad.val();
+            
+            // 1. Obtener el factor del tipo de empaque seleccionado
+            const factor = getFactorFromUnidad(selectedUnidadValue);
+
+            // 2. Actualizar la etiqueta para que sea clara
+            const selectedUnidadText = selectUnidad.find('option:selected').text();
+            labelEmpaques.text(`Cantidad de Empaques (${selectedUnidadText || 'N/A'})`);
+
+            // 3. Calcular y mostrar el total de unidades
+            const totalUnidades = cantidadEmpaques * factor;
+            inputTotal.val(totalUnidades);
+        }
+
+        // Cuando el producto cambia, actualizamos el empaque por defecto
+        selectProducto.on('change', function() {
+            const productoId = $(this).val();
+            if (productoId && productosData[productoId]) {
+                const data = productosData[productoId];
+                if (data.unidad_codigo) {
+                    // Establecer el empaque por defecto y disparar el evento de cambio para que se actualicen los cálculos
+                    selectUnidad.val(data.unidad_codigo).trigger('change');
+                }
+            } else {
+                // Si se deselecciona el producto, limpiar y recalcular
+                selectUnidad.val('').trigger('change');
+            }
+        });
+
+        // Cuando cambia la cantidad de empaques o el tipo de empaque, recalculamos
+        inputEmpaques.on('input', updateCalculations);
+        selectUnidad.on('change', updateCalculations);
+
+        // Ejecutar al inicio para establecer el estado inicial correcto
+        updateCalculations();
     });
 </script>
 {% endblock %} 

@@ -119,17 +119,28 @@ class MovimientosInventarioForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select select2'})
     )
 
+    cantidad_empaques = forms.IntegerField(
+        required=False,
+        label="Cantidad de Empaques",
+        initial=1, # Valor de prueba solicitado
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Ej. 5 Cajas'})
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Hacemos que el campo proveedor no sea requerido a nivel de HTML.
         # La validación real se hará en el método clean().
         self.fields['proveedor'].required = False
+        # Hacemos que la cantidad total sea readonly porque se calculará
+        self.fields['cantidad'].widget.attrs['readonly'] = True
+        self.fields['cantidad'].help_text = "Calculado automáticamente (Empaques x Unidades por empaque)"
 
     class Meta:
         model = MovimientosInventario
-        fields = ['producto', 'tipo_movimiento', 'cantidad', 'proveedor']
+        fields = ['producto', 'tipo_movimiento', 'cantidad_empaques', 'unidad_empaque', 'cantidad', 'proveedor']
         widgets = {
             'proveedor': forms.Select(attrs={'class': 'form-select select2'}),
+            'unidad_empaque': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def clean(self):
@@ -138,6 +149,7 @@ class MovimientosInventarioForm(forms.ModelForm):
         cantidad = cleaned_data.get("cantidad")
         producto = cleaned_data.get("producto")
         proveedor = cleaned_data.get("proveedor")
+        cantidad_empaques = cleaned_data.get("cantidad_empaques")
 
         # Validación 1: Si es una SALIDA, verificar que haya stock suficiente.
         if tipo_movimiento == 'SALIDA' and producto and cantidad is not None:
@@ -150,6 +162,10 @@ class MovimientosInventarioForm(forms.ModelForm):
         # Validación 2: Si es una ENTRADA, el proveedor es obligatorio.
         if tipo_movimiento == 'ENTRADA' and not proveedor:
             self.add_error('proveedor', 'Para un movimiento de entrada, es obligatorio seleccionar un proveedor.')
+
+        # Asegurar que si se usó empaques, se guarde la relación
+        if cantidad_empaques is None:
+            cleaned_data['cantidad_empaques'] = 0
 
         return cleaned_data
 

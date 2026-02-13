@@ -62,10 +62,14 @@ class CategoriaChoices(models.TextChoices):
     BEBIDAS = 'BEBIDAS', 'Bebidas'
 
 class UnidadEmpaqueChoices(models.TextChoices):
-    BULTO = 'BULTO', 'Bulto'
-    CAJA = 'CAJA', 'Caja'
-    PAQUETE = 'PAQUETE', 'Paquete'
-    UNIDAD = 'UNIDAD', 'Unidad'
+    UNIDAD = 'UNIDAD_1', 'Unidad (1)'
+    PAQUETE_10 = 'PAQUETE_10', 'Paquete (10 unidades)'
+    PAQUETE_12 = 'PAQUETE_12', 'Paquete (12 unidades)'
+    CAJA_6 = 'CAJA_6', 'Caja (6 unidades)'
+    CAJA_12 = 'CAJA_12', 'Caja (12 unidades)'
+    CAJA_24 = 'CAJA_24', 'Caja (24 unidades)'
+    BULTO_20 = 'BULTO_20', 'Bulto (20 unidades)'
+    
 
 
 class Inventario(models.Model):
@@ -119,6 +123,14 @@ class MovimientosInventario(models.Model):
     producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
     tipo_movimiento = models.CharField(max_length=10, choices=TIPO_MOVIMIENTO_CHOICES, verbose_name="Tipo de Movimiento")
     cantidad = models.IntegerField(verbose_name="Cantidad")
+    unidad_empaque = models.CharField(
+        max_length=20,
+        choices=UnidadEmpaqueChoices.choices,
+        verbose_name="Tipo de Empaque",
+        blank=True, 
+        null=True
+    )
+    cantidad_empaques = models.IntegerField(verbose_name="Cantidad de Empaques", default=0, blank=True, null=True, help_text="Cantidad de bultos, cajas o paquetes.")
     fecha_movimiento = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Movimiento")
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor")
 

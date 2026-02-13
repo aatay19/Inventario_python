@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas,MovimientosInventario,PerfilUsuario
+from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas, MovimientosInventario, PerfilUsuario
 from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm, ImportarArchivoForm
 from django.core.paginator import Paginator
 from django.db.models import Q, F, Sum, Count, Value
@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta, datetime
 from django.shortcuts import get_object_or_404
+from django import forms
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -601,8 +602,23 @@ def movimientos_inventario_index(request):
     if q:
         qs = qs.filter(
             Q(producto__nombre_producto__icontains=q) |
-            Q(proveedor__nombre__icontains=q)
+            Q(proveedor__nombre__icontains=q) |
+            Q(proveedor__razonsocial__icontains=q) |
+            Q(proveedor__rif__icontains=q)
         )
+
+    # Calcular totales solo si hay un filtro de búsqueda activo
+    resumen_filtro = None
+    if q:
+        resumen_filtro = qs.aggregate(
+            total_entradas=Sum('cantidad', filter=Q(tipo_movimiento='ENTRADA')),
+            total_salidas=Sum('cantidad', filter=Q(tipo_movimiento='SALIDA'))
+        )
+        
+        # Calcular el stock actual de los productos encontrados en la búsqueda
+        ids_productos = qs.values_list('producto_id', flat=True).distinct()
+        stock_actual = Inventario.objects.filter(id_producto__in=ids_productos).aggregate(total=Sum('cantidad'))['total']
+        resumen_filtro['stock_actual'] = stock_actual if stock_actual is not None else 0
 
     # Ordenamiento
     if order == 'asc':
@@ -616,7 +632,8 @@ def movimientos_inventario_index(request):
     page_obj = paginator.get_page(page_number)
 
     context = {
-        'page_obj': page_obj, 'q': q, 'order': order
+        'page_obj': page_obj, 'q': q, 'order': order,
+        'resumen_filtro': resumen_filtro
     }
     return render(request, 'movimientos/index.html', context)
 
@@ -624,88 +641,63 @@ def movimientos_inventario_index(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
-
-    # Si el usuario NO es admin (es rol inventario), restringir opciones a solo ENTRADA (ELIMINADO)
-    # if not es_admin(request.user):
-    #     formulario.fields['tipo_movimiento'].choices = [('ENTRADA', 'Entrada')]
-
+    
+    # Crear diccionario de datos de productos para JS para el cálculo en el frontend
+    # Obtenemos el mapa de opciones para mostrar la etiqueta legible (ej. "Caja (6, 12...)") en lugar del código ("CAJA")
+    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
+    
+    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
+    # Mapeamos 'unidad' usando choices_map.get()
+    productos_data = {str(p['id_producto']): {
+        'factor': p['cantidad_por_empaque'], 
+        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
+        'unidad_codigo': p['unidad_empaque']
+    } for p in productos_info}
+    
     if formulario.is_valid():
         formulario.save()
+        messages.success(request, 'Movimiento registrado y stock actualizado correctamente.')
         return redirect('movimientos.index')
-    return render(request, 'movimientos/crear.html', {'formulario': formulario})
+
+    return render(request, 'movimientos/crear.html', {
+        'formulario': formulario, 
+        'productos_data': json.dumps(productos_data)
+    })
 
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_inventario_editar(request, id_movimiento):
-   # 1. Obtener la instancia original del movimiento que se va a editar.
-    movimiento_original = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
-    producto = movimiento_original.producto
+    movimiento = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
     
-    # Guardar los valores originales antes de cualquier cambio.
-    cantidad_original = movimiento_original.cantidad
-    tipo_original = movimiento_original.tipo_movimiento
+    # Datos para JS
+    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
+    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
+    productos_data = {str(p['id_producto']): {
+        'factor': p['cantidad_por_empaque'], 
+        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
+        'unidad_codigo': p['unidad_empaque']
+    } for p in productos_info}
 
     if request.method == 'POST':
-        # Pasar la instancia original al formulario para que sepa que es una edición.
-        formulario = MovimientosInventarioForm(request.POST, instance=movimiento_original)
-
+        formulario = MovimientosInventarioForm(request.POST, instance=movimiento)
         if formulario.is_valid():
-            # Inicia un punto de guardado dentro de la transacción.
-            sid = transaction.savepoint()
-            
+            # El método save del formulario maneja toda la lógica de stock y transacciones.
+            # Puede lanzar ValidationError si el stock es insuficiente durante la edición.
             try:
-                # 2. Revertir el efecto del movimiento original en el stock.
-                if tipo_original == 'ENTRADA':
-                    producto.cantidad -= cantidad_original
-                elif tipo_original == 'SALIDA':
-                    producto.cantidad += cantidad_original
-
-                # Guardar temporalmente el producto con el stock revertido.
-                producto.save()
-
-                # 3. Obtener los nuevos datos del formulario sin guardarlos aún en la BD.
-                movimiento_editado = formulario.save(commit=False) # El formulario ya maneja la lógica de stock
-                
-                # 4. Aplicar el nuevo efecto del movimiento editado.
-                if movimiento_editado.tipo_movimiento == 'ENTRADA':
-                    producto.cantidad += movimiento_editado.cantidad
-                elif movimiento_editado.tipo_movimiento == 'SALIDA':
-                    # Validar si hay stock suficiente para la nueva salida.
-                    if producto.cantidad < movimiento_editado.cantidad:
-                        # Si no hay stock, mostrar un error y revertir la transacción.
-                        messages.error(request, f"No hay stock suficiente para registrar la salida de {movimiento_editado.cantidad} unidades. Stock disponible: {producto.cantidad}.")
-                        transaction.savepoint_rollback(sid) # Revertir al estado anterior
-                        
-                        # Volver a renderizar el formulario con el mensaje de error.
-                        return render(request, 'movimientos/editar.html', {
-                            'formulario': formulario,
-                        })
-                    
-                    producto.cantidad -= movimiento_editado.cantidad
-
-                # 5. Guardar el producto con el stock final actualizado y el movimiento editado.
-                producto.save()
-                movimiento_editado.save()
-                
-                # Confirmar todos los cambios en la base de datos.
-                transaction.savepoint_commit(sid)
-                
+                formulario.save()
                 messages.success(request, 'El movimiento se ha actualizado y el stock ha sido ajustado correctamente.')
                 return redirect('movimientos.index')
-
-            except Exception as e:
-                # En caso de un error inesperado, revertir todo.
-                transaction.savepoint_rollback(sid)
-                messages.error(request, f"Ocurrió un error inesperado al actualizar el movimiento: {e}")
-
+            except forms.ValidationError as e:
+                # Agrega el error al formulario para que se muestre en la plantilla
+                formulario.add_error(None, e)
     else:
-        # Si es una petición GET, simplemente mostrar el formulario con los datos existentes.
-        formulario = MovimientosInventarioForm(instance=movimiento_original)
+        formulario = MovimientosInventarioForm(instance=movimiento)
 
     return render(request, 'movimientos/editar.html', {
         'formulario': formulario,
-        'movimiento': movimiento_original # Para mostrar info en la plantilla si es necesario
+        'movimiento': movimiento,
+        'productos_data': json.dumps(productos_data)
     })
 
 
@@ -729,8 +721,6 @@ def movimientos_inventario_eliminar(request, id_movimiento):
         return redirect('movimientos.index')
     
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
-
-
 #======================================
 # API para decodificar código de barras
 #========================================
