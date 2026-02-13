@@ -95,14 +95,24 @@ class InventarioForm(forms.ModelForm):
 class HistorialProveedoresNotasForm(forms.ModelForm):
     # campo de solo lectura para mostrar la fecha (no está ligado al modelo)
     fecha_registro_display = forms.DateTimeField(required=False, disabled=True, label='Fecha de Registro')
+    
+    producto = ProductoModelChoiceField(
+        queryset=Inventario.objects.order_by('nombre_producto'),
+        widget=forms.Select(attrs={'class': 'form-select select2'}),
+        required=False,
+        label="Producto (Opcional)"
+    )
 
     class Meta:
         model = HistorialProveedoresNotas
         # no incluir 'fecha_registro' porque es auto_now_add (no editable)
-        fields = ('proveedores', 'detalle_nota')
+        fields = ('proveedores', 'producto', 'unidad_empaque', 'cantidad_empaques', 'total_unidades', 'detalle_nota')
 
         widgets = {
-            'proveedores': forms.Select(attrs={'class': 'form-select'}),
+            'proveedores': forms.Select(attrs={'class': 'form-select select2'}),
+            'unidad_empaque': forms.Select(attrs={'class': 'form-select'}),
+            'cantidad_empaques': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'total_unidades': forms.NumberInput(attrs={'class': 'form-control', 'readonly': True}),
             'detalle_nota': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
@@ -111,6 +121,19 @@ class HistorialProveedoresNotasForm(forms.ModelForm):
         # rellenar el campo de visualización si la instancia ya existe
         if self.instance and getattr(self.instance, 'pk', None):
             self.fields['fecha_registro_display'].initial = getattr(self.instance, 'fecha_registro', None)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        producto = cleaned_data.get('producto')
+        cantidad_empaques = cleaned_data.get('cantidad_empaques')
+        
+        # Cálculo de respaldo en el servidor si falla el JS
+        if producto and cantidad_empaques:
+            # Usamos el factor del producto por defecto si no se especifica otra lógica compleja
+            factor = producto.cantidad_por_empaque
+            cleaned_data['total_unidades'] = cantidad_empaques * factor
+            
+        return cleaned_data
 
 class MovimientosInventarioForm(forms.ModelForm):
     # Sobrescribimos el campo 'producto' para usar nuestro campo personalizado
@@ -187,8 +210,10 @@ class MovimientosInventarioForm(forms.ModelForm):
                     producto.cantidad -= cantidad_nueva
             else:
                 # Es una edición de un movimiento existente
-                cantidad_original = self.instance.cantidad
-                tipo_original = self.instance.tipo_movimiento
+                # Recuperamos los datos originales de la BD porque self.instance ya tiene los cambios en memoria
+                movimiento_anterior = MovimientosInventario.objects.get(pk=self.instance.pk)
+                cantidad_original = movimiento_anterior.cantidad
+                tipo_original = movimiento_anterior.tipo_movimiento
 
                 # 1. Revertir el efecto del movimiento original
                 if tipo_original == 'ENTRADA':

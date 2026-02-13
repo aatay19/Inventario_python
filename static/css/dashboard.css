@@ -130,31 +130,23 @@ body {
 /* ============================
    CARDS ESTILO COREUI
 ============================ */
-.info-card {
-    border-radius: 15px;
-    padding: 20px;
-    color: #fff;
-    transition: transform 0.2s ease;
+.card-dashboard {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 12px;
 }
 
-.info-card:hover {
-    transform: translateY(-3px);
+.card-dashboard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
 }
 
-/* Colores estilo CoreUI */
-.card-1 { background: linear-gradient(135deg, #6f42c1, #59359a); }
-.card-2 { background: linear-gradient(135deg, #0d6efd, #0b5ed7); }
-.card-3 { background: linear-gradient(135deg, #f0ad4e, #d99534); }
-.card-4 { background: linear-gradient(135deg, #dc3545, #b52a36); }
-
-.info-card h6 {
-    font-weight: 500;
-    opacity: 0.9;
-}
-
-.info-card h3 {
-    font-size: 1.8rem;
-    font-weight: 700;
+.icon-shape {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
 }
 
 

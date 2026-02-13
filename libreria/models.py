@@ -34,25 +34,6 @@ class Proveedor(models.Model):
         fila= "id: " + str(self.id) + " - " + self.nombre + " - " + self.telefono + " - " + self.razonsocial + " - " + self.rif + " - " + self.direccion
         return fila
     
-
-class HistorialProveedoresNotas(models.Model):
-    """Notas históricas, acuerdos y condiciones comerciales con el proveedor."""
-    id_historialproveedor = models.AutoField(primary_key=True)
-    proveedores = models.ForeignKey(Proveedor, on_delete=models.CASCADE, verbose_name=("Proveedor"))
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name=("Fecha de Registro"))
-    detalle_nota = models.TextField(verbose_name=("Detalle de Nota"))
-
-    def __str__(self):
-        # mostrar proveedor + fecha + inicio de la nota
-        proveedor_nombre = self.proveedores.nombre if self.proveedores else "Sin proveedor"
-        resumen = (self.detalle_nota[:60] + '...') if self.detalle_nota and len(self.detalle_nota) > 60 else (self.detalle_nota or '')
-        return f"{proveedor_nombre} — {self.fecha_registro:%Y-%m-%d} — {resumen}"
-
-    class Meta:
-        verbose_name = ("Nota de Proveedor")
-        verbose_name_plural = ("Historial de Notas de Proveedores")
-        ordering = ['-fecha_registro']        
-
 class CategoriaChoices(models.TextChoices):
     ELECTRONICA = 'ELECTRONICA', 'electrónica'
     ROPA = 'ROPA', 'Ropa'
@@ -70,7 +51,30 @@ class UnidadEmpaqueChoices(models.TextChoices):
     CAJA_24 = 'CAJA_24', 'Caja (24 unidades)'
     BULTO_20 = 'BULTO_20', 'Bulto (20 unidades)'
     
+class HistorialProveedoresNotas(models.Model):
+    """Notas históricas, acuerdos y condiciones comerciales con el proveedor."""
+    id_historialproveedor = models.AutoField(primary_key=True)
+    proveedores = models.ForeignKey(Proveedor, on_delete=models.CASCADE, verbose_name=("Proveedor"))
+    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name=("Fecha de Registro"))
+    
+    # Nuevos campos para registro de stock/empaques
+    producto = models.ForeignKey('Inventario', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Producto (Opcional)")
+    unidad_empaque = models.CharField(max_length=20, choices=UnidadEmpaqueChoices.choices, blank=True, null=True, verbose_name="Tipo de Empaque")
+    cantidad_empaques = models.IntegerField(default=0, blank=True, null=True, verbose_name="Cantidad de Empaques")
+    total_unidades = models.IntegerField(default=0, blank=True, null=True, verbose_name="Total Unidades (Calc.)")
+    
+    detalle_nota = models.TextField(verbose_name=("Detalle de Nota"))
 
+    def __str__(self):
+        # mostrar proveedor + fecha + inicio de la nota
+        proveedor_nombre = self.proveedores.nombre if self.proveedores else "Sin proveedor"
+        resumen = (self.detalle_nota[:60] + '...') if self.detalle_nota and len(self.detalle_nota) > 60 else (self.detalle_nota or '')
+        return f"{proveedor_nombre} — {self.fecha_registro:%Y-%m-%d} — {resumen}"
+
+    class Meta:
+        verbose_name = ("Nota de Proveedor")
+        verbose_name_plural = ("Historial de Notas de Proveedores")
+        ordering = ['-fecha_registro']        
 
 class Inventario(models.Model):
     id_producto = models.AutoField(primary_key=True)

@@ -1,63 +1,88 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
 {% block content %}
+<!-- FontAwesome para iconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <div class="container mt-4">
 
-    <h2 class="mb-4">Dashboard General</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark">Dashboard General</h2>
+        <span class="text-muted"><i class="far fa-calendar-alt me-1"></i> {% now "d F Y" %}</span>
+    </div>
 
     <!-- ======= CARDS PRINCIPALES ======= -->
     <div class="row g-4">
         <!-- Total Proveedores -->
         <div class="col-md-4 col-lg-4">
-            <div class="card card-dashboard p-4">
-                <h5>Total de Proveedores</h5>
-                <h2><strong>{{ total_proveedores|default:"0" }}</strong></h2>
-                <span class="text-muted">Proveedores registrados</span>
+            <div class="card card-dashboard border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-2">Proveedores</h6>
+                        <h2 class="mb-0 display-6 fw-bold text-primary">{{ total_proveedores|default:"0" }}</h2>
+                    </div>
+                    <div class="icon-shape bg-light text-primary rounded-circle p-3">
+                        <i class="fas fa-truck fa-2x"></i>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Total Productos -->
         <div class="col-md-4 col-lg-4">
-            <div class="card card-dashboard p-4">
-                <h5>Total de Productos</h5>
-                <h2><strong>{{ total_productos|default:"0" }}</strong></h2>
-                <span class="text-muted">Productos registrados</span>
+            <div class="card card-dashboard border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-2">Productos</h6>
+                        <h2 class="mb-0 display-6 fw-bold text-success">{{ total_productos|default:"0" }}</h2>
+                    </div>
+                    <div class="icon-shape bg-light text-success rounded-circle p-3">
+                        <i class="fas fa-boxes fa-2x"></i>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Producto más vendido -->
         <div class="col-md-4 col-lg-4">
-            <div class="card card-dashboard p-4">
-                <h5>Producto Más Vendido</h5>
-                <h3><strong>{{ producto_top.nombre|default:"N/A" }}</strong></h3>
-                <span class="text-muted">Basado en {{ producto_top.total|default:"0" }} ventas</span>
+            <div class="card card-dashboard border-0 shadow-sm h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div style="overflow: hidden;">
+                        <h6 class="text-muted text-uppercase mb-2">Más Vendido</h6>
+                        <h3 class="mb-0 fw-bold text-warning text-truncate" title="{{ producto_top.nombre }}">{{ producto_top.nombre|default:"N/A" }}</h3>
+                        <small class="text-muted">{{ producto_top.total|default:"0" }} ventas</small>
+                    </div>
+                    <div class="icon-shape bg-light text-warning rounded-circle p-3">
+                        <i class="fas fa-trophy fa-2x"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
         <!-- Tabla de Resumen de Movimientos -->
         <div class="col-lg-12 mb-6">
-            <div class="card p-4 shadow-sm">
-                <h5 class="mb-6">Resumen de Movimientos</h5>
+            <div class="card p-4 shadow-sm border-0 mt-4">
+                <h5 class="mb-4 fw-bold"><i class="fas fa-exchange-alt me-2 text-secondary"></i>Resumen de Movimientos</h5>
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th scope="col">Periodo</th>
-                                <th scope="col" class="text-end">Entradas</th>
-                                <th scope="col" class="text-end">Salidas</th>
+                                <th scope="col" class="text-end text-success">Entradas <i class="fas fa-arrow-down"></i></th>
+                                <th scope="col" class="text-end text-danger">Salidas <i class="fas fa-arrow-up"></i></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>Hoy</strong></td>
-                                <td class="text-end">{{ resumen_movimientos.hoy_entradas|default:"0" }}</td>
-                                <td class="text-end">{{ resumen_movimientos.hoy_salidas|default:"0" }}</td>
+                                <td><i class="far fa-clock me-2 text-info"></i><strong>Hoy</strong></td>
+                                <td class="text-end fw-bold text-success">+{{ resumen_movimientos.hoy_entradas|default:"0" }}</td>
+                                <td class="text-end fw-bold text-danger">-{{ resumen_movimientos.hoy_salidas|default:"0" }}</td>
                             </tr>
                             <tr>
-                                <td><strong>Total Histórico</strong></td>
-                                <td class="text-end">{{ resumen_movimientos.total_entradas|default:"0" }}</td>
-                                <td class="text-end">{{ resumen_movimientos.total_salidas|default:"0" }}</td>
+                                <td><i class="fas fa-history me-2 text-secondary"></i><strong>Total Histórico</strong></td>
+                                <td class="text-end fw-bold text-success">+{{ resumen_movimientos.total_entradas|default:"0" }}</td>
+                                <td class="text-end fw-bold text-danger">-{{ resumen_movimientos.total_salidas|default:"0" }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -68,21 +93,21 @@
     <!-- ======= TABLA DE CATEGORÍAS ======= -->
     <div class="row mt-4">
         <div class="col-12">
-            <div class="card p-4 shadow-sm">
-                <h5 class="mb-3">Inventario Detallado por Categoría</h5>
+            <div class="card p-4 shadow-sm border-0">
+                <h5 class="mb-3 fw-bold"><i class="fas fa-tags me-2 text-secondary"></i>Inventario por Categoría</h5>
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th scope="col">Categoría</th>
-                                <th scope="col" class="text-end">Cantidad de Productos</th>
+                                <th scope="col" class="text-end">Productos</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in inventario_por_categoria %}
                             <tr>
-                                <td>{{ item.nombre }}</td>
-                                <td class="text-end">{{ item.num_productos }}</td>
+                                <td><span class="badge bg-secondary bg-opacity-10 text-dark px-3 py-2">{{ item.nombre }}</span></td>
+                                <td class="text-end fw-bold">{{ item.num_productos }}</td>
                             </tr>
                             {% empty %}
                             <tr><td colspan="2" class="text-center text-muted">No hay productos con categoría para mostrar.</td></tr>

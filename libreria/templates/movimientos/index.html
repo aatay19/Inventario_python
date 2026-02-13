@@ -2,18 +2,24 @@
 {% block title %}Movimientos de Inventario{% endblock %}
 
 {% block content %}
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="mb-0">Movimientos de Inventario</h2>
-        <a href="{% url 'movimientos.crear' %}" class="btn btn-primary">Registrar Movimiento</a>
+        <h2 class="mb-0 fw-bold">Movimientos de Inventario</h2>
+        <a href="{% url 'movimientos.crear' %}" class="btn btn-primary shadow-sm"><i class="fas fa-plus me-2"></i>Registrar Movimiento</a>
     </div>
  
-    <div class="card shadow-sm">
+    <div class="card shadow-sm border-0">
         <div class="card-body">
             <!-- Formulario de filtros -->
             <form method="get" class="row g-3 mb-4">
                 <div class="col-md-6">
-                    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por producto o proveedor...">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por producto o proveedor...">
+                    </div>
                 </div>
                 <div class="col-md-4">
                     <select name="order" class="form-select">
@@ -53,7 +59,7 @@
             {% endif %}
 
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Producto</th>
@@ -68,12 +74,12 @@
                     <tbody>
                         {% for movimiento in page_obj %}
                         <tr>
-                            <td>{{ movimiento.producto.nombre_producto }}</td>
+                            <td class="fw-bold">{{ movimiento.producto.nombre_producto }}</td>
                             <td>
                                 {% if movimiento.tipo_movimiento == 'ENTRADA' %}
-                                    <span class="badge bg-success">Entrada</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fas fa-arrow-down me-1"></i>Entrada</span>
                                 {% elif movimiento.tipo_movimiento == 'SALIDA' %}
-                                    <span class="badge bg-warning text-dark">Salida</span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-1"><i class="fas fa-arrow-up me-1"></i>Salida</span>
                                 {% else %}
                                     <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
                                 {% endif %}
@@ -97,9 +103,9 @@
                                 {% endif %}
                             </td>
                             <td>{{ movimiento.fecha_movimiento|date:"d/m/Y H:i" }}</td>
-                            <td>
-                                <a href="{% url 'movimientos.editar'  movimiento.id_movimiento %}" class="btn btn-warning btn-sm text-white">Editar</a>
-                                <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.');">Eliminar</a>
+                            <td class="text-nowrap">
+                                <a href="{% url 'movimientos.editar'  movimiento.id_movimiento %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.');"><i class="fas fa-trash-alt"></i></a>
                             </td>
                         </tr>
                         {% empty %}

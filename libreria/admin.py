@@ -12,8 +12,8 @@ admin.site.register(HistorialProveedoresNotas)
 class HistorialProveedoresNotasInline(admin.StackedInline):
     model = HistorialProveedoresNotas
     # Campos que se mostrarán en la tabla de notas
-    fields = ('fecha_registro', 'detalle_nota',)
-    readonly_fields = ('fecha_registro',)  # La fecha se establece automáticamente
+    fields = ('fecha_registro', 'producto', 'unidad_empaque', 'cantidad_empaques', 'total_unidades', 'detalle_nota',)
+    readonly_fields = ('fecha_registro', 'total_unidades')  # La fecha se establece automáticamente
     extra = 1  # Muestra una fila vacía adicional para ingresar nuevas notas
 
 

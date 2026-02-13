@@ -187,6 +187,7 @@ def proveedores_crear(request):
     formulario_proveedores = ProveedorForm(request.POST or None)
     if formulario_proveedores.is_valid():
         formulario_proveedores.save()
+        messages.success(request, 'Proveedor registrado exitosamente.')
         return redirect('/proveedores')
     return render(request, 'proveedores/crear.html', {'formulario_proveedores': formulario_proveedores})
 
@@ -197,6 +198,7 @@ def proveedores_editar(request,id):
     formulario_proveedores = ProveedorForm(request.POST or None, instance=proveedor)
     if formulario_proveedores.is_valid() and request.POST:
         formulario_proveedores.save()
+        messages.success(request, 'Proveedor actualizado exitosamente.')
         return redirect('/proveedores')
     return render(request, 'proveedores/editar.html',{'formulario_proveedores': formulario_proveedores})
 
@@ -205,6 +207,7 @@ def proveedores_editar(request,id):
 def proveedores_eliminar(request,id):
     proveedores = Proveedor.objects.get(id=id)
     proveedores.delete()
+    messages.success(request, 'Proveedor eliminado exitosamente.')
     return redirect('/proveedores')
 
 @login_required
@@ -333,6 +336,7 @@ def inventario_crear(request):
     formulario_inventario = InventarioForm(request.POST or None)
     if formulario_inventario.is_valid():
         formulario_inventario.save()
+        messages.success(request, 'Producto registrado exitosamente.')
         return redirect('/inventario')
     return render(request, 'inventario/crear.html',{'formulario_inventario': formulario_inventario})
 
@@ -343,6 +347,7 @@ def inventario_editar(request,id_producto):
     formulario_inventario = InventarioForm(request.POST or None, instance=producto)
     if formulario_inventario.is_valid() and request.POST:
         formulario_inventario.save()
+        messages.success(request, 'Producto actualizado exitosamente.')
         return redirect('/inventario')
     return render(request, 'inventario/editar.html',{'formulario_inventario': formulario_inventario})
 
@@ -351,6 +356,7 @@ def inventario_editar(request,id_producto):
 def inventario_eliminar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()
+    messages.success(request, 'Producto eliminado exitosamente.')
     return redirect('/inventario')
 
 @login_required
@@ -561,26 +567,55 @@ def historial_proveedores_notas_index(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_crear(request):
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None)
+    
+    # Datos para JS (igual que en movimientos) para cálculo dinámico
+    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
+    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
+    productos_data = {str(p['id_producto']): {
+        'factor': p['cantidad_por_empaque'], 
+        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
+        'unidad_codigo': p['unidad_empaque']
+    } for p in productos_info}
+
     if formulario_nota.is_valid():
         formulario_nota.save()
+        messages.success(request, 'Nota registrada exitosamente.')
         return redirect('/HistorialProveedoresNotas')
-    return render(request, 'HistorialProveedoresNotas/crear.html', {'formulario_nota': formulario_nota})
+    return render(request, 'HistorialProveedoresNotas/crear.html', {
+        'formulario_nota': formulario_nota,
+        'productos_data': json.dumps(productos_data)
+    })
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_editar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None, instance=nota)
+    
+    # Datos para JS
+    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
+    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
+    productos_data = {str(p['id_producto']): {
+        'factor': p['cantidad_por_empaque'], 
+        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
+        'unidad_codigo': p['unidad_empaque']
+    } for p in productos_info}
+
     if formulario_nota.is_valid() and request.POST:
         formulario_nota.save()
+        messages.success(request, 'Nota actualizada exitosamente.')
         return redirect('/HistorialProveedoresNotas')
-    return render(request, 'HistorialProveedoresNotas/editar.html',{'formulario_nota': formulario_nota})
+    return render(request, 'HistorialProveedoresNotas/editar.html', {
+        'formulario_nota': formulario_nota,
+        'productos_data': json.dumps(productos_data)
+    })
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_eliminar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     nota.delete()
+    messages.success(request, 'Nota eliminada exitosamente.')
     return redirect('/HistorialProveedoresNotas')
 
 #======================================
@@ -718,6 +753,7 @@ def movimientos_inventario_eliminar(request, id_movimiento):
             
             producto.save()
             movimiento.delete()
+        messages.success(request, 'Movimiento eliminado exitosamente.')
         return redirect('movimientos.index')
     
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
