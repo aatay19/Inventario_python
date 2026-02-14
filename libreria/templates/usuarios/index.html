@@ -2,18 +2,24 @@
 {% block title %}Gestión de Usuarios{% endblock %}
 
 {% block content %}
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="mb-0">Gestión de Usuarios</h2>
-        <a href="{% url 'usuarios.crear' %}" class="btn btn-primary">Registrar Usuario</a>
+        <h2 class="mb-0 fw-bold">Gestión de Usuarios</h2>
+        <a href="{% url 'usuarios.crear' %}" class="btn btn-primary shadow-sm"><i class="fas fa-plus me-2"></i>Registrar Usuario</a>
     </div>
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm border-0">
         <div class="card-body">
             <!-- Formulario de filtros -->
             <form method="get" class="row g-3 mb-4">
                 <div class="col-md-10">
-                    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre, dirección o número...">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por nombre, dirección o número...">
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">Buscar</button>
@@ -21,7 +27,7 @@
             </form>
 
             <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -46,9 +52,9 @@
                             </td>
                             <td>{{ usuario.direccion }}</td>
                             <td>{{ usuario.telefono }}</td>
-                            <td>
-                                <a href="{% url 'usuarios.editar' usuario.id %}" class="btn btn-warning btn-sm text-white">Editar</a>
-                                <a href="{% url 'usuarios.eliminar' usuario.id %}" class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro de eliminar este usuario?');">Eliminar</a>
+                            <td class="text-nowrap">
+                                <a href="{% url 'usuarios.editar' usuario.id %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'usuarios.eliminar' usuario.id %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de eliminar este usuario?');"><i class="fas fa-trash-alt"></i></a>
                             </td>
                         </tr>
                         {% empty %}

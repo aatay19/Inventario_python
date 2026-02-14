@@ -502,7 +502,7 @@ def exportar_inventario_pdf(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_index(request):
     # Query base: traer notas con proveedor y por fecha (más recientes primero por defecto)
-    qs = HistorialProveedoresNotas.objects.select_related('proveedores').order_by('-fecha_registro')
+    qs = HistorialProveedoresNotas.objects.select_related('proveedores', 'producto').order_by('-fecha_registro')
 
     # Get params
     q = request.GET.get('q', '').strip()
