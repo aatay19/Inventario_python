@@ -103,16 +103,22 @@ class HistorialProveedoresNotasForm(forms.ModelForm):
         label="Producto (Opcional)"
     )
 
+    unidades_por_empaque = forms.IntegerField(
+        required=False,
+        label="Unidades por Empaque",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'placeholder': 'Ej. 12'})
+    )
+
     class Meta:
         model = HistorialProveedoresNotas
         # no incluir 'fecha_registro' porque es auto_now_add (no editable)
-        fields = ('proveedores', 'producto', 'unidad_empaque', 'cantidad_empaques', 'total_unidades', 'detalle_nota')
+        fields = ('proveedores', 'producto', 'unidad_empaque', 'cantidad_empaques', 'total_unidades', 'detalle_nota',)
 
         widgets = {
             'proveedores': forms.Select(attrs={'class': 'form-select select2'}),
             'unidad_empaque': forms.Select(attrs={'class': 'form-select'}),
             'cantidad_empaques': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-            'total_unidades': forms.NumberInput(attrs={'class': 'form-control', 'readonly': True}),
+            'total_unidades': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
             'detalle_nota': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
@@ -121,17 +127,28 @@ class HistorialProveedoresNotasForm(forms.ModelForm):
         # rellenar el campo de visualización si la instancia ya existe
         if self.instance and getattr(self.instance, 'pk', None):
             self.fields['fecha_registro_display'].initial = getattr(self.instance, 'fecha_registro', None)
+        
+        # Reordenar campos para una mejor experiencia de usuario
+        field_order = [
+            'proveedores', 'producto', 'unidad_empaque', 
+            'unidades_por_empaque', 'cantidad_empaques', 
+            'total_unidades', 'detalle_nota', 'fecha_registro_display'
+        ]
+        self.fields = {k: self.fields[k] for k in field_order if k in self.fields}
 
     def clean(self):
         cleaned_data = super().clean()
-        producto = cleaned_data.get('producto')
+        unidades_por_empaque = cleaned_data.get('unidades_por_empaque')
         cantidad_empaques = cleaned_data.get('cantidad_empaques')
         
         # Cálculo de respaldo en el servidor si falla el JS
-        if producto and cantidad_empaques:
-            # Usamos el factor del producto por defecto si no se especifica otra lógica compleja
-            factor = producto.cantidad_por_empaque
-            cleaned_data['total_unidades'] = cantidad_empaques * factor
+        if cantidad_empaques is not None and cantidad_empaques > 0:
+            if not unidades_por_empaque or unidades_por_empaque <= 0:
+                self.add_error('unidades_por_empaque', 'Debe especificar un número válido de unidades por empaque.')
+            else:
+                cleaned_data['total_unidades'] = cantidad_empaques * unidades_por_empaque
+        elif cantidad_empaques == 0:
+            cleaned_data['total_unidades'] = 0
             
         return cleaned_data
 
@@ -142,11 +159,16 @@ class MovimientosInventarioForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select select2'})
     )
 
+    unidades_por_empaque = forms.IntegerField(
+        required=False,
+        label="Unidades por Empaque",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'placeholder': 'Ej. 12'})
+    )
+
     cantidad_empaques = forms.IntegerField(
         required=False,
         label="Cantidad de Empaques",
-        initial=1, # Valor de prueba solicitado
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Ej. 5 Cajas'})
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Ej. 5'})
     )
 
     def __init__(self, *args, **kwargs):
@@ -156,7 +178,21 @@ class MovimientosInventarioForm(forms.ModelForm):
         self.fields['proveedor'].required = False
         # Hacemos que la cantidad total sea readonly porque se calculará
         self.fields['cantidad'].widget.attrs['readonly'] = True
-        self.fields['cantidad'].help_text = "Calculado automáticamente (Empaques x Unidades por empaque)"
+        self.fields['cantidad'].help_text = "Calculado: Unidades por Empaque x Cantidad de Empaques"
+
+        # Si estamos editando un movimiento, pre-rellenamos el campo 'unidades_por_empaque'
+        # para que los cálculos en el frontend y backend funcionen correctamente.
+        if self.instance and self.instance.pk:
+            if self.instance.cantidad_empaques and self.instance.cantidad_empaques > 0:
+                unidades = self.instance.cantidad // self.instance.cantidad_empaques
+                self.fields['unidades_por_empaque'].initial = unidades
+
+        # Reordenar campos para una mejor experiencia de usuario
+        field_order = [
+            'producto', 'tipo_movimiento', 'unidad_empaque', 
+            'unidades_por_empaque', 'cantidad_empaques', 'cantidad', 'proveedor'
+        ]
+        self.fields = {k: self.fields[k] for k in field_order}
 
     class Meta:
         model = MovimientosInventario
@@ -164,6 +200,7 @@ class MovimientosInventarioForm(forms.ModelForm):
         widgets = {
             'proveedor': forms.Select(attrs={'class': 'form-select select2'}),
             'unidad_empaque': forms.Select(attrs={'class': 'form-select'}),
+            'tipo_movimiento': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def clean(self):
@@ -172,7 +209,20 @@ class MovimientosInventarioForm(forms.ModelForm):
         cantidad = cleaned_data.get("cantidad")
         producto = cleaned_data.get("producto")
         proveedor = cleaned_data.get("proveedor")
+
+        unidades_por_empaque = cleaned_data.get('unidades_por_empaque')
         cantidad_empaques = cleaned_data.get("cantidad_empaques")
+
+        # Cálculo de la cantidad total en el backend
+        if cantidad_empaques is not None and cantidad_empaques > 0:
+            if not unidades_por_empaque or unidades_por_empaque <= 0:
+                self.add_error('unidades_por_empaque', 'Debe especificar un número válido de unidades por empaque.')
+            else:
+                cleaned_data['cantidad'] = cantidad_empaques * unidades_por_empaque
+        elif cantidad_empaques == 0:
+            cleaned_data['cantidad'] = 0
+        
+        cantidad = cleaned_data.get("cantidad") # Recargar la cantidad por si fue calculada
 
         # Validación 1: Si es una SALIDA, verificar que haya stock suficiente.
         if tipo_movimiento == 'SALIDA' and producto and cantidad is not None:

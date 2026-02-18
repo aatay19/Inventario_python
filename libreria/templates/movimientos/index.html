@@ -43,15 +43,29 @@
                         </div>
                         <div class="col-md-3 border-end text-success">
                             <small>Total Entradas</small><br>
-                            <span class="h4 fw-bold">+{{ resumen_filtro.total_entradas|default:"0" }}</span>
+                            {% if resumen_filtro.entradas_desglose %}
+                                {% for entrada in resumen_filtro.entradas_desglose %}
+                                    <span class="fw-bold d-block">{{ entrada }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="fw-bold">0</span>
+                            {% endif %}
                         </div>
                         <div class="col-md-3 border-end text-danger">
                             <small>Total Salidas</small><br>
-                            <span class="h4 fw-bold">-{{ resumen_filtro.total_salidas|default:"0" }}</span>
+                            {% for salida in resumen_filtro.salidas_desglose %}
+                                <span class="fw-bold d-block">{{ salida }}</span>
+                            {% endfor %}
                         </div>
                         <div class="col-md-3 text-primary">
                             <small>Stock Actual</small><br>
-                            <span class="h4 fw-bold">{{ resumen_filtro.stock_actual|default:"0" }}</span>
+                            {% if resumen_filtro.stock_desglose %}
+                                {% for stock in resumen_filtro.stock_desglose %}
+                                    <span class="fw-bold d-block">{{ stock }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="fw-bold">0</span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

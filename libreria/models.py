@@ -43,13 +43,10 @@ class CategoriaChoices(models.TextChoices):
     BEBIDAS = 'BEBIDAS', 'Bebidas'
 
 class UnidadEmpaqueChoices(models.TextChoices):
-    UNIDAD = 'UNIDAD_1', 'Unidad (1)'
-    PAQUETE_10 = 'PAQUETE_10', 'Paquete (10 unidades)'
-    PAQUETE_12 = 'PAQUETE_12', 'Paquete (12 unidades)'
-    CAJA_6 = 'CAJA_6', 'Caja (6 unidades)'
-    CAJA_12 = 'CAJA_12', 'Caja (12 unidades)'
-    CAJA_24 = 'CAJA_24', 'Caja (24 unidades)'
-    BULTO_20 = 'BULTO_20', 'Bulto (20 unidades)'
+    UNIDAD = 'UNIDAD', 'Unidad'
+    PAQUETE = 'PAQUETE', 'Paquete'
+    CAJA = 'CAJA', 'Caja'
+    BULTO = 'BULTO', 'Bulto'
     
 class HistorialProveedoresNotas(models.Model):
     """Notas históricas, acuerdos y condiciones comerciales con el proveedor."""

@@ -567,39 +567,18 @@ def historial_proveedores_notas_index(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_crear(request):
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None)
-    
-    # Datos para JS (igual que en movimientos) para cálculo dinámico
-    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
-    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
-    productos_data = {str(p['id_producto']): {
-        'factor': p['cantidad_por_empaque'], 
-        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
-        'unidad_codigo': p['unidad_empaque']
-    } for p in productos_info}
 
     if formulario_nota.is_valid():
         formulario_nota.save()
         messages.success(request, 'Nota registrada exitosamente.')
         return redirect('/HistorialProveedoresNotas')
-    return render(request, 'HistorialProveedoresNotas/crear.html', {
-        'formulario_nota': formulario_nota,
-        'productos_data': json.dumps(productos_data)
-    })
+    return render(request, 'HistorialProveedoresNotas/crear.html', {'formulario_nota': formulario_nota})
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_editar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None, instance=nota)
-    
-    # Datos para JS
-    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
-    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
-    productos_data = {str(p['id_producto']): {
-        'factor': p['cantidad_por_empaque'], 
-        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
-        'unidad_codigo': p['unidad_empaque']
-    } for p in productos_info}
 
     if formulario_nota.is_valid() and request.POST:
         formulario_nota.save()
@@ -607,7 +586,6 @@ def historial_proveedores_notas_editar(request,id_historialproveedor):
         return redirect('/HistorialProveedoresNotas')
     return render(request, 'HistorialProveedoresNotas/editar.html', {
         'formulario_nota': formulario_nota,
-        'productos_data': json.dumps(productos_data)
     })
 
 @login_required
@@ -645,21 +623,62 @@ def movimientos_inventario_index(request):
     # Calcular totales solo si hay un filtro de búsqueda activo
     resumen_filtro = None
     if q:
-        resumen_filtro = qs.aggregate(
-            total_entradas=Sum('cantidad', filter=Q(tipo_movimiento='ENTRADA')),
-            total_salidas=Sum('cantidad', filter=Q(tipo_movimiento='SALIDA'))
-        )
+        # 1. Agrupar por producto y calcular totales
+        resumen_por_producto = qs.values('producto__nombre_producto') \
+                                 .annotate(
+                                     entradas=Sum('cantidad', default=0, filter=Q(tipo_movimiento='ENTRADA')),
+                                     salidas=Sum('cantidad', default=0, filter=Q(tipo_movimiento='SALIDA'))
+                                 ).order_by('producto__nombre_producto')
         
-        # Calcular el stock actual de los productos encontrados en la búsqueda
-        ids_productos = qs.values_list('producto_id', flat=True).distinct()
-        stock_actual = Inventario.objects.filter(id_producto__in=ids_productos).aggregate(total=Sum('cantidad'))['total']
-        resumen_filtro['stock_actual'] = stock_actual if stock_actual is not None else 0
+        # 2. Construir las cadenas de texto para la vista y calcular totales generales
+        entradas_str_parts = []
+        salidas_str_parts = []
+        total_entradas_general = 0
+        total_salidas_general = 0
 
-    # Ordenamiento
-    if order == 'asc':
-        qs = qs.order_by('fecha_movimiento')
+        for item in resumen_por_producto:
+            if item['entradas'] and item['entradas'] > 0:
+                entradas_str_parts.append(f"{item['entradas']} ({item['producto__nombre_producto']})")
+                total_entradas_general += item['entradas']
+            if item['salidas'] and item['salidas'] > 0:
+                salidas_str_parts.append(f"{item['salidas']} ({item['producto__nombre_producto']})")
+                total_salidas_general += item['salidas']
+
+        # 3. Calcular el stock actual de los productos encontrados
+        ids_productos = qs.values_list('producto_id', flat=True).distinct()
+        
+        # Obtenemos el detalle del stock por producto para mostrarlo desglosado
+        productos_stock = Inventario.objects.filter(id_producto__in=ids_productos).values('nombre_producto', 'cantidad').order_by('nombre_producto')
+        
+        stock_desglose = []
+        total_stock_general = 0
+        
+        for p in productos_stock:
+            stock_desglose.append(f"{p['cantidad']} ({p['nombre_producto']})")
+            total_stock_general += p['cantidad']
+
+        # 4. Ensamblar el diccionario final para el contexto
+        resumen_filtro = {
+            'entradas_desglose': entradas_str_parts,
+            'salidas_desglose': salidas_str_parts,
+            'stock_desglose': stock_desglose,
+            'total_entradas_general': total_entradas_general,
+            'total_salidas_general': total_salidas_general,
+            'stock_actual': total_stock_general
+        }
+    # Ordenamiento: Si hay una búsqueda, agrupa por producto.
+    if q:
+        # Cuando se busca, se agrupa por producto y luego por fecha para claridad.
+        if order == 'asc':
+            qs = qs.order_by('producto__nombre_producto', 'fecha_movimiento')
+        else: # 'desc' es el default
+            qs = qs.order_by('producto__nombre_producto', '-fecha_movimiento')
     else:
-        qs = qs.order_by('-fecha_movimiento') # 'desc' es el default
+        # Comportamiento original si no hay búsqueda (solo por fecha).
+        if order == 'asc':
+            qs = qs.order_by('fecha_movimiento')
+        else:
+            qs = qs.order_by('-fecha_movimiento')
 
     # Paginación
     paginator = Paginator(qs, page_size)
@@ -677,27 +696,12 @@ def movimientos_inventario_index(request):
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
     
-    # Crear diccionario de datos de productos para JS para el cálculo en el frontend
-    # Obtenemos el mapa de opciones para mostrar la etiqueta legible (ej. "Caja (6, 12...)") en lugar del código ("CAJA")
-    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
-    
-    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
-    # Mapeamos 'unidad' usando choices_map.get()
-    productos_data = {str(p['id_producto']): {
-        'factor': p['cantidad_por_empaque'], 
-        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
-        'unidad_codigo': p['unidad_empaque']
-    } for p in productos_info}
-    
     if formulario.is_valid():
         formulario.save()
         messages.success(request, 'Movimiento registrado y stock actualizado correctamente.')
         return redirect('movimientos.index')
 
-    return render(request, 'movimientos/crear.html', {
-        'formulario': formulario, 
-        'productos_data': json.dumps(productos_data)
-    })
+    return render(request, 'movimientos/crear.html', {'formulario': formulario})
 
 
 @login_required
@@ -705,15 +709,6 @@ def movimientos_inventario_crear(request):
 def movimientos_inventario_editar(request, id_movimiento):
     movimiento = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
     
-    # Datos para JS
-    choices_map = dict(Inventario._meta.get_field('unidad_empaque').choices)
-    productos_info = Inventario.objects.values('id_producto', 'cantidad_por_empaque', 'unidad_empaque')
-    productos_data = {str(p['id_producto']): {
-        'factor': p['cantidad_por_empaque'], 
-        'unidad': choices_map.get(p['unidad_empaque'], p['unidad_empaque']),
-        'unidad_codigo': p['unidad_empaque']
-    } for p in productos_info}
-
     if request.method == 'POST':
         formulario = MovimientosInventarioForm(request.POST, instance=movimiento)
         if formulario.is_valid():
@@ -731,8 +726,7 @@ def movimientos_inventario_editar(request, id_movimiento):
 
     return render(request, 'movimientos/editar.html', {
         'formulario': formulario,
-        'movimiento': movimiento,
-        'productos_data': json.dumps(productos_data)
+        'movimiento': movimiento
     })
 
 

@@ -22,57 +22,33 @@
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+    // jQuery for Select2
     $(document).ready(function() {
-        // Inicializar Select2
         $('.select2').select2({
             theme: 'bootstrap-5',
             width: '100%',
             placeholder: 'Seleccione una opción',
             allowClear: true
         });
+    });
 
-        // Datos de productos inyectados desde la vista
-        const productosData = {{ productos_data|default:"{}"|safe }};
-        
-        // IDs generados por Django para el formulario HistorialProveedoresNotasForm
-        const selectProducto = $('#id_producto');
-        const inputEmpaques = $('#id_cantidad_empaques');
-        const inputTotal = $('#id_total_unidades');
-        const selectUnidad = $('#id_unidad_empaque');
-        const labelEmpaques = $('label[for="id_cantidad_empaques"]');
+    // Vanilla JS for calculations
+    document.addEventListener('DOMContentLoaded', function() {
+        const unidadesPorEmpaqueInput = document.getElementById('id_unidades_por_empaque');
+        const cantidadEmpaquesInput = document.getElementById('id_cantidad_empaques');
+        const totalUnidadesInput = document.getElementById('id_total_unidades');
 
-        function getFactorFromUnidad(unidadValue) {
-            if (!unidadValue) return 1;
-            // Extrae el número del final del valor, ej: 'CAJA_24' -> 24
-            const parts = unidadValue.split('_');
-            const factor = parseInt(parts[parts.length - 1], 10);
-            return isNaN(factor) ? 1 : factor;
+        function calcularTotal() {
+            const unidades = parseInt(unidadesPorEmpaqueInput.value, 10) || 0;
+            const empaques = parseInt(cantidadEmpaquesInput.value, 10) || 0;
+            totalUnidadesInput.value = unidades * empaques;
         }
 
-        function updateCalculations() {
-            const cantidadEmpaques = parseInt(inputEmpaques.val()) || 0;
-            const selectedUnidadValue = selectUnidad.val();
-            const factor = getFactorFromUnidad(selectedUnidadValue);
-
-            // Actualizar etiqueta visual
-            const selectedUnidadText = selectUnidad.find('option:selected').text();
-            if(labelEmpaques.length) labelEmpaques.text(`Cantidad de Empaques (${selectedUnidadText || 'N/A'})`);
-
-            // Calcular total
-            inputTotal.val(cantidadEmpaques * factor);
+        if (unidadesPorEmpaqueInput && cantidadEmpaquesInput && totalUnidadesInput) {
+            unidadesPorEmpaqueInput.addEventListener('input', calcularTotal);
+            cantidadEmpaquesInput.addEventListener('input', calcularTotal);
+            calcularTotal(); // Calcular al cargar la página para la edición
         }
-
-        // Al cambiar producto, preseleccionar su unidad de empaque
-        selectProducto.on('change', function() {
-            const productoId = $(this).val();
-            if (productoId && productosData[productoId] && productosData[productoId].unidad_codigo) {
-                selectUnidad.val(productosData[productoId].unidad_codigo).trigger('change');
-            }
-        });
-
-        inputEmpaques.on('input', updateCalculations);
-        selectUnidad.on('change', updateCalculations);
-        updateCalculations();
     });
 </script>
 
