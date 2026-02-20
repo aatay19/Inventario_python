@@ -46,8 +46,10 @@
                             <td>
                                 {% if usuario.rol == 'admin' %}
                                     <span class="badge bg-danger">Administrador</span>
-                                {% else %}
+                                {% elif usuario.rol == 'inventario' %}
                                     <span class="badge bg-info text-dark">Inventario</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Consulta</span>
                                 {% endif %}
                             </td>
                             <td>{{ usuario.direccion }}</td>

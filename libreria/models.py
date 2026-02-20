@@ -142,6 +142,7 @@ class PerfilUsuario(models.Model):
     ROL_CHOICES = [
         ('admin', 'Administrador'),
         ('inventario', 'Inventario'),
+        ('consulta', 'Consulta'),
     ]
  
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")

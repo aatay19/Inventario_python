@@ -40,10 +40,20 @@ def es_admin(user):
     return hasattr(user, 'perfilusuario') and user.perfilusuario.rol == 'admin'
 
 def es_inventario_acceso(user):
+    return hasattr(user, 'perfilusuario') and user.perfilusuario.rol in ['admin', 'inventario', 'consulta']
+
+# Nuevo decorador para restringir acceso a Proveedores y Productos (excluye a 'consulta')
+def es_pleno_acceso(user):
     return hasattr(user, 'perfilusuario') and user.perfilusuario.rol in ['admin', 'inventario']
 
 @login_required
 def index(request):
+    # Si el usuario es rol 'consulta', redirigir directo a Movimientos SOLO la primera vez (al iniciar sesión)
+    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol == 'consulta':
+        if not request.session.get('consulta_redirected'):
+            request.session['consulta_redirected'] = True
+            return redirect('movimientos.index')
+
     # --- CÁLCULO PARA LAS TARJETAS (CARDS) ---
 
     # 1. Total de proveedores
@@ -57,29 +67,25 @@ def index(request):
         total=Sum(F('cantidad') * F('costo_actual'))
     )['total'] or 0
 
-    # 4. Producto más vendido (basado en MovimientosInventario de tipo 'SALIDA')
-    producto_mas_vendido = MovimientosInventario.objects.filter(
-        tipo_movimiento='SALIDA'
-    ).values('producto__nombre_producto').annotate(
-        total_vendido=Sum('cantidad')
-    ).order_by('-total_vendido').first()
+    # 4. Producto con más movimientos (ENTRADA y SALIDA)
+    producto_mas_movido = MovimientosInventario.objects.values('producto__nombre_producto').annotate(
+        total_movimientos=Sum('cantidad')
+    ).order_by('-total_movimientos').first()
 
     producto_top = {
-        'nombre': producto_mas_vendido['producto__nombre_producto'] if producto_mas_vendido else "N/A",
-        'total': producto_mas_vendido['total_vendido'] if producto_mas_vendido else 0
+        'nombre': producto_mas_movido['producto__nombre_producto'] if producto_mas_movido else "N/A",
+        'total': producto_mas_movido['total_movimientos'] if producto_mas_movido else 0
     }
 
     # --- DATOS PARA TABLAS Y GRÁFICAS ---
 
-    # 5. Datos para la tabla: Top 5 productos más vendidos
-    top_5_productos_vendidos = MovimientosInventario.objects.filter(
-        tipo_movimiento='SALIDA'
-    ).values('producto__nombre_producto').annotate(
-        total_vendido=Sum('cantidad')
-    ).order_by('-total_vendido')[:5]
+    # 5. Datos para la tabla: Top 5 productos con más movimientos
+    top_5_productos_movidos = MovimientosInventario.objects.values('producto__nombre_producto').annotate(
+        total_movimientos=Sum('cantidad')
+    ).order_by('-total_movimientos')[:5]
     
-    # Adaptamos la consulta para que coincida con lo que espera el template: {'nombre': ..., 'total_vendido': ...}
-    top_productos = [{'nombre': item['producto__nombre_producto'], 'total_vendido': item['total_vendido']} for item in top_5_productos_vendidos]
+    # Enviamos 'total_movimientos' para que sea coherente con la nueva lógica
+    top_productos = [{'nombre': item['producto__nombre_producto'], 'total_movimientos': item['total_movimientos']} for item in top_5_productos_movidos]
 
     # 6. Gráfica de dona: Distribución de productos por categoría
     # Obtenemos los nombres legibles de las categorías desde el modelo
@@ -146,7 +152,7 @@ def index(request):
 #========================================
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def proveedores_index(request):
     # parámetros GET
     q = request.GET.get('q', '').strip()
@@ -182,7 +188,7 @@ def proveedores_index(request):
     })
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def proveedores_crear(request):
     formulario_proveedores = ProveedorForm(request.POST or None)
     if formulario_proveedores.is_valid():
@@ -192,7 +198,7 @@ def proveedores_crear(request):
     return render(request, 'proveedores/crear.html', {'formulario_proveedores': formulario_proveedores})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def proveedores_editar(request,id):
     proveedor = Proveedor.objects.get(id=id)
     formulario_proveedores = ProveedorForm(request.POST or None, instance=proveedor)
@@ -203,7 +209,7 @@ def proveedores_editar(request,id):
     return render(request, 'proveedores/editar.html',{'formulario_proveedores': formulario_proveedores})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def proveedores_eliminar(request,id):
     proveedores = Proveedor.objects.get(id=id)
     proveedores.delete()
@@ -211,7 +217,7 @@ def proveedores_eliminar(request,id):
     return redirect('/proveedores')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def proveedores_importar(request):
     if request.method == 'POST':
         form = ImportarArchivoForm(request.POST, request.FILES)
@@ -274,7 +280,7 @@ def proveedores_importar(request):
 #========================================
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_index(request):
      # Query base
     qs = Inventario.objects.all()
@@ -331,7 +337,7 @@ def inventario_index(request):
     return render(request, 'inventario/index.html', context)
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_crear(request):
     formulario_inventario = InventarioForm(request.POST or None)
     if formulario_inventario.is_valid():
@@ -341,7 +347,7 @@ def inventario_crear(request):
     return render(request, 'inventario/crear.html',{'formulario_inventario': formulario_inventario})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_editar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     formulario_inventario = InventarioForm(request.POST or None, instance=producto)
@@ -352,7 +358,7 @@ def inventario_editar(request,id_producto):
     return render(request, 'inventario/editar.html',{'formulario_inventario': formulario_inventario})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_eliminar(request,id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()
@@ -360,7 +366,7 @@ def inventario_eliminar(request,id_producto):
     return redirect('/inventario')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_importar(request):
     if request.method == 'POST':
         form = ImportarArchivoForm(request.POST, request.FILES)
@@ -428,7 +434,7 @@ def inventario_importar(request):
 # --- EXPORTACIÓN DE INFORMES ---
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def exportar_inventario_excel(request):
     # Crear un libro de trabajo (workbook)
     wb = openpyxl.Workbook()
@@ -462,7 +468,7 @@ def exportar_inventario_excel(request):
     return response
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def exportar_inventario_pdf(request):
     # Obtener datos
     productos = Inventario.objects.all().order_by('nombre_producto')
