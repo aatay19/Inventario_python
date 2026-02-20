@@ -107,7 +107,7 @@ class Inventario(models.Model):
     @property
     def total_empaques(self):
         if self.cantidad_por_empaque and self.cantidad_por_empaque > 0:
-            return self.cantidad / self.cantidad_por_empaque
+            return self.cantidad // self.cantidad_por_empaque
         return 0
 
     def __str__(self):

@@ -896,11 +896,18 @@ def usuarios_eliminar(request,id):
 def realizar_copia_seguridad(request):
     # Buffer para capturar los datos en memoria
     output = io.StringIO()
-    
-    # Ejecutamos 'dumpdata' para exportar 'auth.User' (usuarios) y toda la app 'libreria'
-    # Esto crea un archivo JSON compatible con cualquier base de datos Django
-    call_command('dumpdata', 'auth.User', 'libreria', stdout=output)
 
+    # Modelos a incluir en el backup, en formato 'app.Model'
+    # Excluimos auth.User y libreria.PerfilUsuario para evitar problemas.
+    modelos_a_incluir = [
+        'libreria.Proveedor',
+        'libreria.Inventario',
+        'libreria.MovimientosInventario',
+        'libreria.HistorialProveedoresNotas',
+    ]
+
+    # Ejecutamos 'dumpdata' para exportar solo los modelos especificados
+    call_command('dumpdata', *modelos_a_incluir, stdout=output)
     # Preparamos la respuesta para descargar el archivo
     response = HttpResponse(output.getvalue(), content_type='application/json')
     filename = f"backup_inventario_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.json"
