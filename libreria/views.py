@@ -611,6 +611,8 @@ def historial_proveedores_notas_eliminar(request,id_historialproveedor):
 def movimientos_inventario_index(request):
     # Parámetros GET para filtros y orden
     q = request.GET.get('q', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
     order = request.GET.get('order', 'desc')
     page_size = 10
 
@@ -625,6 +627,23 @@ def movimientos_inventario_index(request):
             Q(proveedor__razonsocial__icontains=q) |
             Q(proveedor__rif__icontains=q)
         )
+
+    # Filtro por rango de fechas
+    if date_from:
+        try:
+            # Convertimos a datetime (00:00:00 del día seleccionado)
+            fecha_inicio = datetime.strptime(date_from, '%Y-%m-%d')
+            qs = qs.filter(fecha_movimiento__gte=fecha_inicio)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            # Convertimos a datetime y ajustamos al final del día (23:59:59)
+            fecha_fin = datetime.strptime(date_to, '%Y-%m-%d')
+            fecha_fin = fecha_fin.replace(hour=23, minute=59, second=59)
+            qs = qs.filter(fecha_movimiento__lte=fecha_fin)
+        except ValueError:
+            pass
 
     # Calcular totales solo si hay un filtro de búsqueda activo
     resumen_filtro = None
@@ -693,7 +712,9 @@ def movimientos_inventario_index(request):
 
     context = {
         'page_obj': page_obj, 'q': q, 'order': order,
-        'resumen_filtro': resumen_filtro
+        'resumen_filtro': resumen_filtro,
+        'date_from': date_from,
+        'date_to': date_to,
     }
     return render(request, 'movimientos/index.html', context)
 

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 class Cliente(models.Model):
     id= models.AutoField(primary_key=True)
@@ -132,7 +133,7 @@ class MovimientosInventario(models.Model):
         null=True
     )
     cantidad_empaques = models.IntegerField(verbose_name="Cantidad de Empaques", default=0, blank=True, null=True, help_text="Cantidad de bultos, cajas o paquetes.")
-    fecha_movimiento = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Movimiento")
+    fecha_movimiento = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Movimiento")
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor")
 
     def __str__(self):

@@ -15,20 +15,31 @@
         <div class="card-body">
             <!-- Formulario de filtros -->
             <form method="get" class="row g-3 mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label text-muted small mb-1">Búsqueda</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
                         <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por producto o proveedor...">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small mb-1">Desde</label>
+                    <input type="date" name="date_from" value="{{ date_from }}" class="form-control" title="Fecha Desde">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small mb-1">Hasta</label>
+                    <input type="date" name="date_to" value="{{ date_to }}" class="form-control" title="Fecha Hasta">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small mb-1">Orden</label>
                     <select name="order" class="form-select">
                         <option value="desc" {% if order == 'desc' %}selected{% endif %}>Más recientes primero</option>
                         <option value="asc" {% if order == 'asc' %}selected{% endif %}>Más antiguos primero</option>
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                    <label class="form-label text-muted small mb-1 d-block">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
                 </div>
             </form>
 

@@ -4,6 +4,7 @@ from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas, M
 from django.db import transaction
 import re
 from django.forms import ModelChoiceField
+from django.utils import timezone
 
 class ProductoModelChoiceField(ModelChoiceField):
     """
@@ -171,6 +172,12 @@ class MovimientosInventarioForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Ej. 5'})
     )
 
+    fecha_movimiento = forms.DateTimeField(
+        label="Fecha y Hora",
+        required=False,
+        widget=forms.DateTimeInput(attrs={'class': 'form-control', 'readonly': 'readonly'})
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Hacemos que el campo proveedor no sea requerido a nivel de HTML.
@@ -187,16 +194,20 @@ class MovimientosInventarioForm(forms.ModelForm):
                 unidades = self.instance.cantidad // self.instance.cantidad_empaques
                 self.fields['unidades_por_empaque'].initial = unidades
 
+        # Inicializar fecha visualmente con la hora actual
+        if not self.instance.pk:
+            self.fields['fecha_movimiento'].initial = timezone.localtime(timezone.now())
+
         # Reordenar campos para una mejor experiencia de usuario
         field_order = [
             'producto', 'tipo_movimiento', 'unidad_empaque', 
-            'unidades_por_empaque', 'cantidad_empaques', 'cantidad', 'proveedor'
+            'unidades_por_empaque', 'cantidad_empaques', 'cantidad', 'fecha_movimiento', 'proveedor'
         ]
         self.fields = {k: self.fields[k] for k in field_order}
 
     class Meta:
         model = MovimientosInventario
-        fields = ['producto', 'tipo_movimiento', 'cantidad_empaques', 'unidad_empaque', 'cantidad', 'proveedor']
+        fields = ['producto', 'tipo_movimiento', 'cantidad_empaques', 'unidad_empaque', 'cantidad', 'proveedor', 'fecha_movimiento']
         widgets = {
             'proveedor': forms.Select(attrs={'class': 'form-select select2'}),
             'unidad_empaque': forms.Select(attrs={'class': 'form-select'}),
