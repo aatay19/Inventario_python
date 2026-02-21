@@ -185,7 +185,7 @@ class MovimientosInventarioForm(forms.ModelForm):
         self.fields['proveedor'].required = False
         # Hacemos que la cantidad total sea readonly porque se calculará
         self.fields['cantidad'].widget.attrs['readonly'] = True
-        self.fields['cantidad'].help_text = "Calculado: Unidades por Empaque x Cantidad de Empaques"
+        self.fields['cantidad'].help_text = "Calculado: Cantidad de Empaques x Unidades por Empaque"
 
         # Si estamos editando un movimiento, pre-rellenamos el campo 'unidades_por_empaque'
         # para que los cálculos en el frontend y backend funcionen correctamente.

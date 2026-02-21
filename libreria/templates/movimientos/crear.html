@@ -6,7 +6,7 @@
     <!-- Estilos para Select2 -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
-
+ 
     <div class="card shadow-sm">
         <div class="card-header">
             <h4 class="card-title mb-0">Registrar Movimiento de Inventario</h4>
@@ -44,7 +44,7 @@
         function calcularTotal() {
             const unidades = parseInt(unidadesPorEmpaqueInput.value, 10) || 0;
             const empaques = parseInt(cantidadEmpaquesInput.value, 10) || 0;
-            totalUnidadesInput.value = unidades * empaques;
+            totalUnidadesInput.value = empaques * unidades;
         }
 
         if (unidadesPorEmpaqueInput && cantidadEmpaquesInput && totalUnidadesInput) {

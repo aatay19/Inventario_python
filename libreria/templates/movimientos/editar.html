@@ -44,7 +44,7 @@
         function calcularTotal() {
             const unidades = parseInt(unidadesPorEmpaqueInput.value, 10) || 0;
             const empaques = parseInt(cantidadEmpaquesInput.value, 10) || 0;
-            totalUnidadesInput.value = unidades * empaques;
+            totalUnidadesInput.value = empaques * unidades;
         }
 
         if (unidadesPorEmpaqueInput && cantidadEmpaquesInput && totalUnidadesInput) {
