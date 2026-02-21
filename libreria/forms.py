@@ -201,7 +201,7 @@ class MovimientosInventarioForm(forms.ModelForm):
         # Reordenar campos para una mejor experiencia de usuario
         field_order = [
             'producto', 'tipo_movimiento', 'unidad_empaque', 
-            'unidades_por_empaque', 'cantidad_empaques', 'cantidad', 'fecha_movimiento', 'proveedor'
+            'cantidad_empaques', 'unidades_por_empaque', 'cantidad', 'fecha_movimiento', 'proveedor'
         ]
         self.fields = {k: self.fields[k] for k in field_order}
 
