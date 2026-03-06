@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas, MovimientosInventario, PerfilUsuario
 from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm, ImportarArchivoForm
 from django.core.paginator import Paginator
-from django.db.models import Q, F, Sum, Count, Value
+from django.db.models import Q, F, Sum, Count, Value, Max
 from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta, datetime
@@ -27,9 +27,6 @@ from xhtml2pdf import pisa
 # libreria/views.py
  
 import json
-
-# En tu archivo views.py (ejemplo de la lógica actual)
-from django.db.models import Count
 # ...
 def custom_logout(request):
     logout(request)
@@ -508,67 +505,70 @@ def exportar_inventario_pdf(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_index(request):
     # Query base: traer todos los movimientos de inventario
-    qs = MovimientosInventario.objects.all().select_related('proveedor', 'producto').order_by('-fecha_movimiento')
+    base_qs = MovimientosInventario.objects.all()
 
     # Get params
     q = request.GET.get('q', '').strip()
-    days = request.GET.get('days', '').strip()
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
-    order = request.GET.get('order', 'desc')  # 'desc' o 'asc'
+    order = request.GET.get('order', 'desc')
 
     # Filtro por texto en producto, proveedor o tipo de movimiento
     if q:
-        qs = qs.filter(
+        base_qs = base_qs.filter(
             Q(producto__nombre_producto__icontains=q) |
             Q(proveedor__nombre__icontains=q) |
             Q(proveedor__razonsocial__icontains=q) |
             Q(tipo_movimiento__icontains=q)
         )
 
-    # Filtro por últimos N días
-    if days:
-        try:
-            n = int(days)
-            cutoff = timezone.now() - timedelta(days=n)
-            qs = qs.filter(fecha_movimiento__gte=cutoff)
-        except ValueError:
-            pass
-
-    # Filtro por rango de fechas (date_from / date_to esperadas en formato YYYY-MM-DD)
+    # Filtro por rango de fechas
     if date_from:
         try:
-            qs = qs.filter(fecha_movimiento__date__gte=date_from)
-        except Exception:
+            fecha_inicio = datetime.strptime(date_from, '%Y-%m-%d')
+            base_qs = base_qs.filter(fecha_movimiento__gte=fecha_inicio)
+        except ValueError:
             pass
     if date_to:
         try:
-            qs = qs.filter(fecha_movimiento__date__lte=date_to)
-        except Exception:
+            fecha_fin = datetime.strptime(date_to, '%Y-%m-%d')
+            fecha_fin = fecha_fin.replace(hour=23, minute=59, second=59)
+            base_qs = base_qs.filter(fecha_movimiento__lte=fecha_fin)
+        except ValueError:
             pass
 
-    # Orden (permitir invertir)
-    if order == 'asc':
-        qs = qs.order_by('fecha_movimiento')
-    else:
-        qs = qs.order_by('-fecha_movimiento')
+    # Agrupación y anotación
+    qs = base_qs.values(
+        'proveedor__nombre',
+        'producto__nombre_producto',
+        'tipo_movimiento'
+    ).annotate(
+        total_unidades=Sum('cantidad'),
+        total_empaques=Sum('cantidad_empaques'),
+        ultima_fecha=Max('fecha_movimiento')
+    )
 
-    # Paginación servidor (ajusta page_size según necesites)
+    # Orden
+    if order == 'asc':
+        qs = qs.order_by('ultima_fecha')
+    else:
+        qs = qs.order_by('-ultima_fecha')
+
+    # Paginación
     page_size = 10
     paginator = Paginator(qs, page_size)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Pasar parámetros de búsqueda para mantenerlos en el formulario/links
     context = {
         'page_obj': page_obj,
         'q': q,
-        'days': days,
         'date_from': date_from,
         'date_to': date_to,
         'order': order,
     }
     return render(request, 'HistorialProveedoresNotas/index.html', context)
+
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')

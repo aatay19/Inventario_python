@@ -14,21 +14,31 @@
     <div class="card shadow-sm border-0">
         <div class="card-body">
             <!-- Formulario de filtros -->
-            <form method="get" class="row g-3 mb-4">
-                <div class="col-md-6">
+            <form method="get" class="row g-3 mb-4 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small mb-1">Búsqueda</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
-                        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por proveedor o detalle...">
+                        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por producto o proveedor...">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small mb-1">Desde</label>
+                    <input type="date" name="date_from" value="{{ date_from }}" class="form-control" title="Fecha Desde">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small mb-1">Hasta</label>
+                    <input type="date" name="date_to" value="{{ date_to }}" class="form-control" title="Fecha Hasta">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small mb-1">Ordenar por</label>
                     <select name="order" class="form-select">
                         <option value="desc" {% if order == 'desc' %}selected{% endif %}>Más recientes primero</option>
                         <option value="asc" {% if order == 'asc' %}selected{% endif %}>Más antiguos primero</option>
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
                 </div>
             </form>
 
@@ -38,57 +48,39 @@
                         <tr>
                             <th>Proveedor</th>
                             <th>Producto Asociado</th>
-                            <th>Empaques</th>
+                            <th>Total Empaques</th>
                             <th>Total Unidades</th>
                             <th>Tipo de Movimiento</th>
-                            <th>Fecha</th>
-                            <th>Acciones</th>
+                            <th>Última Actividad</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for movimiento in page_obj %}
+                        {% for grupo in page_obj %}
                         <tr>
-                            <td class="fw-bold">{{ movimiento.proveedor.nombre }}</td>
+                            <td class="fw-bold">{{ grupo.proveedor__nombre|default:"-" }}</td>
+                            <td>{{ grupo.producto__nombre_producto|default:"-" }}</td>
                             <td>
-                                {% if movimiento.producto %}
-                                    {{ movimiento.producto.nombre_producto }}
+                                {% if grupo.total_empaques > 0 %}
+                                    <strong>{{ grupo.total_empaques }}</strong>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
+                            <td>{{ grupo.total_unidades }}</td>
                             <td>
-                                {% if movimiento.cantidad_empaques > 0 %}
-                                    <strong>{{ movimiento.cantidad_empaques }}</strong> 
-                                    <small class="text-muted">{{ movimiento.get_unidad_empaque_display }}</small>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if movimiento.cantidad > 0 %}
-                                    {{ movimiento.cantidad }}
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if movimiento.tipo_movimiento == 'ENTRADA' %}
+                                {% if grupo.tipo_movimiento == 'ENTRADA' %}
                                     <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fas fa-arrow-down me-1"></i>Entrada</span>
-                                {% elif movimiento.tipo_movimiento == 'SALIDA' %}
+                                {% elif grupo.tipo_movimiento == 'SALIDA' %}
                                     <span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-1"><i class="fas fa-arrow-up me-1"></i>Salida</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
+                                    <span class="badge bg-secondary">{{ grupo.tipo_movimiento }}</span>
                                 {% endif %}
                             </td>
-                            <td>{{ movimiento.fecha_movimiento|date:"d/m/Y H:i" }}</td>
-                            <td class="text-nowrap">
-                                <a href="{% url 'movimientos.editar' movimiento.id_movimiento %}" class="btn btn-outline-warning btn-sm" title="Editar Movimiento"><i class="fas fa-edit"></i></a>
-                                <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-outline-danger btn-sm" title="Eliminar Movimiento" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento?');"><i class="fas fa-trash-alt"></i></a>
-                            </td>
+                            <td>{{ grupo.ultima_fecha|date:"d/m/Y H:i" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted">No hay movimientos de proveedores que coincidan con la búsqueda.</td>
+                            <td colspan="6" class="text-center text-muted">No hay movimientos de proveedores que coincidan con la búsqueda.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -98,13 +90,13 @@
                 <nav aria-label="Paginación" class="mt-3">
                     <ul class="pagination justify-content-center">
                         {% if page_obj.has_previous %}
-                            <li class="page-item"><a class="page-link" href="?q={{ q }}&order={{ order }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
+                            <li class="page-item"><a class="page-link" href="?q={{ q }}&order={{ order }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
                         {% else %}
                             <li class="page-item disabled"><span class="page-link">Anterior</span></li>
                         {% endif %}
                         <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
                         {% if page_obj.has_next %}
-                            <li class="page-item"><a class="page-link" href="?q={{ q }}&order={{ order }}&page={{ page_obj.next_page_number }}">Siguiente</a></li>
+                            <li class="page-item"><a class="page-link" href="?q={{ q }}&order={{ order }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.next_page_number }}">Siguiente</a></li>
                         {% else %}
                             <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
                         {% endif %}
