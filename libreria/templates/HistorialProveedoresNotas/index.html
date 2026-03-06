@@ -8,7 +8,7 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0 fw-bold">Historial de Proveedores</h2>
-        <a href="{% url 'HistorialProveedoresNotas.crear' %}" class="btn btn-primary shadow-sm"><i class="fas fa-plus me-2"></i>Registrar Nota</a>
+        <a href="{% url 'movimientos.crear' %}" class="btn btn-primary shadow-sm"><i class="fas fa-plus me-2"></i>Registrar Movimiento</a>
     </div>
  
     <div class="card shadow-sm border-0">
@@ -40,51 +40,55 @@
                             <th>Producto Asociado</th>
                             <th>Empaques</th>
                             <th>Total Unidades</th>
-                            <th>Detalle de la Nota</th>
+                            <th>Tipo de Movimiento</th>
                             <th>Fecha</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for nota in page_obj %}
+                        {% for movimiento in page_obj %}
                         <tr>
-                            <td class="fw-bold">{{ nota.proveedores.nombre }}</td>
+                            <td class="fw-bold">{{ movimiento.proveedor.nombre }}</td>
                             <td>
-                                {% if nota.producto %}
-                                    {{ nota.producto.nombre_producto }}
+                                {% if movimiento.producto %}
+                                    {{ movimiento.producto.nombre_producto }}
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if nota.cantidad_empaques > 0 %}
-                                    <strong>{{ nota.cantidad_empaques }}</strong> 
-                                    <small class="text-muted">{{ nota.get_unidad_empaque_display }}</small>
+                                {% if movimiento.cantidad_empaques > 0 %}
+                                    <strong>{{ movimiento.cantidad_empaques }}</strong> 
+                                    <small class="text-muted">{{ movimiento.get_unidad_empaque_display }}</small>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if nota.total_unidades > 0 %}
-                                    {{ nota.total_unidades }}
+                                {% if movimiento.cantidad > 0 %}
+                                    {{ movimiento.cantidad }}
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td style="max-width: 300px;">
-                                <span class="d-inline-block text-truncate" style="max-width: 300px;" title="{{ nota.detalle_nota }}">
-                                    {{ nota.detalle_nota }}
-                                </span>
+                            <td>
+                                {% if movimiento.tipo_movimiento == 'ENTRADA' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fas fa-arrow-down me-1"></i>Entrada</span>
+                                {% elif movimiento.tipo_movimiento == 'SALIDA' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-1"><i class="fas fa-arrow-up me-1"></i>Salida</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
+                                {% endif %}
                             </td>
-                            <td>{{ nota.fecha_registro|date:"d/m/Y H:i" }}</td>
+                            <td>{{ movimiento.fecha_movimiento|date:"d/m/Y H:i" }}</td>
                             <td class="text-nowrap">
-                                <a href="{% url 'HistorialProveedoresNotas.editar' nota.id_historialproveedor %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
-                                <a href="{% url 'HistorialProveedoresNotas.eliminar' nota.id_historialproveedor %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar esta nota?');"><i class="fas fa-trash-alt"></i></a>
+                                <a href="{% url 'movimientos.editar' movimiento.id_movimiento %}" class="btn btn-outline-warning btn-sm" title="Editar Movimiento"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-outline-danger btn-sm" title="Eliminar Movimiento" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento?');"><i class="fas fa-trash-alt"></i></a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted">No hay notas registradas que coincidan con la búsqueda.</td>
+                            <td colspan="7" class="text-center text-muted">No hay movimientos de proveedores que coincidan con la búsqueda.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

@@ -507,8 +507,8 @@ def exportar_inventario_pdf(request):
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def historial_proveedores_notas_index(request):
-    # Query base: traer notas con proveedor y por fecha (más recientes primero por defecto)
-    qs = HistorialProveedoresNotas.objects.select_related('proveedores', 'producto').order_by('-fecha_registro')
+    # Query base: traer todos los movimientos de inventario
+    qs = MovimientosInventario.objects.all().select_related('proveedor', 'producto').order_by('-fecha_movimiento')
 
     # Get params
     q = request.GET.get('q', '').strip()
@@ -517,12 +517,13 @@ def historial_proveedores_notas_index(request):
     date_to = request.GET.get('date_to', '').strip()
     order = request.GET.get('order', 'desc')  # 'desc' o 'asc'
 
-    # Filtro por texto en la nota o en el nombre del proveedor
+    # Filtro por texto en producto, proveedor o tipo de movimiento
     if q:
         qs = qs.filter(
-            Q(detalle_nota__icontains=q) |
-            Q(proveedores__nombre__icontains=q) |
-            Q(proveedores__razonsocial__icontains=q)
+            Q(producto__nombre_producto__icontains=q) |
+            Q(proveedor__nombre__icontains=q) |
+            Q(proveedor__razonsocial__icontains=q) |
+            Q(tipo_movimiento__icontains=q)
         )
 
     # Filtro por últimos N días
@@ -530,27 +531,27 @@ def historial_proveedores_notas_index(request):
         try:
             n = int(days)
             cutoff = timezone.now() - timedelta(days=n)
-            qs = qs.filter(fecha_registro__gte=cutoff)
+            qs = qs.filter(fecha_movimiento__gte=cutoff)
         except ValueError:
             pass
 
     # Filtro por rango de fechas (date_from / date_to esperadas en formato YYYY-MM-DD)
     if date_from:
         try:
-            qs = qs.filter(fecha_registro__date__gte=date_from)
+            qs = qs.filter(fecha_movimiento__date__gte=date_from)
         except Exception:
             pass
     if date_to:
         try:
-            qs = qs.filter(fecha_registro__date__lte=date_to)
+            qs = qs.filter(fecha_movimiento__date__lte=date_to)
         except Exception:
             pass
 
     # Orden (permitir invertir)
     if order == 'asc':
-        qs = qs.order_by('fecha_registro')
+        qs = qs.order_by('fecha_movimiento')
     else:
-        qs = qs.order_by('-fecha_registro')
+        qs = qs.order_by('-fecha_movimiento')
 
     # Paginación servidor (ajusta page_size según necesites)
     page_size = 10
