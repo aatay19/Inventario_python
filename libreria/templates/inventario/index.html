@@ -78,6 +78,7 @@
           <th>Unidad Empaque</th>
           <th>Cant. x Empaque</th>
           <th>Total Empaques</th>
+          <th>Proveedor</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -100,6 +101,13 @@
           <td>{{ producto.get_unidad_empaque_display }}</td>
           <td>{{ producto.cantidad_por_empaque }}</td>
           <td>{{ producto.total_empaques|floatformat:2 }}</td>
+          <td>
+            {% for prov in producto.proveedores.all %}
+              <a href="{% url 'proveedores.index' %}?q={{ prov.nombre }}" class="btn btn-outline-info btn-sm mb-1" title="Ver Proveedor"><i class="fas fa-truck"></i> {{ prov.nombre }}</a>
+            {% empty %}
+              <span class="text-muted">-</span>
+            {% endfor %}
+          </td>
           <td class="text-nowrap">
             <a href="{% url 'inventario.editar' producto.id_producto %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
             <a href="{% url 'inventario.eliminar' producto.id_producto %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de eliminar este producto?');"><i class="fas fa-trash-alt"></i></a>
@@ -107,7 +115,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="11" class="text-center">No hay productos registrados.</td>
+          <td colspan="12" class="text-center">No hay productos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>

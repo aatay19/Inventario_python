@@ -65,24 +65,42 @@ def index(request):
     )['total'] or 0
 
     # 4. Producto con más movimientos (ENTRADA y SALIDA)
-    producto_mas_movido = MovimientosInventario.objects.values('producto__nombre_producto').annotate(
+    pm = MovimientosInventario.objects.values(
+        'producto__nombre_producto',
+        'producto__stock_minimo',
+        'producto__stock_maximo',
+        'producto__cantidad'
+    ).annotate(
         total_movimientos=Sum('cantidad')
     ).order_by('-total_movimientos').first()
 
     producto_top = {
-        'nombre': producto_mas_movido['producto__nombre_producto'] if producto_mas_movido else "N/A",
-        'total': producto_mas_movido['total_movimientos'] if producto_mas_movido else 0
+        'nombre': pm['producto__nombre_producto'] if pm else "N/A",
+        'total': pm['total_movimientos'] if pm else 0,
+        'min': pm['producto__stock_minimo'] if pm else 0,
+        'max': pm['producto__stock_maximo'] if pm else 0,
+        'stock': pm['producto__cantidad'] if pm else 0,
     }
 
     # --- DATOS PARA TABLAS Y GRÁFICAS ---
 
     # 5. Datos para la tabla: Top 5 productos con más movimientos
-    top_5_productos_movidos = MovimientosInventario.objects.values('producto__nombre_producto').annotate(
+    top_5_movidos = MovimientosInventario.objects.values(
+        'producto__nombre_producto',
+        'producto__stock_minimo',
+        'producto__stock_maximo',
+        'producto__cantidad'
+    ).annotate(
         total_movimientos=Sum('cantidad')
     ).order_by('-total_movimientos')[:5]
     
-    # Enviamos 'total_movimientos' para que sea coherente con la nueva lógica
-    top_productos = [{'nombre': item['producto__nombre_producto'], 'total_movimientos': item['total_movimientos']} for item in top_5_productos_movidos]
+    top_productos = [{
+        'nombre': i['producto__nombre_producto'], 
+        'total_movimientos': i['total_movimientos'],
+        'min': i['producto__stock_minimo'],
+        'max': i['producto__stock_maximo'],
+        'stock': i['producto__cantidad']
+    } for i in top_5_movidos]
 
     # 6. Gráfica de dona: Distribución de productos por categoría
     # Obtenemos los nombres legibles de las categorías desde el modelo
@@ -107,27 +125,10 @@ def index(request):
             'num_productos': item['num_productos']
         })
 
-    # 8. Datos para la tabla de resumen de movimientos
-    # Para evitar problemas de zona horaria, definimos 'hoy' como un rango de tiempo.
-    # Obtenemos la fecha actual en la zona horaria local del proyecto.
-    local_today = timezone.localtime(timezone.now()).date()
-    
-    # Creamos un rango desde el inicio del día (00:00:00) hasta el final (23:59:59.999999).
-    # Esto asegura que la consulta a la base de datos sea precisa.
-    start_of_day = timezone.make_aware(datetime.combine(local_today, datetime.min.time()))
-    end_of_day = timezone.make_aware(datetime.combine(local_today, datetime.max.time()))
-    
-    # Agregamos para obtener un resumen de movimientos
-    resumen_movimientos = MovimientosInventario.objects.aggregate(
-        total_entradas=Count('id_movimiento', filter=Q(tipo_movimiento='ENTRADA')),
-        total_salidas=Count('id_movimiento', filter=Q(tipo_movimiento='SALIDA')),
-        hoy_entradas=Count('id_movimiento', filter=Q(tipo_movimiento='ENTRADA', fecha_movimiento__range=(start_of_day, end_of_day))),
-        hoy_salidas=Count('id_movimiento', filter=Q(tipo_movimiento='SALIDA', fecha_movimiento__range=(start_of_day, end_of_day))),
-    )
-    # Si no hay movimientos, los valores serán 0, lo cual es correcto.
-    # No es necesario un manejo especial de 'None'.
-
-
+    # 8. Alerta de Stock Bajo (Cualquier producto que esté en su mínimo o menos)
+    productos_bajo_stock = Inventario.objects.filter(
+        cantidad__lte=F('stock_minimo')
+    ).values('nombre_producto', 'cantidad', 'stock_minimo')
 
     # --- CONTEXTO PARA LA PLANTILLA ---
     context = {
@@ -136,9 +137,9 @@ def index(request):
         'valor_inventario': valor_inventario,
         'producto_top': producto_top,
         'inventario_por_categoria': inventario_por_categoria,
-        # Pasamos la variable correcta para la tabla de top productos
         'top_productos': top_productos,
-        'resumen_movimientos': resumen_movimientos,
+        'productos_bajo_stock': productos_bajo_stock,
+        'num_bajo_stock': productos_bajo_stock.count(),
     }
 
     return render(request, 'index.html', context)
@@ -285,6 +286,7 @@ def inventario_index(request):
     # Parámetros GET
     q = request.GET.get('q', '').strip()
     categoria = request.GET.get('categoria', '').strip()
+    proveedor_id = request.GET.get('proveedor_id', '').strip()
     order = request.GET.get('order', 'name_asc')  # 'name_asc','name_desc','cantidad_desc','cantidad_asc'
     low = request.GET.get('low', '').strip()  # si '1' o 'true' -> filtrar los bajos
     page_size = 10
@@ -300,6 +302,10 @@ def inventario_index(request):
     # Filtrar por categoría si se pasa
     if categoria:
         qs = qs.filter(categoria=categoria)
+        
+    # Filtrar por proveedor_id si se pasa
+    if proveedor_id:
+        qs = qs.filter(proveedores__id=proveedor_id)
 
     # Filtrar sólo productos con stock bajo si se solicita
     if low and low.lower() in ('1', 'true', 'on'):
@@ -330,6 +336,7 @@ def inventario_index(request):
         'order': order,
         'low_stock_count': low_stock_count,
         'low': low,
+        'proveedor_id': proveedor_id,
     }
     return render(request, 'inventario/index.html', context)
 
@@ -401,19 +408,31 @@ def inventario_importar(request):
                                 categoria_valida = choice[0]
                                 break
                         
-                        Inventario.objects.create(
+                        # Ahora busca si el producto ya existe por su código
+                        obj, created = Inventario.objects.update_or_create(
                             codigo_producto=fila[0],
-                            nombre_producto=fila[1] if len(fila) > 1 else 'Sin Nombre',
-                            descripcion=fila[2] if len(fila) > 2 else '',
-                            categoria=categoria_valida,
-                            cantidad=int(fila[4]) if len(fila) > 4 and fila[4] else 0,
-                            costo_actual=float(fila[5]) if len(fila) > 5 and fila[5] else 0.0,
-                            stock_minimo=int(fila[6]) if len(fila) > 6 and fila[6] else 5,
-                            stock_maximo=int(fila[7]) if len(fila) > 7 and fila[7] else 100,
-                            # Valores por defecto para campos no obligatorios en excel simple
-                            unidad_empaque='UNIDAD',
-                            cantidad_por_empaque=1
+                            defaults={
+                                'nombre_producto': fila[1] if len(fila) > 1 else 'Sin Nombre',
+                                'descripcion': fila[2] if len(fila) > 2 else '',
+                                'categoria': categoria_valida,
+                                'cantidad': int(fila[4]) if len(fila) > 4 and fila[4] else 0,
+                                'costo_actual': float(fila[5]) if len(fila) > 5 and fila[5] else 0.0,
+                                'stock_minimo': int(fila[6]) if len(fila) > 6 and fila[6] else 5,
+                                'stock_maximo': int(fila[7]) if len(fila) > 7 and fila[7] else 100,
+                                'unidad_empaque': 'UNIDAD',
+                                'cantidad_por_empaque': 1
+                            }
                         )
+
+                        # Si hay una 9na columna, intenta asignar el proveedor
+                        if len(fila) > 8 and fila[8]:
+                            valor_proveedor = str(fila[8]).strip()
+                            # Busca por Nombre o por RIF
+                            proveedor = Proveedor.objects.filter(
+                                Q(nombre__icontains=valor_proveedor) | Q(rif__icontains=valor_proveedor)
+                            ).first()
+                            if proveedor:
+                                obj.proveedores.add(proveedor)
                         registros_creados += 1
                     except Exception as e:
                         errores.append(f"Fila {i+2} ({fila[0] if fila else '?'}): {str(e)}")
@@ -942,3 +961,104 @@ def realizar_copia_seguridad(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+# ======================================
+# PEDIDOS / COMPRAS DE PROVEEDORES
+# ======================================
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def compras_seleccionar_proveedor(request):
+    q = request.GET.get('q', '').strip()
+    qs = Proveedor.objects.all()
+    if q:
+        qs = qs.filter(Q(nombre__icontains=q) | Q(rif__icontains=q))
+    
+    return render(request, 'compras/seleccionar_proveedor.html', {
+        'proveedores': qs,
+        'q': q
+    })
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def compras_form_pedido(request, proveedor_id):
+    proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+    # Filtrar productos que tienen asociado este proveedor
+    productos = Inventario.objects.filter(proveedores__id=proveedor_id).order_by('nombre_producto')
+    
+    # Necesitamos las opciones de unidad de empaque para los selectores
+    from .models import UnidadEmpaqueChoices
+    unidades_choices = UnidadEmpaqueChoices.choices
+
+    return render(request, 'compras/form_pedido.html', {
+        'proveedor': proveedor,
+        'productos': productos,
+        'unidades_choices': unidades_choices
+    })
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def compras_procesar(request):
+    if request.method == 'POST':
+        proveedor_id = request.POST.get('proveedor_id')
+        proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+        
+        # Obtener listas de datos del formulario (arrays de inputs con el mismo nombre)
+        items_seleccionados = request.POST.getlist('items_seleccionados[]')
+        
+        producto_ids = request.POST.getlist('producto_id[]')
+        minimos = request.POST.getlist('minimo[]')
+        maximos = request.POST.getlist('maximo[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+
+        ordenes_creadas = 0
+        
+        try:
+            with transaction.atomic():
+                for i in range(len(producto_ids)):
+                    p_id = producto_ids[i]
+                    
+                    # SI EL PRODUCTO NO ESTÁ MARCADO EN EL CHECKBOX, LO IGNORAMOS
+                    if p_id not in items_seleccionados:
+                        continue
+                        
+                    producto = Inventario.objects.get(id_producto=p_id)
+                    
+                    # 1. Actualizar Mínimos y Máximos (siempre se actualizan)
+                    producto.stock_minimo = int(minimos[i])
+                    producto.stock_maximo = int(maximos[i])
+                    
+                    # Sincronizar también la unidad de empaque por defecto del producto
+                    producto.unidad_empaque = unidades_empaque[i]
+                    producto.cantidad_por_empaque = int(cants_por_empaque[i])
+                    producto.save()
+                    
+                    # 2. Si hay cantidad a pedir, crear movimiento de entrada
+                    cant_pedir = int(totales[i])
+                    if cant_pedir > 0:
+                        # Crear el movimiento
+                        MovimientosInventario.objects.create(
+                            producto=producto,
+                            tipo_movimiento='ENTRADA',
+                            cantidad=cant_pedir,
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=int(cants_empaques[i]),
+                            proveedor=proveedor,
+                            fecha_movimiento=timezone.now()
+                        )
+                        # Actualizar stock físico
+                        producto.cantidad += cant_pedir
+                        producto.save()
+                        ordenes_creadas += 1
+            
+            messages.success(request, f'Pedido procesado. Se actualizaron niveles de stock y se registraron {ordenes_creadas} entradas.')
+            return redirect('compras.index')
+            
+        except Exception as e:
+            messages.error(request, f'Error al procesar el pedido: {str(e)}')
+            return redirect('compras.nuevo', proveedor_id=proveedor_id)
+
+    return redirect('compras.index')

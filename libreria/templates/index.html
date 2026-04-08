@@ -11,6 +11,24 @@
         <span class="text-muted"><i class="far fa-calendar-alt me-1"></i> {% now "d F Y" %}</span>
     </div>
 
+    <!-- ======= ALERTAS DE STOCK BAJO ======= -->
+    {% if num_bajo_stock > 0 %}
+    <div class="alert alert-danger shadow-sm border-start border-danger border-5 mb-4 d-flex align-items-center" role="alert">
+        <div class="pe-3">
+            <i class="fas fa-exclamation-triangle fa-2x"></i>
+        </div>
+        <div class="flex-grow-1">
+            <h5 class="alert-heading mb-1 fw-bold">Alerta de Reposición Urgente</h5>
+            <p class="mb-0">
+                Se han detectado <strong>{{ num_bajo_stock }}</strong> productos en o por debajo de su nivel mínimo permitido. 
+                Es necesario realizar una nueva compra para evitar quiebres de stock.
+                <a href="{% url 'inventario.index' %}" class="fw-bold text-danger ms-2">Ver detalles <i class="fas fa-arrow-right small"></i></a>
+            </p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
     <!-- ======= CARDS PRINCIPALES ======= -->
     <div class="row g-4">
         <!-- Total Proveedores -->
@@ -45,14 +63,25 @@
 
         <!-- Producto con más movimiento  -->
         <div class="col-md-4 col-lg-4">
-            <div class="card card-dashboard border-0 shadow-sm h-100">
+            <div class="card card-dashboard border-0 shadow-sm h-100 {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}border-start border-danger border-5{% endif %}" 
+                 style="{% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}background-color: #fff5f5;{% endif %}">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div style="overflow: hidden;">
                         <h6 class="text-muted text-uppercase mb-2">Con Más Movimiento </h6>
-                        <h3 class="mb-0 fw-bold text-warning text-truncate" title="{{ producto_top.nombre }}">{{ producto_top.nombre|default:"N/A" }}</h3>
-                        <small class="text-muted">{{ producto_top.total|default:"0" }} Movimientos</small>
+                        <h3 class="mb-0 fw-bold {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}text-danger{% else %}text-warning{% endif %} text-truncate" title="{{ producto_top.nombre }}">
+                            {{ producto_top.nombre|default:"N/A" }}
+                        </h3>
+                        <div class="mt-1 mb-1">
+                            <span class="badge {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}bg-danger{% else %}bg-info{% endif %}">
+                                Stock: {{ producto_top.stock }}
+                            </span>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                (Mín: {{ producto_top.min }} / Máx: {{ producto_top.max }})
+                            </small>
+                        </div>
+                        <small class="text-muted">Total movido: <strong>{{ producto_top.total|default:"0" }}</strong></small>
                     </div>
-                    <div class="icon-shape bg-light text-warning rounded-circle p-3">
+                    <div class="icon-shape bg-light {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}text-danger{% else %}text-warning{% endif %} rounded-circle p-3">
                         <i class="fas fa-trophy fa-2x"></i>
                     </div>
                 </div>
@@ -60,35 +89,6 @@
         </div>
     </div>
 
-        <!-- Tabla de Resumen de Movimientos -->
-        <div class="col-lg-12 mb-6">
-            <div class="card p-4 shadow-sm border-0 mt-4">
-                <h5 class="mb-4 fw-bold"><i class="fas fa-exchange-alt me-2 text-secondary"></i>Resumen de Movimientos</h5>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">Periodo</th>
-                                <th scope="col" class="text-end text-success">Entradas <i class="fas fa-arrow-down"></i></th>
-                                <th scope="col" class="text-end text-danger">Salidas <i class="fas fa-arrow-up"></i></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><i class="far fa-clock me-2 text-info"></i><strong>Hoy</strong></td>
-                                <td class="text-end fw-bold text-success">+{{ resumen_movimientos.hoy_entradas|default:"0" }}</td>
-                                <td class="text-end fw-bold text-danger">-{{ resumen_movimientos.hoy_salidas|default:"0" }}</td>
-                            </tr>
-                            <tr>
-                                <td><i class="fas fa-history me-2 text-secondary"></i><strong>Total Histórico</strong></td>
-                                <td class="text-end fw-bold text-success">+{{ resumen_movimientos.total_entradas|default:"0" }}</td>
-                                <td class="text-end fw-bold text-danger">-{{ resumen_movimientos.total_salidas|default:"0" }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     </div>
     <!-- ======= TABLA DE CATEGORÍAS ======= -->
     <div class="row mt-4">

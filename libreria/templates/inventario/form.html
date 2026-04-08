@@ -1,21 +1,92 @@
-<form enctype="multipart/form-data" method="post">
+<!-- CSS de Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+<form enctype="multipart/form-data" method="post" id="form-actual">
     {% csrf_token %}
-     {% for campo in formulario_inventario %}  
- 
- 
-    <div class="mb-3">
-        <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+      {% for campo in formulario_inventario %}  
+
+     <div class="mb-3" id="div_{{ campo.auto_id }}">
+        <label for="{{ campo.id_for_label }}" class="form-label d-flex justify-content-between align-items-center">
+            <span>{{ campo.label }}</span>
+            {% if campo.name == 'proveedores' %}
+                <div class="form-check form-switch small fw-normal">
+                    <input class="form-check-input" type="checkbox" id="filtroProveedores" checked>
+                    <label class="form-check-label text-muted" for="filtroProveedores">Solo vinculados</label>
+                </div>
+            {% endif %}
+        </label>
               
-      {{ campo }}
- 
-      {% if campo.help_text %}
-        <div class="form-text small text-muted">{{ campo.help_text }}</div>
-      {% endif %}
-      {% if campo.errors %}
-        <div class="text-danger small mt-1">{{ campo.errors }}</div>
-      {% endif %}
-    </div>
-  {% endfor %}
+       {{ campo }}
+
+       {% if campo.help_text %}
+         <div class="form-text small text-muted">{{ campo.help_text }}</div>
+       {% endif %}
+       {% if campo.errors %}
+         <div class="text-danger small mt-1">{{ campo.errors }}</div>
+       {% endif %}
+     </div>
+   {% endfor %}
 
 <input name="" id="" class="btn btn-success" type="submit" value="Guardar Producto">  
 </form>
+
+<!-- JS de Select2 y Lógica de Filtro -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    const $selectProveedores = $('#id_proveedores');
+    const $checkboxFiltro = $('#filtroProveedores');
+    
+    // Almacenar los IDs de los proveedores cargados originalmente (seleccionados)
+    const proveedoresOriginales = $selectProveedores.val() || [];
+
+    // Si el producto es nuevo (no hay seleccionados), desactivar el filtro por defecto
+    if (proveedoresOriginales.length === 0) {
+        $checkboxFiltro.prop('checked', false);
+    }
+
+    // Inicializar Select2
+    function initSelect2() {
+        $selectProveedores.select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Busque o seleccione proveedores',
+            allowClear: true,
+            // Función personalizada para filtrar resultados mostrados en el buscador
+            templateResult: function(data) {
+                // Si el filtro está activado y el elemento no es original, no mostrarlo
+                if ($checkboxFiltro.is(':checked') && !proveedoresOriginales.includes(data.id)) {
+                    return null;
+                }
+                return data.text;
+            }
+        });
+    }
+
+    initSelect2();
+
+    // Cuando cambia el interruptor del filtro
+    $checkboxFiltro.on('change', function() {
+        // Refrescar Select2 para aplicar el nuevo templateResult
+        $selectProveedores.select2('destroy');
+        initSelect2();
+        
+        // Si el filtro se desactiva, mostrar un aviso pequeño
+        if (!$(this).is(':checked')) {
+            console.log("Mostrando todos los proveedores...");
+        }
+    });
+});
+</script>
+
+<style>
+    /* Estilo para que se vea más moderno */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 38px;
+    }
+    .form-switch .form-check-input {
+        cursor: pointer;
+    }
+</style>

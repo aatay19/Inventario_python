@@ -45,8 +45,17 @@
             </ul>
         </li>
         {% endif %}
+        
+        <!-- PEDIDOS / COMPRAS -->
+        {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center" href="{% url 'compras.index' %}">
+                <span><i class="bi bi-cart-plus me-2"></i> Pedidos / Compras</span>
+            </a>
+        </li>
+        {% endif %}
 
-        <!-- COMPRAS -->
+        <!-- MOVIMIENTOS -->
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-cart-check me-2"></i> Movimientos Inventario</span>

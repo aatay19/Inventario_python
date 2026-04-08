@@ -42,7 +42,7 @@ class InventarioForm(forms.ModelForm):
         field_order = [
             'codigo_producto', 'nombre_producto', 'descripcion', 'categoria', 
             'cantidad', 'unidad_empaque', 'cantidad_por_empaque', 'total_empaques', 
-            'costo_actual', 'costo_anterior', 'stock_minimo', 'stock_maximo'
+            'costo_actual', 'costo_anterior', 'stock_minimo', 'stock_maximo', 'proveedores'
         ]
         widgets = {
             'codigo_producto': forms.TextInput(attrs={
@@ -60,6 +60,7 @@ class InventarioForm(forms.ModelForm):
             'costo_anterior': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'stock_minimo': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'stock_maximo': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'proveedores': forms.SelectMultiple(attrs={'class': 'form-select select2', 'multiple': 'multiple'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -67,6 +68,10 @@ class InventarioForm(forms.ModelForm):
         # Calcular total_empaques si hay instancia
         if self.instance and self.instance.pk:
             self.fields['total_empaques'].initial = self.instance.total_empaques
+        
+        # El queryset debe ser completo por defecto para permitir cambios,
+        # pero la navegación se facilitará en el frontend
+        self.fields['proveedores'].queryset = Proveedor.objects.all().order_by('nombre')
         
         # Reordenar campos explícitamente para asegurar el orden en el template
         if self.Meta.field_order:
@@ -142,14 +147,9 @@ class HistorialProveedoresNotasForm(forms.ModelForm):
         unidades_por_empaque = cleaned_data.get('unidades_por_empaque')
         cantidad_empaques = cleaned_data.get('cantidad_empaques')
         
-        # Cálculo de respaldo en el servidor si falla el JS
-        if cantidad_empaques is not None and cantidad_empaques > 0:
-            if not unidades_por_empaque or unidades_por_empaque <= 0:
-                self.add_error('unidades_por_empaque', 'Debe especificar un número válido de unidades por empaque.')
-            else:
-                cleaned_data['total_unidades'] = cantidad_empaques * unidades_por_empaque
-        elif cantidad_empaques == 0:
-            cleaned_data['total_unidades'] = 0
+        # Requerimiento: No se multiplica. Total unidades = cantidad empaques.
+        if cantidad_empaques is not None:
+             cleaned_data['total_unidades'] = cantidad_empaques
             
         return cleaned_data
 
@@ -224,16 +224,11 @@ class MovimientosInventarioForm(forms.ModelForm):
         unidades_por_empaque = cleaned_data.get('unidades_por_empaque')
         cantidad_empaques = cleaned_data.get("cantidad_empaques")
 
-        # Cálculo de la cantidad total en el backend
-        if cantidad_empaques is not None and cantidad_empaques > 0:
-            if not unidades_por_empaque or unidades_por_empaque <= 0:
-                self.add_error('unidades_por_empaque', 'Debe especificar un número válido de unidades por empaque.')
-            else:
-                cleaned_data['cantidad'] = cantidad_empaques * unidades_por_empaque
-        elif cantidad_empaques == 0:
-            cleaned_data['cantidad'] = 0
+        # Requerimiento: Ya no se multiplica. La cantidad es igual a los empaques.
+        if cantidad_empaques is not None:
+             cleaned_data['cantidad'] = cantidad_empaques
         
-        cantidad = cleaned_data.get("cantidad") # Recargar la cantidad por si fue calculada
+        cantidad = cleaned_data.get("cantidad") # Recargar la cantidad
 
         # Validación 1: Si es una SALIDA, verificar que haya stock suficiente.
         if tipo_movimiento == 'SALIDA' and producto and cantidad is not None:
@@ -266,6 +261,9 @@ class MovimientosInventarioForm(forms.ModelForm):
                 # Es un nuevo movimiento
                 if movimiento.tipo_movimiento == 'ENTRADA':
                     producto.cantidad += cantidad_nueva
+                    # AGREGAR PROVEEDOR A LA LISTA DEL PRODUCTO SI ES ENTRADA
+                    if movimiento.proveedor:
+                        producto.proveedores.add(movimiento.proveedor)
                 elif movimiento.tipo_movimiento == 'SALIDA':
                     # La validación ya ocurrió en clean(), aquí solo operamos
                     producto.cantidad -= cantidad_nueva
@@ -285,6 +283,8 @@ class MovimientosInventarioForm(forms.ModelForm):
                 # 2. Aplicar el efecto del nuevo movimiento
                 if movimiento.tipo_movimiento == 'ENTRADA':
                     producto.cantidad += cantidad_nueva
+                    if movimiento.proveedor:
+                        producto.proveedores.add(movimiento.proveedor)
                 else: # SALIDA
                     if producto.cantidad < cantidad_nueva:
                         # Esta validación es una segunda capa de seguridad por si acaso.

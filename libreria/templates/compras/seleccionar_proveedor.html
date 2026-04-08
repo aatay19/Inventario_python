@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Seleccionar Proveedor{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold"><i class="bi bi-cart-plus me-2"></i>Nueva Orden de Pedido / Compra</h2>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white p-3">
+            <h5 class="mb-0">Paso 1: Seleccione el Proveedor</h5>
+        </div>
+        <div class="card-body p-4">
+            <p class="text-muted mb-4">Busque y seleccione el proveedor para el cual desea generar un pedido. Solo se mostrarán los productos asociados a este proveedor en el siguiente paso.</p>
+            
+            <form method="get" class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por nombre o RIF...">
+                    <button type="submit" class="btn btn-primary px-4">Buscar</button>
+                    {% if q %}
+                        <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>RIF</th>
+                            <th>Nombre del Proveedor</th>
+                            <th>Razón Social</th>
+                            <th class="text-end">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in proveedores %}
+                        <tr>
+                            <td class="fw-bold">{{ p.rif }}</td>
+                            <td>{{ p.nombre }}</td>
+                            <td>{{ p.razonsocial }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'compras.nuevo' p.id %}" class="btn btn-success btn-sm px-3">
+                                    Siguiente <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4">No se encontraron proveedores.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

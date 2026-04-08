@@ -60,6 +60,7 @@
           <td>{{ proveedor.direccion }}</td>
           <td>{{ proveedor.dias_descuentos|default:"-" }}</td>
           <td class="text-nowrap">
+            <a href="{% url 'inventario.index' %}?proveedor_id={{ proveedor.id }}" class="btn btn-outline-info btn-sm" title="Ver Productos"><i class="fas fa-box-open"></i></a>
             <a href="{% url 'proveedores.editar' proveedor.id %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
             <a href="{% url 'proveedores.eliminar' proveedor.id %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar este proveedor?');"><i class="fas fa-trash-alt"></i></a>
           </td>

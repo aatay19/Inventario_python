@@ -104,12 +104,12 @@ class Inventario(models.Model):
     costo_anterior = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Costo Anterior", null=True, blank=True)
     stock_minimo = models.IntegerField(verbose_name="Stock Minimo")
     stock_maximo = models.IntegerField(verbose_name="Stock Maximo")
+    proveedores = models.ManyToManyField(Proveedor, blank=True, verbose_name="Proveedores")
 
     @property
     def total_empaques(self):
-        if self.cantidad_por_empaque and self.cantidad_por_empaque > 0:
-            return self.cantidad // self.cantidad_por_empaque
-        return 0
+        # Requerimiento: No se multiplica/divide. La cantidad ya representa los empaques/unidades.
+        return self.cantidad
 
     def __str__(self):
         fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + self.descripcion + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)

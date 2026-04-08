@@ -15,6 +15,12 @@ urlpatterns = [
     path('proveedores/eliminar<int:id>', views.proveedores_eliminar, name='proveedores.eliminar'),
     path('proveedores/editar/<int:id>', views.proveedores_editar, name='proveedores.editar'),
     path('proveedores/importar', views.proveedores_importar, name='proveedores.importar'),
+    
+    # Pedidos / Compras urls
+    path('compras/', views.compras_seleccionar_proveedor, name='compras.index'),
+    path('compras/nuevo/<int:proveedor_id>', views.compras_form_pedido, name='compras.nuevo'),
+    path('compras/procesar/', views.compras_procesar, name='compras.procesar'),
+
     # HistorialProveedoresNotas urls
     path('HistorialProveedoresNotas/', views.historial_proveedores_notas_index, name='HistorialProveedoresNotas.index'),
     path('HistorialProveedoresNotas/crear', views.historial_proveedores_notas_crear, name='HistorialProveedoresNotas.crear'),
