@@ -8,11 +8,23 @@
     </div>
  
     <div class="card-body">
-        <h4 class="card-title">Leer Código de Barras</h4>
-        <div class="row">
-            <div class="col-md-6">
-                <h5>Opción 1: Subir archivo de imagen</h5>
-                <input type="file" id="upload-file" class="form-control" accept="image/*">
+        <h4 class="card-title">Escanear Código de Barras</h4>
+        <p class="text-muted">El escaneo se realiza directamente en su navegador sin enviar imágenes al servidor.</p>
+        
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div id="reader" style="width: 100%; max-width: 500px; margin: auto; border: 1px solid #ccc; border-radius: 8px; overflow: hidden;"></div>
+            </div>
+        </div>
+
+        <div class="row text-center mb-3">
+            <div class="col-12">
+                <button id="start-scan" class="btn btn-primary">Iniciar Cámara</button>
+                <button id="stop-scan" class="btn btn-danger" style="display:none;">Detener Cámara</button>
+                <label for="upload-image" class="btn btn-secondary mb-0">
+                    Subir Imagen
+                    <input type="file" id="upload-image" accept="image/*" style="display:none;">
+                </label>
             </div>
         </div>
  
@@ -28,79 +40,98 @@
 {% endblock %}
  
 {% block scripts %}
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // El campo de código de producto que queremos rellenar. Django lo genera como 'id_codigo_producto'.
         const productCodeInput = document.getElementById('id_codigo_producto');
         const resultadoDiv = document.getElementById('resultado');
-        const uploadFileInput = document.getElementById('upload-file');
-        const startCameraButton = document.getElementById('start-camera');
-        const videoContainer = document.getElementById('video-container');
-        const video = document.getElementById('video');
-        const scanButton = document.getElementById('scan-button');
- 
-        // --- Lógica para Opción 1: Subir Archivo ---
-        uploadFileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                enviarImagenAlServidor(file);
-            }
+        const startScanButton = document.getElementById('start-scan');
+        const stopScanButton = document.getElementById('stop-scan');
+        const uploadImageInput = document.getElementById('upload-image');
+        
+        // Configuramos para soportar todos los formatos de códigos de barras comunes
+        const formatsToSupport = [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.DATA_MATRIX
+        ];
+
+        const html5QrCodeObject = new Html5Qrcode("reader", { 
+            formatsToSupport: formatsToSupport,
+            verbose: false 
         });
- 
-        // --- Lógica para Opción 2: Usar Cámara ---
-        startCameraButton.addEventListener('click', async () => {
-            videoContainer.style.display = 'block';
-            try {
-                // Pedimos la cámara trasera ('environment') que es mejor para escanear
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                video.srcObject = stream;
-            } catch (err) {
-                resultadoDiv.textContent = 'Error al acceder a la cámara: ' + err;
-                resultadoDiv.className = 'alert alert-danger';
-            }
-        });
- 
-        scanButton.addEventListener('click', () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
- 
-            // Convertir el canvas a un archivo (Blob) para enviarlo
-            canvas.toBlob((blob) => {
-                enviarImagenAlServidor(blob, 'scan.png');
-            }, 'image/png');
-        });
- 
-        // --- Función común para enviar la imagen al backend ---
-        async function enviarImagenAlServidor(imageFile, fileName = 'image.png') {
-            const formData = new FormData();
-            formData.append('imagen', imageFile, fileName);
- 
-            resultadoDiv.textContent = 'Procesando...';
-            resultadoDiv.className = 'alert alert-info';
- 
-            try {
-                const response = await fetch("{% url 'decodificar_codigo' %}", {
-                    method: 'POST',
-                    body: formData,
-                });
- 
-                const data = await response.json();
- 
-                if (response.ok && data.success) {
-                    productCodeInput.value = data.codigo; // ¡Pone el código en el campo del formulario!
-                    resultadoDiv.textContent = `Código encontrado (${data.tipo}): ${data.codigo}`;
-                    resultadoDiv.className = 'alert alert-success';
-                } else {
-                    resultadoDiv.textContent = `Error: ${data.error}`;
-                    resultadoDiv.className = 'alert alert-danger';
+
+        // --- Escaneo con Cámara ---
+        startScanButton.addEventListener('click', () => {
+            const config = { 
+                fps: 20, // Aumentamos FPS para mayor fluidez
+                qrbox: { width: 300, height: 200 },
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
                 }
-            } catch (error) {
-                resultadoDiv.textContent = 'Error de red al contactar el servidor.';
+            };
+
+            startScanButton.style.display = 'none';
+            stopScanButton.style.display = 'inline-block';
+            resultadoDiv.textContent = 'Buscando código...';
+            resultadoDiv.className = 'alert alert-info';
+
+            html5QrCodeObject.start(
+                { facingMode: "environment" }, 
+                config,
+                (decodedText, decodedResult) => {
+                    procesarResultado(decodedText);
+                    stopScanner();
+                },
+                (errorMessage) => { }
+            ).catch((err) => {
+                resultadoDiv.textContent = `Error al iniciar cámara: ${err}`;
                 resultadoDiv.className = 'alert alert-danger';
-                console.error('Error en fetch:', error);
+                startScanButton.style.display = 'inline-block';
+                stopScanButton.style.display = 'none';
+            });
+        });
+
+        stopScanButton.addEventListener('click', stopScanner);
+
+        // --- Escaneo por Subida de Archivo ---
+        uploadImageInput.addEventListener('change', (e) => {
+            if (e.target.files.length === 0) return;
+
+            const imageFile = e.target.files[0];
+            resultadoDiv.textContent = 'Procesando imagen (esto puede tardar unos segundos)...';
+            resultadoDiv.className = 'alert alert-info';
+
+            html5QrCodeObject.scanFile(imageFile, true)
+                .then(decodedText => {
+                    procesarResultado(decodedText);
+                })
+                .catch(err => {
+                    resultadoDiv.textContent = `No se pudo leer el código. Intente con una foto más nítida, de cerca y bien iluminada.`;
+                    resultadoDiv.className = 'alert alert-danger';
+                    console.error(err);
+                });
+        });
+
+        function procesarResultado(text) {
+            productCodeInput.value = text;
+            resultadoDiv.textContent = `Código detectado: ${text}`;
+            resultadoDiv.className = 'alert alert-success';
+        }
+
+        function stopScanner() {
+            if (html5QrCodeObject && html5QrCodeObject.isScanning) {
+                html5QrCodeObject.stop().then(() => {
+                    startScanButton.style.display = 'inline-block';
+                    stopScanButton.style.display = 'none';
+                }).catch(err => console.error("Error al detener:", err));
             }
         }
     });

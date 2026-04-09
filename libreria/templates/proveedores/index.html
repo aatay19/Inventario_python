@@ -40,10 +40,9 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Nombre</th>
-          <th>Teléfono</th>
           <th>Razón Social</th>
           <th>RIF</th>
+          <th>Teléfono</th>
           <th>Dirección</th>
           <th>Días de Descuentos</th>
           <th>Acciones</th>
@@ -54,9 +53,8 @@
         <tr>
           <td>{{ proveedor.id }}</td>
           <td>{{ proveedor.nombre }}</td>
-          <td>{{ proveedor.telefono }}</td>
-          <td>{{ proveedor.razonsocial }}</td>
           <td>{{ proveedor.rif }}</td>
+          <td>{{ proveedor.telefono }}</td>
           <td>{{ proveedor.direccion }}</td>
           <td>{{ proveedor.dias_descuentos|default:"-" }}</td>
           <td class="text-nowrap">

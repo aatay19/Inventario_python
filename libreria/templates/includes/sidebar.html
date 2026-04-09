@@ -49,9 +49,13 @@
         <!-- PEDIDOS / COMPRAS -->
         {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
         <li class="nav-item mb-2">
-            <a class="nav-link d-flex align-items-center" href="{% url 'compras.index' %}">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-cart-plus me-2"></i> Pedidos / Compras</span>
             </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'compras.index' %}">➤ Generar Pedido</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_pedidos' %}">➤ Historial de Pedidos</a></li>
+            </ul>
         </li>
         {% endif %}
 
@@ -64,6 +68,7 @@
             <ul class="submenu list-unstyled ms-4">
                 <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento</a></li>
                 <li><a class="nav-link small" href="{% url 'movimientos.index' %}">➤ Lista de Movimientos</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial Salidas Masivas</a></li>
             </ul>
         </li>
 

@@ -31,38 +31,8 @@
 
     <!-- ======= CARDS PRINCIPALES ======= -->
     <div class="row g-4">
-        <!-- Total Proveedores -->
-        <div class="col-md-4 col-lg-4">
-            <div class="card card-dashboard border-0 shadow-sm h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-2">Proveedores</h6>
-                        <h2 class="mb-0 display-6 fw-bold text-primary">{{ total_proveedores|default:"0" }}</h2>
-                    </div>
-                    <div class="icon-shape bg-light text-primary rounded-circle p-3">
-                        <i class="fas fa-truck fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Total Productos -->
-        <div class="col-md-4 col-lg-4">
-            <div class="card card-dashboard border-0 shadow-sm h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-2">Productos</h6>
-                        <h2 class="mb-0 display-6 fw-bold text-success">{{ total_productos|default:"0" }}</h2>
-                    </div>
-                    <div class="icon-shape bg-light text-success rounded-circle p-3">
-                        <i class="fas fa-boxes fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Producto con más movimiento  -->
-        <div class="col-md-4 col-lg-4">
+        <div class="col-12">
             <div class="card card-dashboard border-0 shadow-sm h-100 {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}border-start border-danger border-5{% endif %}" 
                  style="{% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}background-color: #fff5f5;{% endif %}">
                 <div class="card-body d-flex justify-content-between align-items-center">
@@ -89,72 +59,48 @@
         </div>
     </div>
 
-    </div>
-    <!-- ======= TABLA DE CATEGORÍAS ======= -->
+    <!-- ======= TABLA DE ÚLTIMOS MOVIMIENTOS ======= -->
     <div class="row mt-4">
         <div class="col-12">
             <div class="card p-4 shadow-sm border-0">
-                <h5 class="mb-3 fw-bold"><i class="fas fa-tags me-2 text-secondary"></i>Inventario por Categoría</h5>
+                <h5 class="mb-3 fw-bold text-primary"><i class="fas fa-history me-2"></i>Últimos 5 Movimientos</h5>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col">Categoría</th>
-                                <th scope="col" class="text-end">Productos</th>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Producto</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Cantidad</th>
+                                <th scope="col">Proveedor</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in inventario_por_categoria %}
+                            {% for mov in ultimos_movimientos %}
                             <tr>
-                                <td><span class="badge bg-secondary bg-opacity-10 text-dark px-3 py-2">{{ item.nombre }}</span></td>
-                                <td class="text-end fw-bold">{{ item.num_productos }}</td>
+                                <td>{{ mov.fecha_movimiento|date:"d/m/Y H:i" }}</td>
+                                <td class="fw-bold">{{ mov.producto.nombre_producto }}</td>
+                                <td>
+                                    {% if mov.tipo_movimiento == 'ENTRADA' %}
+                                        <span class="badge bg-success">ENTRADA</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">SALIDA</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ mov.cantidad }}</td>
+                                <td>{{ mov.proveedor.nombre|default:"-" }}</td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="2" class="text-center text-muted">No hay productos con categoría para mostrar.</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted">No hay movimientos recientes registrados.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+                <div class="text-end mt-2">
+                    <a href="{% url 'movimientos.index' %}" class="btn btn-sm btn-outline-primary">Ver todo el historial</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Plugin para mostrar etiquetas de datos en las barras -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    
-    // NOTA: El código de la gráfica de barras de productos ha sido eliminado.
-    // Si tenías otras gráficas aquí, su código permanecería.
-    const canvasInventario = document.getElementById('graficaInventario');
-    const labelsCategorias = document.getElementById('cat-labels-data');
-    const valuesCategorias = document.getElementById('cat-values-data');
-
-    // Solo intentar crear la gráfica si el canvas y los datos existen
-    if (canvasInventario && labelsCategorias && valuesCategorias) {
-        // Verificamos que los datos no estén vacíos
-        const catLabels = JSON.parse(labelsCategorias.textContent);
-        const catValues = JSON.parse(valuesCategorias.textContent);
-
-        if (catLabels.length > 0 && catValues.length > 0) {
-            const ctxInventario = canvasInventario.getContext('2d');
-            new Chart(ctxInventario, {
-                type: 'doughnut',
-                data: {
-                    labels: catLabels,
-                    datasets: [{
-                        label: 'Productos por Categoría',
-                        data: catValues,
-                        backgroundColor: ['rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)']
-                    }]
-                },
-                options: { responsive: true }
-            });
-        }
-    }
-});
-</script>
 {% endblock %}

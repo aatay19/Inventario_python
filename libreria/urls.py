@@ -19,7 +19,9 @@ urlpatterns = [
     # Pedidos / Compras urls
     path('compras/', views.compras_seleccionar_proveedor, name='compras.index'),
     path('compras/nuevo/<int:proveedor_id>', views.compras_form_pedido, name='compras.nuevo'),
+    path('compras/confirmar/', views.compras_confirmar, name='compras.confirmar'),
     path('compras/procesar/', views.compras_procesar, name='compras.procesar'),
+    path('compras/exportar/pdf', views.exportar_pedido_pdf, name='compras.exportar_pdf'),
 
     # HistorialProveedoresNotas urls
     path('HistorialProveedoresNotas/', views.historial_proveedores_notas_index, name='HistorialProveedoresNotas.index'),
@@ -44,7 +46,12 @@ urlpatterns = [
     path('movimientos/crear', views.movimientos_inventario_crear, name='movimientos.crear'),
     path('movimientos/editar<int:id_movimiento>', views.movimientos_inventario_editar, name='movimientos.editar'),
     path('movimientos/eliminar<int:id_movimiento>', views.movimientos_inventario_eliminar, name='movimientos.eliminar'),
-    path('movimientos/editar<int:id_movimiento>', views.movimientos_inventario_editar, name='movimientos.editar'),
+    path('movimientos/salida', views.movimientos_salida_form, name='movimientos.salida'),
+    path('movimientos/salida/confirmar', views.movimientos_salida_confirmar, name='movimientos.salida_confirmar'),
+    path('movimientos/salida/procesar', views.movimientos_salida_procesar, name='movimientos.salida_procesar'),
+    path('movimientos/historial/pedidos', views.movimientos_historial_pedidos, name='movimientos.historial_pedidos'),
+    path('movimientos/historial/salidas', views.movimientos_historial_salidas, name='movimientos.historial_salidas'),
+    path('movimientos/historial/exportar/pdf', views.exportar_lote_pdf, name='movimientos.exportar_lote_pdf'),
 
     #usuarios urls
     path('usuarios/', views.usuarios_index, name='usuarios.index'),
@@ -55,7 +62,4 @@ urlpatterns = [
 
     # Backup
     path('configuracion/backup', views.realizar_copia_seguridad, name='backup'),
-
-    # URL para la API de decodificación de código de barras
-    path('api/decodificar-codigo/', views.decodificar_codigo_barras, name='decodificar_codigo'),
 ]

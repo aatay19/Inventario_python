@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Confirmar Salida{% endblock %}
+{% block content %}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'movimientos.index' %}">Movimientos</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'movimientos.salida' %}">Salida Masiva</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Confirmar</li>
+              </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Paso 2: <span class="text-primary">Confirmar Destino y Productos</span></h2>
+        </div>
+    </div>
+
+    <form action="{% url 'movimientos.salida_procesar' %}" method="post">
+        {% csrf_token %}
+
+        <div class="row g-4">
+            <!-- Selección de Destino (Proveedor) -->
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 border-top border-primary border-5 h-100">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3"><i class="fas fa-truck-loading me-2 text-primary"></i>Destino del Descargo</h5>
+                        <p class="text-muted small">Seleccione el proveedor o entidad a la que se le está asignando esta salida de inventario.</p>
+                        
+                        <div class="mb-3">
+                            <label for="proveedor_id" class="form-label fw-bold">Proveedor / Destinatario:</label>
+                            <select name="proveedor_id" id="proveedor_id" class="form-select form-select-lg border-primary" required>
+                                <option value="" selected disabled>-- Seleccione un Proveedor --</option>
+                                {% for prov in proveedores %}
+                                    <option value="{{ prov.id }}">{{ prov.nombre }} ({{ prov.rif }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de Productos -->
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="fas fa-clipboard-check me-2"></i>Resumen de Salida</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cant. Solicitada</th>
+                                    <th>Unidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <input type="hidden" name="producto_id[]" value="{{ item.producto.id_producto }}">
+                                    <input type="hidden" name="unidad_empaque[]" value="{{ item.unidad }}">
+                                    <input type="hidden" name="cant_empaques[]" value="{{ item.cant_empaques }}">
+                                    <input type="hidden" name="total_unidades[]" value="{{ item.total }}">
+                                    
+                                    <td>
+                                        <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
+                                        <small class="text-muted">{{ item.producto.codigo_producto }}</small>
+                                    </td>
+                                    <td class="text-center fw-bold text-danger fs-5">
+                                        {{ item.total }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">{{ item.unidad }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer bg-white py-3 text-end mt-auto">
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-arrow-left me-2"></i>Editar Productos
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg px-4 shadow">
+                            <i class="fas fa-check-circle me-2"></i>Confirmar y Procesar Salida
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('submit', function(e) {
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Procesando...';
+    }
+});
+</script>
+
+{% endblock %}

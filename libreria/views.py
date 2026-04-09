@@ -12,8 +12,7 @@ from django import forms
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from PIL import Image, ImageEnhance
-from pyzbar.pyzbar import decode
+from fpdf import FPDF
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
@@ -21,8 +20,7 @@ from django.core.management import call_command
 import openpyxl
 import csv
 import io
-from django.template.loader import get_template
-from xhtml2pdf import pisa
+import uuid
 # Create your views here.
 # libreria/views.py
  
@@ -59,11 +57,6 @@ def index(request):
     # 2. Total de productos
     total_productos = Inventario.objects.count()
 
-    # 3. Valor total del inventario (usando 'cantidad' y 'costo_actual' de tu modelo)
-    valor_inventario = Inventario.objects.aggregate(
-        total=Sum(F('cantidad') * F('costo_actual'))
-    )['total'] or 0
-
     # 4. Producto con más movimientos (ENTRADA y SALIDA)
     pm = MovimientosInventario.objects.values(
         'producto__nombre_producto',
@@ -82,62 +75,18 @@ def index(request):
         'stock': pm['producto__cantidad'] if pm else 0,
     }
 
-    # --- DATOS PARA TABLAS Y GRÁFICAS ---
+    # 5. LISTADO DE ÚLTIMOS 5 MOVIMIENTOS (NUEVO)
+    ultimos_movimientos = MovimientosInventario.objects.select_related('producto', 'proveedor').order_by('-fecha_movimiento')[:5]
 
-    # 5. Datos para la tabla: Top 5 productos con más movimientos
-    top_5_movidos = MovimientosInventario.objects.values(
-        'producto__nombre_producto',
-        'producto__stock_minimo',
-        'producto__stock_maximo',
-        'producto__cantidad'
-    ).annotate(
-        total_movimientos=Sum('cantidad')
-    ).order_by('-total_movimientos')[:5]
-    
-    top_productos = [{
-        'nombre': i['producto__nombre_producto'], 
-        'total_movimientos': i['total_movimientos'],
-        'min': i['producto__stock_minimo'],
-        'max': i['producto__stock_maximo'],
-        'stock': i['producto__cantidad']
-    } for i in top_5_movidos]
-
-    # 6. Gráfica de dona: Distribución de productos por categoría
-    # Obtenemos los nombres legibles de las categorías desde el modelo
-    categoria_display_map = dict(Inventario._meta.get_field('categoria').choices)
-
-    distribucion_inventario = Inventario.objects.values('categoria').annotate(
-        num_productos=Count('id_producto')
-    ).filter(num_productos__gt=0).order_by('-num_productos')
-
-    # Usamos el mapa para obtener el nombre legible. Si no lo encuentra, usa el original.
-    labels_categorias = [
-        categoria_display_map.get(item['categoria'], item['categoria']) for item in distribucion_inventario
-    ]
-    values_categorias = [item['num_productos'] for item in distribucion_inventario]
-
-    # 7. Datos para la tabla de inventario por categoría
-    # Reutilizamos la consulta anterior y la adaptamos para la tabla
-    inventario_por_categoria = []
-    for item in distribucion_inventario:
-        inventario_por_categoria.append({
-            'nombre': categoria_display_map.get(item['categoria'], item['categoria']),
-            'num_productos': item['num_productos']
-        })
-
-    # 8. Alerta de Stock Bajo (Cualquier producto que esté en su mínimo o menos)
+    # 6. Alerta de Stock Bajo
     productos_bajo_stock = Inventario.objects.filter(
         cantidad__lte=F('stock_minimo')
     ).values('nombre_producto', 'cantidad', 'stock_minimo')
 
     # --- CONTEXTO PARA LA PLANTILLA ---
     context = {
-        'total_proveedores': total_proveedores,
-        'total_productos': total_productos,
-        'valor_inventario': valor_inventario,
         'producto_top': producto_top,
-        'inventario_por_categoria': inventario_por_categoria,
-        'top_productos': top_productos,
+        'ultimos_movimientos': ultimos_movimientos,
         'productos_bajo_stock': productos_bajo_stock,
         'num_bajo_stock': productos_bajo_stock.count(),
     }
@@ -492,28 +441,56 @@ def exportar_inventario_pdf(request):
     # Calcular totales generales para el reporte
     total_items = productos.count()
     valor_total_inventario = sum(p.cantidad * p.costo_actual for p in productos)
+    fecha_emision = timezone.now().strftime('%d/%m/%Y %H:%M')
 
-    context = {
-        'productos': productos,
-        'total_items': total_items,
-        'valor_total_inventario': valor_total_inventario,
-        'fecha_emision': timezone.now()
-    }
-
-    # Renderizar template
-    template_path = 'inventario/reporte_pdf.html'
-    template = get_template(template_path)
-    html = template.render(context)
-
-    # Crear respuesta PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="inventario_reporte.pdf"'
-
-    # Generar PDF
-    pisa_status = pisa.CreatePDF(html, dest=response)
+    # Crear PDF usando fpdf2 (Pure Python)
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
     
-    if pisa_status.err:
-        return HttpResponse('Hubo un error al generar el PDF <pre>' + html + '</pre>')
+    # Título
+    pdf.cell(0, 10, "Reporte de Inventario General", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 10, f"Fecha de Emision: {fecha_emision}", ln=True, align="C")
+    pdf.ln(5)
+
+    # Resumen
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 10, f"Resumen General:", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 7, f"Total de Productos: {total_items}", ln=True)
+    pdf.cell(0, 7, f"Valor Total del Inventario: {valor_total_inventario:,.2f}", ln=True)
+    pdf.ln(5)
+
+    # Tabla de Productos
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_fill_color(240, 240, 240)
+    
+    # Encabezados
+    pdf.cell(30, 10, "Codigo", 1, 0, "C", True)
+    pdf.cell(70, 10, "Producto", 1, 0, "C", True)
+    pdf.cell(30, 10, "Categoria", 1, 0, "C", True)
+    pdf.cell(20, 10, "Stock", 1, 0, "C", True)
+    pdf.cell(40, 10, "Valor Total", 1, 1, "C", True)
+
+    pdf.set_font("Helvetica", "", 9)
+    for p in productos:
+        valor_total = p.cantidad * p.costo_actual
+        
+        # Truncar nombres largos para que no se desborden
+        nombre = p.nombre_producto[:35]
+        categoria = p.get_categoria_display()[:15]
+        
+        pdf.cell(30, 8, str(p.codigo_producto), 1, 0, "L")
+        pdf.cell(70, 8, nombre, 1, 0, "L")
+        pdf.cell(30, 8, categoria, 1, 0, "L")
+        pdf.cell(20, 8, str(p.cantidad), 1, 0, "C")
+        pdf.cell(40, 8, f"{valor_total:,.2f}", 1, 1, "R")
+
+    # Preparar la respuesta HTTP
+    response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="inventario_reporte.pdf"'
+    
     return response
 
 #======================================
@@ -798,64 +775,128 @@ def movimientos_inventario_eliminar(request, id_movimiento):
         return redirect('movimientos.index')
     
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
-#======================================
-# API para decodificar código de barras
-#========================================
+
 
 @login_required
-@csrf_exempt # Usamos csrf_exempt para simplificar el ejemplo con AJAX. En producción, considera usar el token CSRF de Django.
-def decodificar_codigo_barras(request):
-    if request.method == 'POST' and request.FILES.get('imagen'):
-        try:
-            imagen_subida = request.FILES['imagen']
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_salida_form(request):
+    from .models import UnidadEmpaqueChoices
+    qs = Inventario.objects.all().order_by('nombre_producto')
+    unidades_choices = UnidadEmpaqueChoices.choices
+    
+    # Pre-renderizar las opciones de unidades para ahorrar JS en el front
+    unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
+
+    # Preparar datos para el buscador en el frontend
+    productos_json = []
+    for p in qs:
+        productos_json.append({
+            'id': p.id_producto,
+            'nombre': p.nombre_producto,
+            'codigo': p.codigo_producto,
+            'stock': p.cantidad,
+            'unidades_html': unidades_html,
+            'id_unidad_default': p.unidad_empaque
+        })
+
+    return render(request, 'movimientos/form_salida.html', {
+        'productos_json': productos_json,
+        'unidades_choices': unidades_choices,
+    })
+
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_salida_confirmar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        
+        # Filtramos solo los que tienen cantidad > 0
+        items_resumen = []
+        for i in range(len(producto_ids)):
+            cant = int(totales[i])
+            if cant > 0:
+                producto = Inventario.objects.get(id_producto=producto_ids[i])
+                items_resumen.append({
+                    'producto': producto,
+                    'unidad': unidades_empaque[i],
+                    'cant_empaques': cants_empaques[i],
+                    'total': cant,
+                })
+        
+        if not items_resumen:
+            messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
+            return redirect('movimientos.salida')
             
-            # --- INICIO DE MEJORAS DE IMAGEN ---
-            img = Image.open(imagen_subida)
+        proveedores = Proveedor.objects.all().order_by('nombre')
+        
+        return render(request, 'movimientos/confirmar_salida.html', {
+            'items': items_resumen,
+            'proveedores': proveedores
+        })
+    return redirect('movimientos.index')
 
-            # 1. Convertir a escala de grises (mejora la detección)
-            img = img.convert('L')
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_salida_procesar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        proveedor_id = request.POST.get('proveedor_id')
 
-            # 2. Aumentar el contraste para que las barras sean más nítidas
-            enhancer = ImageEnhance.Contrast(img)
-            img = enhancer.enhance(2.0) # El valor 2.0 es un buen punto de partida, puedes ajustarlo
+        if not proveedor_id:
+            messages.error(request, 'Debe seleccionar un proveedor para el descargo.')
+            return redirect('movimientos.salida')
 
-            # 3. (NUEVO) Binarización: Convertir la imagen a blanco y negro puros.
-            #    Esto es muy efectivo para que el lector se enfoque solo en las barras.
-            #    Un umbral de 128 es un buen valor inicial.
-            umbral = 128
-            img = img.point(lambda p: 255 if p > umbral else 0)
-            img = img.convert('1') # Convertir al modo de 1-bit (blanco y negro)
+        proveedor = Proveedor.objects.get(id=proveedor_id)
+        ahora = timezone.now()
+        lote_id = f"S-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
+        salidas_creadas = 0
+        try:
+            with transaction.atomic():
+                for i in range(len(producto_ids)):
+                    producto = Inventario.objects.get(id_producto=producto_ids[i])
+                    cant_salida = int(totales[i])
+                    
+                    if cant_salida > 0:
+                        # VALIDACIÓN DE STOCK
+                        if producto.cantidad < cant_salida:
+                            raise forms.ValidationError(f"Stock insuficiente para {producto.nombre_producto}. Disponible: {producto.cantidad}")
 
-
-            # --- PASO DE DEPURACIÓN: GUARDAR LA IMAGEN PROCESADA ---
-            # Descomenta la siguiente línea para guardar la imagen final.
-            # Se guardará en la carpeta principal de tu proyecto.
-            # Revisa este archivo para ver si el código de barras es legible.
-            img.save("imagen_procesada_final.png")
-
-            # --- FIN DE MEJORAS DE IMAGEN ---
-
-            codigos_decodificados = decode(img)
-
-            if not codigos_decodificados:
-                return JsonResponse({'error': 'No se encontró ningún código de barras en la imagen.'}, status=400)
-
-            # Extraer los datos del primer código encontrado
-            primer_codigo = codigos_decodificados[0]
-            codigo_data = primer_codigo.data.decode('utf-8')
-            codigo_type = primer_codigo.type
-
-            # Devolver el resultado como JSON
-            return JsonResponse({
-                'success': True,
-                'codigo': codigo_data,
-                'tipo': codigo_type
-            })
-
+                        # Crear el movimiento
+                        MovimientosInventario.objects.create(
+                            producto=producto,
+                            tipo_movimiento='SALIDA',
+                            cantidad=cant_salida,
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=int(cants_empaques[i]),
+                            proveedor=proveedor,
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id
+                        )
+                        # Actualizar stock
+                        producto.cantidad -= cant_salida
+                        producto.save()
+                        salidas_creadas += 1
+            
+            messages.success(request, f'Se registraron exitosamente {salidas_creadas} salidas del inventario con descargo a {proveedor.nombre}.')
+            return redirect('movimientos.index')
+            
+        except forms.ValidationError as e:
+            messages.error(request, str(e))
+            return redirect('movimientos.salida')
         except Exception as e:
-            return JsonResponse({'error': f'Ocurrió un error al procesar la imagen: {str(e)}'}, status=500)
+            messages.error(request, f'Error al procesar las salidas: {str(e)}')
+            return redirect('movimientos.salida')
 
-    return JsonResponse({'error': 'Método no permitido o falta el archivo de imagen.'}, status=405)
+    return redirect('movimientos.index')
+#======================================
+# La decodificación se realiza ahora en el Front-end con Html5-QRCode
 
 #usuarios views
 @login_required
@@ -996,6 +1037,46 @@ def compras_form_pedido(request, proveedor_id):
         'unidades_choices': unidades_choices
     })
 
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def compras_confirmar(request):
+    if request.method == 'POST':
+        proveedor_id = request.POST.get('proveedor_id')
+        proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+        
+        producto_ids = request.POST.getlist('producto_id[]')
+        items_seleccionados = request.POST.getlist('items_seleccionados[]')
+        minimos = request.POST.getlist('minimo[]')
+        maximos = request.POST.getlist('maximo[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        
+        items_resumen = []
+        for i in range(len(producto_ids)):
+            p_id = producto_ids[i]
+            if p_id in items_seleccionados:
+                producto = Inventario.objects.get(id_producto=p_id)
+                items_resumen.append({
+                    'producto': producto,
+                    'min': minimos[i],
+                    'max': maximos[i],
+                    'unidad': unidades_empaque[i],
+                    'cant_empaques': cants_empaques[i],
+                    'total': totales[i],
+                })
+        
+        if not items_resumen:
+            messages.warning(request, "Debe seleccionar al menos un producto para el pedido.")
+            return redirect('compras.nuevo', proveedor_id=proveedor_id)
+            
+        return render(request, 'compras/confirmar_pedido.html', {
+            'proveedor': proveedor,
+            'items': items_resumen
+        })
+    return redirect('compras.index')
+
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
 def compras_procesar(request):
@@ -1003,43 +1084,30 @@ def compras_procesar(request):
         proveedor_id = request.POST.get('proveedor_id')
         proveedor = get_object_or_404(Proveedor, id=proveedor_id)
         
-        # Obtener listas de datos del formulario (arrays de inputs con el mismo nombre)
-        items_seleccionados = request.POST.getlist('items_seleccionados[]')
-        
         producto_ids = request.POST.getlist('producto_id[]')
         minimos = request.POST.getlist('minimo[]')
         maximos = request.POST.getlist('maximo[]')
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
-        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
 
+        ahora = timezone.now()
+        lote_id = f"E-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         ordenes_creadas = 0
-        
         try:
             with transaction.atomic():
                 for i in range(len(producto_ids)):
-                    p_id = producto_ids[i]
+                    producto = Inventario.objects.get(id_producto=producto_ids[i])
                     
-                    # SI EL PRODUCTO NO ESTÁ MARCADO EN EL CHECKBOX, LO IGNORAMOS
-                    if p_id not in items_seleccionados:
-                        continue
-                        
-                    producto = Inventario.objects.get(id_producto=p_id)
-                    
-                    # 1. Actualizar Mínimos y Máximos (siempre se actualizan)
+                    # 1. Actualizar Mínimos y Máximos
                     producto.stock_minimo = int(minimos[i])
                     producto.stock_maximo = int(maximos[i])
-                    
-                    # Sincronizar también la unidad de empaque por defecto del producto
                     producto.unidad_empaque = unidades_empaque[i]
-                    producto.cantidad_por_empaque = int(cants_por_empaque[i])
                     producto.save()
                     
-                    # 2. Si hay cantidad a pedir, crear movimiento de entrada
+                    # 2. Entrada de inventario
                     cant_pedir = int(totales[i])
                     if cant_pedir > 0:
-                        # Crear el movimiento
                         MovimientosInventario.objects.create(
                             producto=producto,
                             tipo_movimiento='ENTRADA',
@@ -1047,14 +1115,14 @@ def compras_procesar(request):
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=int(cants_empaques[i]),
                             proveedor=proveedor,
-                            fecha_movimiento=timezone.now()
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id
                         )
-                        # Actualizar stock físico
                         producto.cantidad += cant_pedir
                         producto.save()
                         ordenes_creadas += 1
             
-            messages.success(request, f'Pedido procesado. Se actualizaron niveles de stock y se registraron {ordenes_creadas} entradas.')
+            messages.success(request, f'Pedido procesado exitosamente. Se registraron {ordenes_creadas} entradas de productos.')
             return redirect('compras.index')
             
         except Exception as e:
@@ -1062,3 +1130,192 @@ def compras_procesar(request):
             return redirect('compras.nuevo', proveedor_id=proveedor_id)
 
     return redirect('compras.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def exportar_pedido_pdf(request):
+    # Obtener productos con stock <= mínimo
+    productos = Inventario.objects.filter(cantidad__lte=F('stock_minimo')).order_by('nombre_producto')
+    
+    fecha_emision = timezone.now().strftime('%d/%m/%Y %H:%M')
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    
+    # Encabezado
+    pdf.cell(0, 10, "Reporte de Sugerencia de Pedido (Stock Bajo)", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 10, f"Generado el: {fecha_emision}", ln=True, align="C")
+    pdf.ln(5)
+    
+    if not productos.exists():
+        pdf.set_font("Helvetica", "I", 12)
+        pdf.cell(0, 20, "No hay productos con stock bajo actualmente.", ln=True, align="C")
+    else:
+        # Tabla
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(220, 53, 69) # Rojo suave para alerta
+        pdf.set_text_color(255, 255, 255)
+        
+        pdf.cell(70, 10, "Producto", 1, 0, "C", True)
+        pdf.cell(30, 10, "Stock Act.", 1, 0, "C", True)
+        pdf.cell(30, 10, "Stock Min.", 1, 0, "C", True)
+        pdf.cell(60, 10, "Pedido Sugerido", 1, 1, "C", True)
+        
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(0, 0, 0)
+        
+        for p in productos:
+            sugerido = p.stock_maximo - p.cantidad
+            if sugerido < 0: sugerido = 0
+            
+            pdf.cell(70, 10, p.nombre_producto[:35], 1, 0, "L")
+            pdf.cell(30, 10, str(p.cantidad), 1, 0, "C")
+            pdf.cell(30, 10, str(p.stock_minimo), 1, 0, "C")
+            pdf.cell(60, 10, f"Pedir {sugerido} unid. aprox.", 1, 1, "R")
+            
+    response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="pedido_sugerido.pdf"'
+    return response
+
+# --- NUEVAS VISTAS DE HISTORIAL AGRUPADO ---
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_historial_pedidos(request):
+    return _historial_agrupado(request, 'ENTRADA', 'Historial de Pedidos y Entradas')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_historial_salidas(request):
+    return _historial_agrupado(request, 'SALIDA', 'Historial de Salidas Masivas')
+
+def _historial_agrupado(request, tipo, titulo):
+    q = request.GET.get('q', '').strip()
+    
+    # Obtenemos movimientos filtrados por tipo
+    qs = MovimientosInventario.objects.filter(tipo_movimiento=tipo).select_related('producto', 'proveedor')
+    
+    if q:
+        qs = qs.filter(
+            Q(producto__nombre_producto__icontains=q) |
+            Q(proveedor__nombre__icontains=q) |
+            Q(proveedor__razonsocial__icontains=q)
+        )
+    
+    # Agrupamos por codigo_lote (si existe) o por fecha (exacta)
+    # Para los nuevos usamos codigo_lote. Para los viejos, la fecha.
+    historial = qs.values('codigo_lote', 'fecha_movimiento', 'proveedor__nombre', 'proveedor__razonsocial', 'proveedor__rif') \
+                  .annotate(
+                      total_items=Count('id_movimiento'),
+                      total_unidades=Sum('cantidad')
+                  ).order_by('-fecha_movimiento')
+
+    lotes = []
+    # Procesar los resultados de values() para agrupar realmente por codigo_lote o fecha
+    # Usaremos un set para no repetir lotes ya procesados
+    lotes_procesados = set()
+    
+    for grupo in historial:
+        # Definir la clave de agrupación: si hay codigo_lote, lo usamos. Si no, la fecha.
+        key = grupo['codigo_lote'] if grupo['codigo_lote'] else f"FIXED-{grupo['fecha_movimiento']}-{grupo['proveedor__nombre']}"
+        
+        if key in lotes_procesados:
+            continue
+            
+        if grupo['codigo_lote']:
+            detalles = qs.filter(codigo_lote=grupo['codigo_lote'])
+        else:
+            detalles = qs.filter(
+                fecha_movimiento=grupo['fecha_movimiento'],
+                proveedor__nombre=grupo['proveedor__nombre']
+            )
+            
+        lotes.append({
+            'info': grupo,
+            'detalles': detalles,
+            'lote_key': key
+        })
+        lotes_procesados.add(key)
+
+    # Paginación
+    paginator = Paginator(lotes, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'movimientos/historial_lotes.html', {
+        'page_obj': page_obj,
+        'titulo': titulo,
+        'tipo': tipo,
+        'q': q
+    })
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def exportar_lote_pdf(request):
+    fecha_str = request.GET.get('fecha')
+    prov_nombre = request.GET.get('prov')
+    tipo = request.GET.get('tipo', 'ENTRADA')
+    lote_id = request.GET.get('lote')
+    
+    try:
+        if lote_id:
+            qs = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
+        else:
+            qs = MovimientosInventario.objects.filter(
+                fecha_movimiento=fecha_str,
+                proveedor__nombre=prov_nombre,
+                tipo_movimiento=tipo
+            ).select_related('producto', 'proveedor')
+        
+        if not qs.exists():
+            messages.error(request, "No se encontró el lote especificado.")
+            return redirect('movimientos.index')
+            
+        # Generar PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 16)
+        
+        titulo_doc = "Comprobante de Pedido / Entrada" if tipo == 'ENTRADA' else "Comprobante de Salida Masiva"
+        pdf.cell(0, 10, titulo_doc, ln=True, align="C")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 10, f"Fecha: {qs[0].fecha_movimiento.strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align="C")
+        pdf.ln(5)
+        
+        # Datos del Proveedor / Destino
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 10, "Datos del Proveedor / Destinatario:", ln=True)
+        pdf.set_font("Helvetica", "", 11)
+        pdf.cell(0, 7, f"Nombre/Razon Social: {qs[0].proveedor.nombre}", ln=True)
+        pdf.cell(0, 7, f"RIF: {qs[0].proveedor.rif}", ln=True)
+        pdf.ln(5)
+        
+        # Tabla de Productos
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(80, 10, "Producto", 1, 0, "C", True)
+        pdf.cell(40, 10, "Cant. Movida", 1, 0, "C", True)
+        pdf.cell(30, 10, "Empaques", 1, 0, "C", True)
+        pdf.cell(40, 10, "Unidad", 1, 1, "C", True)
+        
+        pdf.set_font("Helvetica", "", 10)
+        for item in qs:
+            pdf.cell(80, 8, item.producto.nombre_producto[:40], 1, 0, "L")
+            pdf.cell(40, 8, str(item.cantidad), 1, 0, "C")
+            pdf.cell(30, 8, str(item.cantidad_empaques), 1, 0, "C")
+            pdf.cell(40, 8, str(item.unidad_empaque), 1, 1, "C")
+        
+        pdf.ln(10)
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.cell(0, 10, "Documento generado automaticamente por el sistema de inventario.", ln=True, align="R")
+        
+        response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+        filename = f"comprobante_{tipo.lower()}_{qs[0].fecha_movimiento.strftime('%Y%m%d_%H%M%S')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+        
+    except Exception as e:
+        messages.error(request, f"Error al generar el PDF: {str(e)}")
+        return redirect('movimientos.index')

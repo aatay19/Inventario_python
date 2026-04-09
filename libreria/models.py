@@ -135,6 +135,7 @@ class MovimientosInventario(models.Model):
     cantidad_empaques = models.IntegerField(verbose_name="Cantidad de Empaques", default=0, blank=True, null=True, help_text="Cantidad de bultos, cajas o paquetes.")
     fecha_movimiento = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Movimiento")
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor")
+    codigo_lote = models.CharField(max_length=50, null=True, blank=True, verbose_name="Código de Lote")
 
     def __str__(self):
         return f"{self.tipo_movimiento} - {self.producto.nombre_producto} - {self.cantidad} unidades el {self.fecha_movimiento:%Y-%m-%d}"

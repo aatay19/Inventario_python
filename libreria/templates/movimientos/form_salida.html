@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Salida de Inventario{% endblock %}
+{% block content %}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'movimientos.index' %}">Movimientos</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Salida Masiva</li>
+              </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Registrar <span class="text-danger">Salida Masiva</span> de Inventario</h2>
+        </div>
+    </div>
+
+    <form action="{% url 'movimientos.salida_confirmar' %}" method="post" id="form-salida">
+        {% csrf_token %}
+
+        <!-- Buscador Dinámico -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body bg-light">
+                <label class="fw-bold mb-2"><i class="fas fa-search me-1"></i> Buscar Producto para la Salida</label>
+                <div class="position-relative">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-barcode text-muted"></i></span>
+                        <input type="text" id="buscador-producto" class="form-control border-start-0" 
+                               placeholder="Escriba el nombre o escanee el código..." autocomplete="off">
+                    </div>
+                    <!-- Resultados de búsqueda -->
+                    <div id="resultados-busqueda" class="list-group shadow position-absolute w-100 mt-1" 
+                         style="z-index: 1050; display: none; max-height: 300px; overflow-y: auto;">
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">Los productos se irán agregando a la lista inferior a medida que los seleccione.</small>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-danger text-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-list me-2"></i>Productos Seleccionados para Salida</h5>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0" id="tabla-salida">
+                    <thead class="table-dark text-center">
+                        <tr class="small">
+                            <th style="width: 25%;">Producto</th>
+                            <th style="width: 10%;">Stock</th>
+                            <th style="width: 15%;">Unid. Empaque</th>
+                            <th style="width: 15%;">Cant. a Sacar</th>
+                            <th style="width: 10%;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-tabla">
+                        <!-- Las filas se agregarán aquí dinámicamente -->
+                        <tr id="fila-vacia">
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="fas fa-shopping-basket fs-1 mb-3 d-block"></i>
+                                No hay productos en la lista. Use el buscador superior para agregar productos.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card-footer bg-white py-3 border-top">
+                <div class="row align-items-center">
+                    <div class="col-md-8 text-muted small">
+                        <i class="fas fa-info-circle me-1"></i> 
+                        <strong>Paso 1:</strong> Seleccione los productos y cantidades. En el siguiente paso seleccionará el proveedor.
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <a href="{% url 'movimientos.index' %}" class="btn btn-outline-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" disabled>
+                            Siguiente <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Datos en JSON para el buscador (JS) -->
+{{ productos_json|json_script:"productos-data" }}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador-producto');
+    const resultados = document.getElementById('resultados-busqueda');
+    const cuerpoTabla = document.getElementById('cuerpo-tabla');
+    const filaVacia = document.getElementById('fila-vacia');
+    const btnProcesar = document.getElementById('btn-procesar');
+    const formSalida = document.getElementById('form-salida');
+
+    // Cargar productos del script tag
+    const productos = JSON.parse(document.getElementById('productos-data').textContent);
+    const seleccionados = new Set();
+
+    // --- Lógica del Buscador ---
+    buscador.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        if (query.length < 1) {
+            resultados.style.display = 'none';
+            return;
+        }
+
+        const matches = productos.filter(p => 
+            p.nombre.toLowerCase().includes(query) || 
+            p.codigo.toLowerCase().includes(query)
+        ).slice(0, 10); // Limitar a 10 resultados
+
+        if (matches.length > 0) {
+            resultados.innerHTML = matches.map(p => `
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
+                        onclick="agregarProducto(${p.id})">
+                    <div>
+                        <strong>${p.nombre}</strong><br>
+                        <small class="text-muted">${p.codigo}</small>
+                    </div>
+                    <span class="badge ${p.stock <= 0 ? 'bg-danger' : 'bg-primary'} rounded-pill">Stock: ${p.stock}</span>
+                </button>
+            `).join('');
+            resultados.style.display = 'block';
+        } else {
+            resultados.style.display = 'none';
+        }
+    });
+
+    // --- Agregar Producto a la Tabla ---
+    window.agregarProducto = function(id) {
+        if (seleccionados.has(id)) {
+            alert("Este producto ya está en la lista.");
+            buscador.value = '';
+            resultados.style.display = 'none';
+            return;
+        }
+
+        const p = productos.find(prod => prod.id === id);
+        if (!p) return;
+
+        if (filaVacia) filaVacia.remove();
+
+        const tr = document.createElement('tr');
+        tr.id = `fila-${id}`;
+        tr.innerHTML = `
+            <input type="hidden" name="producto_id[]" value="${id}">
+            <input type="hidden" name="items_seleccionados[]" value="${id}">
+            <input type="hidden" name="cant_empaques[]" id="hidden-cant-${id}" value="0">
+            
+            <td class="fw-bold">
+                ${p.nombre}
+                <div class="text-muted x-small">${p.codigo}</div>
+            </td>
+            <td class="text-center">
+                <span class="badge ${p.stock <= 0 ? 'bg-danger' : 'bg-secondary'}">${p.stock}</span>
+            </td>
+            <td>
+                <select name="unidad_empaque[]" class="form-select form-select-sm" id="select-unid-${id}">
+                    ${p.unidades_html}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="total_unidades[]" value="0" min="1" max="${p.stock}" 
+                       class="form-control form-control-sm text-center fw-bold border-danger input-cant" 
+                       oninput="actualizarCant(${id}, ${p.stock}, this.value)">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removerProducto(${id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+
+        cuerpoTabla.appendChild(tr);
+        seleccionados.add(id);
+
+        // Seleccionar la unidad por defecto
+        if (p.id_unidad_default) {
+            document.getElementById(`select-unid-${id}`).value = p.id_unidad_default;
+        }
+        
+        buscador.value = '';
+        resultados.style.display = 'none';
+        actualizarBotonProcesar();
+    };
+
+    window.removerProducto = function(id) {
+        document.getElementById(`fila-${id}`).remove();
+        seleccionados.delete(id);
+        
+        if (cuerpoTabla.querySelectorAll('tr:not(#fila-vacia)').length === 0) {
+            cuerpoTabla.appendChild(filaVacia);
+        }
+        actualizarBotonProcesar();
+    };
+
+    window.actualizarCant = function(id, stock, val) {
+        const v = parseInt(val) || 0;
+        document.getElementById(`hidden-cant-${id}`).value = v;
+        const input = document.getElementById(`fila-${id}`).querySelector('.input-cant');
+        
+        if (v > stock) {
+            input.classList.add('is-invalid');
+        } else {
+            input.classList.remove('is-invalid');
+        }
+    };
+
+    function actualizarBotonProcesar() {
+        btnProcesar.disabled = seleccionados.size === 0;
+    }
+
+    // Cerrar resultados al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
+            resultados.style.display = 'none';
+        }
+    });
+
+    // Prevenir doble envío
+    formSalida.addEventListener('submit', function() {
+        btnProcesar.disabled = true;
+        btnProcesar.innerHTML = 'Siguiente <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>';
+    });
+});
+</script>
+<style>
+    .x-small { font-size: 0.75rem; }
+    .list-group-item:hover { background-color: #f8f9fa; cursor: pointer; }
+    .input-cant:focus { box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25); border-color: #dc3545; }
+    .table-dark { --bs-table-bg: #212529; }
+    .row-locked { background-color: #f8f9fa; opacity: 0.8; }
+</style>
+{% endblock %}
