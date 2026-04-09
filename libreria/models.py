@@ -85,7 +85,6 @@ class Inventario(models.Model):
         help_text="Código interno único (p. ej. SKU)."
     )
     nombre_producto = models.CharField(max_length=100, verbose_name="Nombre del Producto")
-    descripcion = models.TextField(verbose_name="Descripcion del Producto")
     categoria = models.CharField(
         max_length=20,
         choices=CategoriaChoices.choices,

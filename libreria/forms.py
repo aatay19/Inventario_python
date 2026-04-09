@@ -40,7 +40,7 @@ class InventarioForm(forms.ModelForm):
         # 6. CANTIDAD UNITARIA, 7. UNIDAD DEL EMPAQUE, 8. CANTIDAD POR EMPAQUE, 
         # 9. TOTAL DE EMPAQUES, 10. COSTO ACTUAL, 11. COSTO ANTERIOR
         field_order = [
-            'codigo_producto', 'nombre_producto', 'descripcion', 'categoria', 
+            'codigo_producto', 'nombre_producto', 'categoria', 
             'cantidad', 'unidad_empaque', 'cantidad_por_empaque', 'total_empaques', 
             'costo_actual', 'costo_anterior', 'stock_minimo', 'stock_maximo', 'proveedores'
         ]
@@ -51,7 +51,6 @@ class InventarioForm(forms.ModelForm):
                 'maxlength': '50',
             }),
             'nombre_producto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del producto'}),
-            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'categoria': forms.Select(attrs={'class': 'form-control'}),
             'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'unidad_empaque': forms.Select(attrs={'class': 'form-control'}),

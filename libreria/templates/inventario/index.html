@@ -33,7 +33,7 @@
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
-        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por código, nombre o descripción...">
+        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por código o nombre...">
       </div>
     </div>
     <div class="col-md-3">
@@ -71,7 +71,6 @@
           <th>ID</th>
           <th>Nombre del producto</th>
           <th>Código</th>
-          <th>Descripción</th>
           <th>Costo</th>
           <th>Categoría</th>
           <th>Cantidad</th>
@@ -88,7 +87,6 @@
           <td>{{ producto.id_producto }}</td>
           <td>{{ producto.nombre_producto }}</td>
           <td>{{ producto.codigo_producto }}</td>
-          <td>{{ producto.descripcion|truncatechars:50 }}</td>
           <td>Bs {{ producto.costo_actual|floatformat:2 }}</td>
           <td>{{ producto.get_categoria_display }}</td>
           <td>

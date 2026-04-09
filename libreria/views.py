@@ -244,7 +244,6 @@ def inventario_index(request):
     if q:
         qs = qs.filter(
             Q(nombre_producto__icontains=q) |
-            Q(descripcion__icontains=q) |
             Q(codigo_producto__icontains=q)
         )
  
