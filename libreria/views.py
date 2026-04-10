@@ -1050,6 +1050,7 @@ def compras_confirmar(request):
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
         
         items_resumen = []
         for i in range(len(producto_ids)):
@@ -1063,6 +1064,7 @@ def compras_confirmar(request):
                     'unidad': unidades_empaque[i],
                     'cant_empaques': cants_empaques[i],
                     'total': totales[i],
+                    'cant_por_empaque': cants_por_empaque[i],
                 })
         
         if not items_resumen:
@@ -1088,6 +1090,7 @@ def compras_procesar(request):
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
 
         ahora = timezone.now()
         lote_id = f"E-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
@@ -1101,6 +1104,7 @@ def compras_procesar(request):
                     producto.stock_minimo = int(minimos[i])
                     producto.stock_maximo = int(maximos[i])
                     producto.unidad_empaque = unidades_empaque[i]
+                    producto.cantidad_por_empaque = int(cants_por_empaque[i])  # Nueva actualización solicitada
                     producto.save()
                     
                     # 2. Entrada de inventario
