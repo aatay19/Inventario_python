@@ -19,7 +19,7 @@ class Cliente(models.Model):
 
 class Proveedor(models.Model):
     id= models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=100, verbose_name="Nombre del Proveedor")
+    nombre = models.CharField(max_length=100, verbose_name="Nombre del Proveedor", null=True, blank=True)
     telefono = models.CharField(max_length=15, verbose_name="Numero de telefono")
     razonsocial = models.CharField(max_length=150, verbose_name="Razon Social")
     rif = models.CharField(max_length=20, verbose_name="RIF", unique=True)
@@ -32,7 +32,7 @@ class Proveedor(models.Model):
     )
 
     def __str__(self):
-        fila= "id: " + str(self.id) + " - " + self.nombre + " - " + self.telefono + " - " + self.razonsocial + " - " + self.rif + " - " + self.direccion
+        fila= "id: " + str(self.id) + " - " + self.razonsocial + " - " + self.rif + " - " + self.telefono
         return fila
     
 class CategoriaChoices(models.TextChoices):
@@ -65,9 +65,9 @@ class HistorialProveedoresNotas(models.Model):
 
     def __str__(self):
         # mostrar proveedor + fecha + inicio de la nota
-        proveedor_nombre = self.proveedores.nombre if self.proveedores else "Sin proveedor"
+        proveedor_identificador = self.proveedores.razonsocial if self.proveedores else "Sin proveedor"
         resumen = (self.detalle_nota[:60] + '...') if self.detalle_nota and len(self.detalle_nota) > 60 else (self.detalle_nota or '')
-        return f"{proveedor_nombre} — {self.fecha_registro:%Y-%m-%d} — {resumen}"
+        return f"{proveedor_identificador} — {self.fecha_registro:%Y-%m-%d} — {resumen}"
 
     class Meta:
         verbose_name = ("Nota de Proveedor")

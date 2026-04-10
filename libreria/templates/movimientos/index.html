@@ -157,8 +157,8 @@
                             <td>{{ movimiento.cantidad }}</td>
                             <td>
                                 {% if movimiento.proveedor %}
-                                    <span title="RIF: {{ movimiento.proveedor.rif }} - {{ movimiento.proveedor.nombre }}" data-bs-toggle="tooltip">
-                                        {{ movimiento.proveedor.nombre }}
+                                    <span title="RIF: {{ movimiento.proveedor.rif }} - {{ movimiento.proveedor.razonsocial|default:movimiento.proveedor.nombre }}" data-bs-toggle="tooltip">
+                                        {{ movimiento.proveedor.razonsocial|default:movimiento.proveedor.nombre }}
                                     </span>
                                 {% else %}
                                     <span class="text-muted">-</span>

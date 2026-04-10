@@ -23,7 +23,15 @@ class ClienteForm(forms.ModelForm):
 class ProveedorForm(forms.ModelForm):
     class Meta:
         model = Proveedor
-        fields = '__all__'    
+        exclude = ('nombre',)
+        fields = ['razonsocial', 'rif', 'telefono', 'direccion', 'dias_descuentos']
+        widgets = {
+            'razonsocial': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Razón Social / Nombre de la Empresa'}),
+            'rif': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'RIF'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de teléfono'}),
+            'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Dirección de la empresa'}),
+            'dias_descuentos': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Lunes, Miércoles y Viernes'}),
+        }
 
 class InventarioForm(forms.ModelForm):
     total_empaques = forms.CharField(
@@ -70,7 +78,7 @@ class InventarioForm(forms.ModelForm):
         
         # El queryset debe ser completo por defecto para permitir cambios,
         # pero la navegación se facilitará en el frontend
-        self.fields['proveedores'].queryset = Proveedor.objects.all().order_by('nombre')
+        self.fields['proveedores'].queryset = Proveedor.objects.all().order_by('razonsocial')
         
         # Reordenar campos explícitamente para asegurar el orden en el template
         if self.Meta.field_order:

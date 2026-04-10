@@ -57,7 +57,7 @@
                     <tbody>
                         {% for grupo in page_obj %}
                         <tr>
-                            <td class="fw-bold">{{ grupo.proveedor__nombre|default:"-" }}</td>
+                            <td class="fw-bold">{{ grupo.proveedor__razonsocial|default:grupo.proveedor__nombre|default:"-" }}</td>
                             <td>{{ grupo.producto__nombre_producto|default:"-" }}</td>
                             <td>
                                 {% if grupo.total_empaques > 0 %}

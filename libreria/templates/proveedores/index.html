@@ -24,8 +24,8 @@
     </div>
     <div class="col-md-4">
       <select name="order" class="form-select">
-        <option value="nombre_asc" {% if order == 'nombre_asc' %}selected{% endif %}>Nombre ↑</option>
-        <option value="nombre_desc" {% if order == 'nombre_desc' %}selected{% endif %}>Nombre ↓</option>
+        <option value="razonsocial_asc" {% if order == 'razonsocial_asc' %}selected{% endif %}>Razón Social ↑</option>
+        <option value="razonsocial_desc" {% if order == 'razonsocial_desc' %}selected{% endif %}>Razón Social ↓</option>
       </select>
     </div>
     <div class="col-md-2">
@@ -52,7 +52,7 @@
         {% for proveedor in page_obj %}
         <tr>
           <td>{{ proveedor.id }}</td>
-          <td>{{ proveedor.nombre }}</td>
+          <td>{{ proveedor.razonsocial }}</td>
           <td>{{ proveedor.rif }}</td>
           <td>{{ proveedor.telefono }}</td>
           <td>{{ proveedor.direccion }}</td>

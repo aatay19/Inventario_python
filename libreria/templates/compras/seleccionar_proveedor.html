@@ -41,7 +41,7 @@
                         {% for p in proveedores %}
                         <tr>
                             <td class="fw-bold">{{ p.rif }}</td>
-                            <td>{{ p.nombre }}</td>
+                            <td>{{ p.razonsocial }}</td>
                             <td class="text-end">
                                 <a href="{% url 'compras.nuevo' p.id %}" class="btn btn-success btn-sm px-3">
                                     Siguiente <i class="bi bi-arrow-right ms-1"></i>

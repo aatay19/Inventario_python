@@ -52,7 +52,7 @@
                     <div class="row">
                         <div class="col-md-4">
                             <span class="text-muted small d-block">Proveedor / Destinatario:</span>
-                            <span class="fw-bold">{{ lote.info.proveedor__nombre }}</span>
+                            <span class="fw-bold">{{ lote.info.proveedor__razonsocial }}</span>
                             <small class="text-muted d-block">{{ lote.info.proveedor__rif }}</small>
                         </div>
                         <div class="col-md-4">
@@ -61,7 +61,7 @@
                             <span class="badge bg-white text-dark border">{{ lote.info.total_unidades }} Unidades Totales</span>
                         </div>
                         <div class="col-md-4 text-md-end">
-                            <a href="{% url 'movimientos.exportar_lote_pdf' %}?lote={{ lote.info.codigo_lote }}&fecha={{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ lote.info.proveedor__nombre }}&tipo={{ tipo }}" 
+                            <a href="{% url 'movimientos.exportar_lote_pdf' %}?lote={{ lote.info.codigo_lote }}&fecha={{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ lote.info.proveedor__razonsocial }}&tipo={{ tipo }}" 
                                class="btn btn-sm btn-outline-danger me-2 shadow-sm" target="_blank">
                                 <i class="fas fa-file-pdf me-1"></i> Comprobante PDF
                             </a>

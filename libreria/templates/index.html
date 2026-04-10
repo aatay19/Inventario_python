@@ -88,7 +88,7 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ mov.cantidad }}</td>
-                                <td>{{ mov.proveedor.nombre|default:"-" }}</td>
+                                <td>{{ mov.proveedor.razonsocial|default:"-" }}</td>
                             </tr>
                             {% empty %}
                             <tr><td colspan="5" class="text-center text-muted">No hay movimientos recientes registrados.</td></tr>

@@ -32,7 +32,7 @@
                             <select name="proveedor_id" id="proveedor_id" class="form-select form-select-lg border-primary" required>
                                 <option value="" selected disabled>-- Seleccione un Proveedor --</option>
                                 {% for prov in proveedores %}
-                                    <option value="{{ prov.id }}">{{ prov.nombre }} ({{ prov.rif }})</option>
+                                    <option value="{{ prov.id }}">{{ prov.razonsocial }} ({{ prov.rif }})</option>
                                 {% endfor %}
                             </select>
                         </div>

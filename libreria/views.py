@@ -103,7 +103,7 @@ def index(request):
 def proveedores_index(request):
     # parámetros GET
     q = request.GET.get('q', '').strip()
-    order = request.GET.get('order', 'nombre_asc')
+    order = request.GET.get('order', 'razonsocial_asc')
     page_size = 10
 
     # queryset base
@@ -118,10 +118,10 @@ def proveedores_index(request):
         )
 
     # orden opcional
-    if order == 'nombre_desc':
-        qs = qs.order_by('-nombre')
+    if order == 'razonsocial_desc':
+        qs = qs.order_by('-razonsocial')
     else:
-        qs = qs.order_by('nombre')
+        qs = qs.order_by('razonsocial')
 
     # paginación
     paginator = Paginator(qs, page_size)
@@ -512,7 +512,6 @@ def historial_proveedores_notas_index(request):
     if q:
         base_qs = base_qs.filter(
             Q(producto__nombre_producto__icontains=q) |
-            Q(proveedor__nombre__icontains=q) |
             Q(proveedor__razonsocial__icontains=q) |
             Q(tipo_movimiento__icontains=q)
         )
@@ -534,6 +533,7 @@ def historial_proveedores_notas_index(request):
 
     # Agrupación y anotación
     qs = base_qs.values(
+        'proveedor__razonsocial',
         'proveedor__nombre',
         'producto__nombre_producto',
         'tipo_movimiento'
@@ -619,7 +619,6 @@ def movimientos_inventario_index(request):
     if q:
         qs = qs.filter(
             Q(producto__nombre_producto__icontains=q) |
-            Q(proveedor__nombre__icontains=q) |
             Q(proveedor__razonsocial__icontains=q) |
             Q(proveedor__rif__icontains=q)
         )
@@ -830,7 +829,7 @@ def movimientos_salida_confirmar(request):
             messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
             return redirect('movimientos.salida')
             
-        proveedores = Proveedor.objects.all().order_by('nombre')
+        proveedores = Proveedor.objects.all().order_by('razonsocial')
         
         return render(request, 'movimientos/confirmar_salida.html', {
             'items': items_resumen,
@@ -883,7 +882,7 @@ def movimientos_salida_procesar(request):
                         producto.save()
                         salidas_creadas += 1
             
-            messages.success(request, f'Se registraron exitosamente {salidas_creadas} salidas del inventario con descargo a {proveedor.nombre}.')
+            messages.success(request, f'Se registraron exitosamente {salidas_creadas} salidas del inventario con descargo a {proveedor.razonsocial}.')
             return redirect('movimientos.index')
             
         except forms.ValidationError as e:
@@ -1012,7 +1011,7 @@ def compras_seleccionar_proveedor(request):
     q = request.GET.get('q', '').strip()
     qs = Proveedor.objects.all()
     if q:
-        qs = qs.filter(Q(nombre__icontains=q) | Q(rif__icontains=q))
+        qs = qs.filter(Q(razonsocial__icontains=q) | Q(rif__icontains=q))
     
     return render(request, 'compras/seleccionar_proveedor.html', {
         'proveedores': qs,
@@ -1198,14 +1197,12 @@ def _historial_agrupado(request, tipo, titulo):
     
     if q:
         qs = qs.filter(
-            Q(producto__nombre_producto__icontains=q) |
-            Q(proveedor__nombre__icontains=q) |
             Q(proveedor__razonsocial__icontains=q)
         )
     
     # Agrupamos por codigo_lote (si existe) o por fecha (exacta)
     # Para los nuevos usamos codigo_lote. Para los viejos, la fecha.
-    historial = qs.values('codigo_lote', 'fecha_movimiento', 'proveedor__nombre', 'proveedor__razonsocial', 'proveedor__rif') \
+    historial = qs.values('codigo_lote', 'fecha_movimiento', 'proveedor__razonsocial', 'proveedor__rif') \
                   .annotate(
                       total_items=Count('id_movimiento'),
                       total_unidades=Sum('cantidad')
@@ -1218,7 +1215,7 @@ def _historial_agrupado(request, tipo, titulo):
     
     for grupo in historial:
         # Definir la clave de agrupación: si hay codigo_lote, lo usamos. Si no, la fecha.
-        key = grupo['codigo_lote'] if grupo['codigo_lote'] else f"FIXED-{grupo['fecha_movimiento']}-{grupo['proveedor__nombre']}"
+        key = grupo['codigo_lote'] if grupo['codigo_lote'] else f"FIXED-{grupo['fecha_movimiento']}-{grupo['proveedor__razonsocial']}"
         
         if key in lotes_procesados:
             continue
@@ -1228,7 +1225,7 @@ def _historial_agrupado(request, tipo, titulo):
         else:
             detalles = qs.filter(
                 fecha_movimiento=grupo['fecha_movimiento'],
-                proveedor__nombre=grupo['proveedor__nombre']
+                proveedor__razonsocial=grupo['proveedor__razonsocial']
             )
             
         lotes.append({
@@ -1264,7 +1261,7 @@ def exportar_lote_pdf(request):
         else:
             qs = MovimientosInventario.objects.filter(
                 fecha_movimiento=fecha_str,
-                proveedor__nombre=prov_nombre,
+                proveedor__razonsocial=prov_nombre,
                 tipo_movimiento=tipo
             ).select_related('producto', 'proveedor')
         
@@ -1287,7 +1284,7 @@ def exportar_lote_pdf(request):
         pdf.set_font("Helvetica", "B", 12)
         pdf.cell(0, 10, "Datos del Proveedor / Destinatario:", ln=True)
         pdf.set_font("Helvetica", "", 11)
-        pdf.cell(0, 7, f"Nombre/Razon Social: {qs[0].proveedor.nombre}", ln=True)
+        pdf.cell(0, 7, f"Nombre/Razon Social: {qs[0].proveedor.razonsocial}", ln=True)
         pdf.cell(0, 7, f"RIF: {qs[0].proveedor.rif}", ln=True)
         pdf.ln(5)
         
