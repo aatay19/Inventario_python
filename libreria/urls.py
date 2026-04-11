@@ -52,6 +52,8 @@ urlpatterns = [
     path('movimientos/historial/pedidos', views.movimientos_historial_pedidos, name='movimientos.historial_pedidos'),
     path('movimientos/historial/salidas', views.movimientos_historial_salidas, name='movimientos.historial_salidas'),
     path('movimientos/historial/exportar/pdf', views.exportar_lote_pdf, name='movimientos.exportar_lote_pdf'),
+    path('movimientos/lote/eliminar', views.movimientos_lote_eliminar, name='movimientos.lote_eliminar'),
+    path('movimientos/lote/editar/<str:lote_id>', views.movimientos_lote_editar, name='movimientos.lote_editar'),
 
     #usuarios urls
     path('usuarios/', views.usuarios_index, name='usuarios.index'),

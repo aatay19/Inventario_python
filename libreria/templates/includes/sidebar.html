@@ -68,9 +68,21 @@
             <ul class="submenu list-unstyled ms-4">
                 <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento</a></li>
                 <li><a class="nav-link small" href="{% url 'movimientos.index' %}">➤ Lista de Movimientos</a></li>
-                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial Salidas Masivas</a></li>
             </ul>
         </li>
+
+        <!-- SALIDAS MASIVAS -->
+        {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-box-arrow-up-right me-2"></i> Salidas Masivas</span>
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'movimientos.salida' %}">➤ Generar Salida</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial de Salidas</a></li>
+            </ul>
+        </li>
+        {% endif %}
 
         <!-- HISTORIAL DE NOTAS (Separado) -->
         <li class="nav-item mb-2">

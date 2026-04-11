@@ -1319,3 +1319,176 @@ def exportar_lote_pdf(request):
     except Exception as e:
         messages.error(request, f"Error al generar el PDF: {str(e)}")
         return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_lote_eliminar(request):
+    if request.method == 'POST':
+        lote_id = request.POST.get('lote_id')
+        fecha_str = request.POST.get('fecha')
+        prov_nombre = request.POST.get('prov')
+        tipo = request.POST.get('tipo', 'ENTRADA')
+
+        try:
+            with transaction.atomic():
+                if lote_id:
+                    movs = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto')
+                else:
+                    movs = MovimientosInventario.objects.filter(
+                        fecha_movimiento=fecha_str,
+                        proveedor__razonsocial=prov_nombre,
+                        tipo_movimiento=tipo
+                    ).select_related('producto')
+
+                count = 0
+                for mov in movs:
+                    producto = mov.producto
+                    if mov.tipo_movimiento == 'ENTRADA':
+                        producto.cantidad -= mov.cantidad
+                    elif mov.tipo_movimiento == 'SALIDA':
+                        producto.cantidad += mov.cantidad
+                    producto.save()
+                    count += 1
+                
+                movs.delete()
+                
+            messages.success(request, f'Lote eliminado exitosamente ({count} registros revertidos).')
+            
+        except Exception as e:
+            messages.error(request, f'Error al eliminar el lote: {str(e)}')
+            
+        return redirect(request.META.get('HTTP_REFERER', 'movimientos.index'))
+    return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_lote_editar(request, lote_id):
+    movimientos = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
+    if not movimientos.exists():
+        messages.error(request, "Lote no encontrado.")
+        return redirect('movimientos.index')
+
+    tipo = movimientos.first().tipo_movimiento
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                cambios = 0
+                eliminados = 0
+                for mov in movimientos:
+                    nueva_cantidad = request.POST.get(f'cantidad_{mov.id_movimiento}')
+                    nueva_unidad = request.POST.get(f'unidad_{mov.id_movimiento}')
+                    
+                    if nueva_cantidad and nueva_cantidad.isdigit():
+                        nueva_cantidad = int(nueva_cantidad)
+                        
+                        # Si es 0, eliminamos el registro y revertimos
+                        if nueva_cantidad == 0:
+                            producto = mov.producto
+                            if tipo == 'ENTRADA':
+                                producto.cantidad -= mov.cantidad
+                            else:
+                                producto.cantidad += mov.cantidad
+                            producto.save()
+                            mov.delete()
+                            eliminados += 1
+                            continue
+
+                        # Si cambió algo
+                        if nueva_cantidad != mov.cantidad or nueva_unidad != mov.unidad_empaque:
+                            producto = mov.producto
+                            
+                            # Validar stock si es SALIDA y aumentamos
+                            if tipo == 'SALIDA' and nueva_cantidad > mov.cantidad:
+                                diff = nueva_cantidad - mov.cantidad
+                                if producto.cantidad < diff:
+                                    raise Exception(f"Stock insuficiente para {producto.nombre_producto}. Faltan {diff - producto.cantidad} unid.")
+                            
+                            # Revertir
+                            if tipo == 'ENTRADA':
+                                producto.cantidad -= mov.cantidad
+                            else:
+                                producto.cantidad += mov.cantidad
+                                
+                            # Aplicar nuevo
+                            if tipo == 'ENTRADA':
+                                producto.cantidad += nueva_cantidad
+                            else:
+                                producto.cantidad -= nueva_cantidad
+                                
+                            producto.save()
+                            
+                            mov.cantidad = nueva_cantidad
+                            mov.cantidad_empaques = nueva_cantidad
+                            mov.unidad_empaque = nueva_unidad
+                            mov.save()
+                            cambios += 1
+                            
+                # Revisar si se está agregando un producto nuevo al lote
+                nuevo_prod_id = request.POST.get('nuevo_producto_id')
+                nueva_cant_prod = request.POST.get('nueva_cantidad_prod')
+                nueva_unidad_prod = request.POST.get('nueva_unidad_prod')
+                
+                nuevos_agregados = 0
+                if nuevo_prod_id and nueva_cant_prod and nueva_cant_prod.isdigit():
+                    nueva_cant_prod = int(nueva_cant_prod)
+                    if nueva_cant_prod > 0:
+                        prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)
+                        info = movimientos.first()
+                        
+                        # Validar stock si es SALIDA
+                        if tipo == 'SALIDA' and prod_nuevo.cantidad < nueva_cant_prod:
+                            raise Exception(f"Stock insuficiente para {prod_nuevo.nombre_producto}. Disponibles: {prod_nuevo.cantidad}")
+                        
+                        # Actualizar stock
+                        if tipo == 'ENTRADA':
+                            prod_nuevo.cantidad += nueva_cant_prod
+                        else:
+                            prod_nuevo.cantidad -= nueva_cant_prod
+                        prod_nuevo.save()
+                        
+                        # Crear el movimiento
+                        MovimientosInventario.objects.create(
+                            producto=prod_nuevo,
+                            tipo_movimiento=tipo,
+                            cantidad=nueva_cant_prod,
+                            unidad_empaque=nueva_unidad_prod,
+                            cantidad_empaques=nueva_cant_prod,
+                            proveedor=info.proveedor,
+                            fecha_movimiento=info.fecha_movimiento,
+                            codigo_lote=lote_id
+                        )
+                        nuevos_agregados += 1
+                
+                msg = f"Lote actualizado correctamente. {cambios} modificados."
+                if eliminados > 0: msg += f" {eliminados} eliminados."
+                if nuevos_agregados > 0: msg += f" {nuevos_agregados} agregados."
+                messages.success(request, msg)
+                return redirect('movimientos.historial_pedidos' if tipo == 'ENTRADA' else 'movimientos.historial_salidas')
+                
+        except Exception as e:
+            messages.error(request, f"Error al actualizar lote: {str(e)}")
+
+    from .models import UnidadEmpaqueChoices
+    info = movimientos.first()
+    
+    # Obtener productos disponibles según sea entrada (del proveedor) o salida (todos)
+    if tipo == 'ENTRADA':
+        # Filtrar por los que sean de ese proveedor
+        productos_disponibles = Inventario.objects.filter(proveedores__id=info.proveedor.id).order_by('nombre_producto')
+    else:
+        # En salida puede usar todos
+        productos_disponibles = Inventario.objects.all().order_by('nombre_producto')
+
+    # Excluir los que ya están en el lote
+    productos_en_lote = movimientos.values_list('producto_id', flat=True)
+    productos_disponibles = productos_disponibles.exclude(id_producto__in=productos_en_lote)
+
+    return render(request, 'movimientos/lote_editar.html', {
+        'movimientos': movimientos,
+        'lote_id': lote_id,
+        'tipo': tipo,
+        'info': info,
+        'unidades_choices': UnidadEmpaqueChoices.choices,
+        'productos_disponibles': productos_disponibles
+    })

@@ -4,12 +4,12 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold"><i class="fas fa-history me-2 text-primary"></i>{{ titulo }}</h2>
+        <h2 class="fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>{{ titulo }}</h2>
         <div>
             {% if tipo == 'ENTRADA' %}
-                <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="fas fa-plus me-2"></i>Nuevo Pedido</a>
+                <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nuevo Pedido</a>
             {% else %}
-                <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="fas fa-minus me-2"></i>Nueva Salida Masiva</a>
+                <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="bi bi-dash-lg me-2"></i>Nueva Salida Masiva</a>
             {% endif %}
         </div>
     </div>
@@ -20,7 +20,7 @@
             <form method="get" class="row g-3">
                 <div class="col-md-10">
                     <div class="input-group">
-                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" 
                                placeholder="Buscar por proveedor o producto dentro de los lotes...">
                     </div>
@@ -39,7 +39,7 @@
                     <div class="row align-items-center">
                         <div class="col-md-6">
                             <h5 class="mb-0 fw-bold">
-                                <i class="fas {% if tipo == 'ENTRADA' %}fa-file-invoice-dollar{% else %}fa-shipping-fast{% endif %} me-2"></i>
+                                <i class="bi {% if tipo == 'ENTRADA' %}bi-receipt{% else %}bi-truck{% endif %} me-2"></i>
                                 Transacción: {{ lote.info.fecha_movimiento|date:"d/m/Y H:i:s" }}
                             </h5>
                         </div>
@@ -49,25 +49,39 @@
                     </div>
                 </div>
                 <div class="card-body bg-light border-bottom">
-                    <div class="row">
-                        <div class="col-md-4">
+                    <div class="row align-items-center">
+                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Proveedor / Destinatario:</span>
                             <span class="fw-bold">{{ lote.info.proveedor__razonsocial }}</span>
                             <small class="text-muted d-block">{{ lote.info.proveedor__rif }}</small>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Resumen de Carga:</span>
                             <span class="badge bg-white text-dark border">{{ lote.info.total_items }} Productos</span>
                             <span class="badge bg-white text-dark border">{{ lote.info.total_unidades }} Unidades Totales</span>
                         </div>
-                        <div class="col-md-4 text-md-end">
-                            <a href="{% url 'movimientos.exportar_lote_pdf' %}?lote={{ lote.info.codigo_lote }}&fecha={{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ lote.info.proveedor__razonsocial }}&tipo={{ tipo }}" 
-                               class="btn btn-sm btn-outline-danger me-2 shadow-sm" target="_blank">
-                                <i class="fas fa-file-pdf me-1"></i> Comprobante PDF
+                        <div class="col-xl-6 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
+                            <a href="{% url 'movimientos.lote_editar' lote.info.codigo_lote %}" 
+                               class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Edición Masiva">
+                                <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
                             </a>
-                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" 
-                                    data-bs-target="#detalle-{{ forloop.counter }}" aria-expanded="false">
-                                <i class="fas fa-list me-1"></i> Ver Detalles
+                            <a href="{% url 'movimientos.exportar_lote_pdf' %}?lote={{ lote.info.codigo_lote }}&fecha={{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ lote.info.proveedor__razonsocial }}&tipo={{ tipo }}" 
+                               class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" target="_blank" title="Comprobante PDF">
+                                <i class="bi bi-file-earmark-pdf-fill fs-6 me-1"></i> PDF
+                            </a>
+                            <form action="{% url 'movimientos.lote_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar TODO este lote? Se revertirá el stock de todos sus productos y no se puede deshacer.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="lote_id" value="{{ lote.info.codigo_lote }}">
+                                <input type="hidden" name="fecha" value="{{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s' }}">
+                                <input type="hidden" name="prov" value="{{ lote.info.proveedor__razonsocial }}">
+                                <input type="hidden" name="tipo" value="{{ tipo }}">
+                                <button type="submit" class="btn btn-danger shadow-sm rounded-pill px-3 text-nowrap" title="Eliminar Lote Completo">
+                                    <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
+                                </button>
+                            </form>
+                            <button class="btn btn-outline-secondary rounded-pill px-3 text-nowrap" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#detalle-{{ forloop.counter }}" aria-expanded="false" title="Ver Detalles">
+                                <i class="bi bi-list-ul fs-6 me-1"></i> Detalles
                             </button>
                         </div>
                     </div>
@@ -81,6 +95,7 @@
                                     <th class="text-center">Cant. Movida</th>
                                     <th class="text-center">Empaques</th>
                                     <th>Unidad</th>
+                                    <th class="text-end pe-4">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -98,6 +113,20 @@
                                     </td>
                                     <td>
                                         <span class="badge bg-light text-dark border font-monospace">{{ item.unidad_empaque }}</span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <a href="{% url 'movimientos.editar' item.id_movimiento %}" 
+                                               class="btn btn-outline-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm hover-elevate border-2" 
+                                               style="width: 38px; height: 38px; transition: all 0.2s;" title="Editar">
+                                                <i class="bi bi-pencil-fill fs-6"></i>
+                                            </a>
+                                            <a href="{% url 'movimientos.eliminar' item.id_movimiento %}" 
+                                               class="btn btn-outline-danger rounded-circle d-flex align-items-center justify-content-center shadow-sm hover-elevate border-2" 
+                                               style="width: 38px; height: 38px; transition: all 0.2s;" title="Eliminar">
+                                                <i class="bi bi-trash3-fill fs-6"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -123,7 +152,7 @@
 
     {% else %}
         <div class="text-center py-5">
-            <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+            <i class="bi bi-folder2-open text-muted mb-3" style="font-size: 4rem;"></i>
             <p class="text-muted fs-5">No se encontraron registros en este historial.</p>
         </div>
     {% endif %}
@@ -131,5 +160,7 @@
 
 <style>
     .x-small { font-size: 0.75rem; }
+    .hover-elevate { transition: all 0.2s ease-in-out; }
+    .hover-elevate:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
 </style>
 {% endblock %}
