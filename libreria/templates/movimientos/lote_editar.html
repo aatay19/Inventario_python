@@ -81,11 +81,49 @@
             <!-- SECCIÓN PARA AÑADIR PRODUCTO NUEVO -->
             {% if productos_disponibles %}
             <div class="card-footer bg-light border-top border-2 border-primary border-opacity-25 p-4">
-                <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle text-primary me-2"></i>Agregar producto al lote</h6>
-                <div class="row g-3 align-items-end">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-plus-circle text-primary me-2"></i>Agregar producto al lote</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary shadow-sm" id="btn-add-producto">
+                        <i class="bi bi-plus-lg"></i> Agregar otro producto
+                    </button>
+                </div>
+                
+                <div id="nuevos-productos-container">
+                    <div class="row g-3 align-items-end nuevo-producto-row mb-3 pb-2">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Producto a agregar:</label>
+                            <select name="nuevo_producto_id[]" class="form-select select2">
+                                <option value="">-- Seleccionar producto --</option>
+                                {% for prod in productos_disponibles %}
+                                    <option value="{{ prod.id_producto }}">{{ prod.nombre_producto }} (Stock: {{ prod.cantidad }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Cantidad:</label>
+                            <input type="number" name="nueva_cantidad_prod[]" class="form-control" min="1" placeholder="Ej: 10">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Unidad de Empaque:</label>
+                            <select name="nueva_unidad_prod[]" class="form-select">
+                                {% for v, l in unidades_choices %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <!-- Botón de eliminar (oculto en el primer elemento) -->
+                            <button type="button" class="btn btn-outline-danger btn-sm btn-remove-row invisible"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <template id="nuevo-producto-template">
+                <div class="row g-3 align-items-end nuevo-producto-row mb-3 pt-3 border-top border-secondary border-opacity-25 pb-2">
                     <div class="col-md-5">
                         <label class="form-label small fw-bold">Producto a agregar:</label>
-                        <select name="nuevo_producto_id" class="form-select select2">
+                        <select name="nuevo_producto_id[]" class="form-select select2-template">
                             <option value="">-- Seleccionar producto --</option>
                             {% for prod in productos_disponibles %}
                                 <option value="{{ prod.id_producto }}">{{ prod.nombre_producto }} (Stock: {{ prod.cantidad }})</option>
@@ -94,18 +132,21 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small fw-bold">Cantidad:</label>
-                        <input type="number" name="nueva_cantidad_prod" class="form-control" min="1" placeholder="Ej: 10">
+                        <input type="number" name="nueva_cantidad_prod[]" class="form-control" min="1" placeholder="Ej: 10">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label small fw-bold">Unidad de Empaque:</label>
-                        <select name="nueva_unidad_prod" class="form-select">
+                        <select name="nueva_unidad_prod[]" class="form-select">
                             {% for v, l in unidades_choices %}
                                 <option value="{{ v }}">{{ l }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    <div class="col-md-1 text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm btn-remove-row" title="Eliminar fila"><i class="bi bi-trash"></i></button>
+                    </div>
                 </div>
-            </div>
+            </template>
             {% endif %}
         </div>
 
@@ -128,9 +169,31 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Inicializar select2 en los existentes
         $('.select2').select2({
             theme: 'bootstrap-5', // Si usas el tema bootstrap 5, aunque default funciona bien
             width: '100%'
+        });
+
+        // Evento para añadir otro producto
+        $('#btn-add-producto').on('click', function(e) {
+            e.preventDefault();
+            var template = document.getElementById('nuevo-producto-template').innerHTML;
+            var $newRow = $(template);
+            $('#nuevos-productos-container').append($newRow);
+            
+            // Inicializar Select2 en la nueva fila
+            $newRow.find('.select2-template').removeClass('select2-template').addClass('select2-dynamic').select2({
+                theme: 'bootstrap-5',
+                width: '100%'
+            });
+        });
+
+        // Evento para eliminar una fila agregada
+        $(document).on('click', '.btn-remove-row', function(e) {
+            e.preventDefault();
+            // Aseguramos que solo elimine la fila actual
+            $(this).closest('.nuevo-producto-row').remove();
         });
     });
 </script>

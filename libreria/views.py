@@ -1424,41 +1424,48 @@ def movimientos_lote_editar(request, lote_id):
                             mov.save()
                             cambios += 1
                             
-                # Revisar si se está agregando un producto nuevo al lote
-                nuevo_prod_id = request.POST.get('nuevo_producto_id')
-                nueva_cant_prod = request.POST.get('nueva_cantidad_prod')
-                nueva_unidad_prod = request.POST.get('nueva_unidad_prod')
+                # Revisar si se están agregando productos nuevos al lote
+                nuevos_prods_ids = request.POST.getlist('nuevo_producto_id[]')
+                nuevas_cantidades = request.POST.getlist('nueva_cantidad_prod[]')
+                nuevas_unidades = request.POST.getlist('nueva_unidad_prod[]')
                 
                 nuevos_agregados = 0
-                if nuevo_prod_id and nueva_cant_prod and nueva_cant_prod.isdigit():
-                    nueva_cant_prod = int(nueva_cant_prod)
-                    if nueva_cant_prod > 0:
-                        prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)
-                        info = movimientos.first()
-                        
-                        # Validar stock si es SALIDA
-                        if tipo == 'SALIDA' and prod_nuevo.cantidad < nueva_cant_prod:
-                            raise Exception(f"Stock insuficiente para {prod_nuevo.nombre_producto}. Disponibles: {prod_nuevo.cantidad}")
-                        
-                        # Actualizar stock
-                        if tipo == 'ENTRADA':
-                            prod_nuevo.cantidad += nueva_cant_prod
-                        else:
-                            prod_nuevo.cantidad -= nueva_cant_prod
-                        prod_nuevo.save()
-                        
-                        # Crear el movimiento
-                        MovimientosInventario.objects.create(
-                            producto=prod_nuevo,
-                            tipo_movimiento=tipo,
-                            cantidad=nueva_cant_prod,
-                            unidad_empaque=nueva_unidad_prod,
-                            cantidad_empaques=nueva_cant_prod,
-                            proveedor=info.proveedor,
-                            fecha_movimiento=info.fecha_movimiento,
-                            codigo_lote=lote_id
-                        )
-                        nuevos_agregados += 1
+                
+                # Iterar sobre las listas recibidas para agregar varios productos a la vez
+                for i in range(len(nuevos_prods_ids)):
+                    nuevo_prod_id = nuevos_prods_ids[i]
+                    nueva_cant_prod = nuevas_cantidades[i] if i < len(nuevas_cantidades) else ''
+                    nueva_unidad_prod = nuevas_unidades[i] if i < len(nuevas_unidades) else ''
+                    
+                    if nuevo_prod_id and nueva_cant_prod and str(nueva_cant_prod).isdigit():
+                        nueva_cant_prod = int(nueva_cant_prod)
+                        if nueva_cant_prod > 0:
+                            prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)
+                            info = movimientos.first()
+                            
+                            # Validar stock si es SALIDA
+                            if tipo == 'SALIDA' and prod_nuevo.cantidad < nueva_cant_prod:
+                                raise Exception(f"Stock insuficiente para {prod_nuevo.nombre_producto}. Disponibles: {prod_nuevo.cantidad}")
+                            
+                            # Actualizar stock
+                            if tipo == 'ENTRADA':
+                                prod_nuevo.cantidad += nueva_cant_prod
+                            else:
+                                prod_nuevo.cantidad -= nueva_cant_prod
+                            prod_nuevo.save()
+                            
+                            # Crear el movimiento
+                            MovimientosInventario.objects.create(
+                                producto=prod_nuevo,
+                                tipo_movimiento=tipo,
+                                cantidad=nueva_cant_prod,
+                                unidad_empaque=nueva_unidad_prod,
+                                cantidad_empaques=nueva_cant_prod,
+                                proveedor=info.proveedor,
+                                fecha_movimiento=info.fecha_movimiento,
+                                codigo_lote=lote_id
+                            )
+                            nuevos_agregados += 1
                 
                 msg = f"Lote actualizado correctamente. {cambios} modificados."
                 if eliminados > 0: msg += f" {eliminados} eliminados."
