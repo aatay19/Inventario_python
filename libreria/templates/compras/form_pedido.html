@@ -25,8 +25,20 @@
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-primary text-white py-3">
                 <div class="row align-items-center">
-                    <div class="col">
+                    <div class="col-md-4">
                         <h5 class="mb-0 fw-bold"><i class="fas fa-list me-2"></i>Paso 2: Detalle de Productos</h5>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-0"><i class="bi bi-search text-primary"></i></span>
+                            <input type="text" id="filtro-productos" class="form-control border-0" placeholder="Buscar productos en esta lista...">
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox" id="ver-seleccionados">
+                            <label class="form-check-label small text-white" for="ver-seleccionados">Ver seleccionados</label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -102,6 +114,19 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Navegación por Partes (Paginación) -->
+            <div id="paginacion-container" class="bg-light p-2 border-top d-flex justify-content-center align-items-center gap-3">
+                <button type="button" id="btn-prev" class="btn btn-sm btn-outline-primary"><i class="bi bi-chevron-left"></i> Anterior</button>
+                <span class="small fw-bold" id="info-paginacion">Página 1 de 1</span>
+                <button type="button" id="btn-next" class="btn btn-sm btn-outline-primary">Siguiente <i class="bi bi-chevron-right"></i></button>
+                <select id="size-pagina" class="form-select form-select-sm" style="width: auto;">
+                    <option value="50" selected>50 por parte</option>
+                    <option value="100">100 por parte</option>
+                    <option value="200">200 por parte</option>
+                    <option value="0">Ver todos</option>
+                </select>
+            </div>
             
             <div class="card-footer bg-white py-3 border-top">
                 <div class="row align-items-center">
@@ -128,6 +153,66 @@
 document.addEventListener('DOMContentLoaded', function() {
     const table = document.getElementById('tabla-pedido');
     const form = document.getElementById('form-pedido');
+    const filtroInput = document.getElementById('filtro-productos');
+    const toggleSeleccionados = document.getElementById('ver-seleccionados');
+    
+    // Variables de paginación
+    let paginaActual = 1;
+    let itemsPorPagina = 50;
+    const allRows = Array.from(document.querySelectorAll('.row-producto'));
+    let filteredRows = [...allRows];
+
+    function actualizarVista() {
+        const query = filtroInput.value.toLowerCase().trim();
+        const soloSeleccionados = toggleSeleccionados.checked;
+
+        // 1. Filtrar
+        filteredRows = allRows.filter(row => {
+            const text = row.innerText.toLowerCase();
+            const isSelected = row.querySelector('.item-checkbox').checked;
+            const matchesQuery = text.includes(query);
+            const matchesToggle = !soloSeleccionados || isSelected;
+            return matchesQuery && matchesToggle;
+        });
+
+        // 2. Paginación
+        const totalItems = filteredRows.length;
+        if (itemsPorPagina === 0) {
+            // Ver todos
+            allRows.forEach(r => r.style.display = 'none');
+            filteredRows.forEach(r => r.style.display = '');
+            document.getElementById('paginacion-container').classList.add('d-none');
+        } else {
+            document.getElementById('paginacion-container').classList.remove('d-none');
+            const totalPaginas = Math.ceil(totalItems / itemsPorPagina) || 1;
+            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            if (paginaActual < 1) paginaActual = 1;
+
+            const inicio = (paginaActual - 1) * itemsPorPagina;
+            const fin = inicio + itemsPorPagina;
+
+            allRows.forEach(r => r.style.display = 'none');
+            filteredRows.slice(inicio, fin).forEach(r => r.style.display = '');
+            
+            document.getElementById('info-paginacion').innerText = `Parte ${paginaActual} de ${totalPaginas} (${totalItems} total)`;
+            document.getElementById('btn-prev').disabled = (paginaActual <= 1);
+            document.getElementById('btn-next').disabled = (paginaActual >= totalPaginas);
+        }
+    }
+
+    // Listeners de filtros
+    filtroInput.addEventListener('input', () => { paginaActual = 1; actualizarVista(); });
+    toggleSeleccionados.addEventListener('change', () => { paginaActual = 1; actualizarVista(); });
+    document.getElementById('size-pagina').addEventListener('change', (e) => {
+        itemsPorPagina = parseInt(e.target.value);
+        paginaActual = 1;
+        actualizarVista();
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', () => { if (paginaActual > 1) { paginaActual--; actualizarVista(); window.scrollTo(0,0); } });
+    document.getElementById('btn-next').addEventListener('click', () => { paginaActual++; actualizarVista(); window.scrollTo(0,0); });
+
+    actualizarVista(); // Render inicial
     
     // Listener para cambios en la tabla (cálculos y checkboxes)
     table.addEventListener('change', function(e) {

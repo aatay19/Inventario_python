@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block title %}Ingreso de Mercancía (Entrada){% endblock %}
+{% block content %}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'movimientos.index' %}">Movimientos</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Ingreso Masivo (Entrada)</li>
+              </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Registrar <span class="text-success">Ingreso de Mercancía</span> (Entrada)</h2>
+            {% if pedido %}
+                <div class="badge bg-info mt-2">Cargado desde Pedido Informativo: {{ pedido.codigo_lote }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form action="{% url 'movimientos.entrada_confirmar' %}" method="post" id="form-entrada">
+        {% csrf_token %}
+
+        <div class="row">
+            <div class="col-lg-5 col-md-12">
+                <!-- SELECCIÓN DE PEDIDO / PROVEEDOR -->
+                <div class="card shadow-sm border-0 mb-4 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-search me-2 text-primary"></i>1. Buscar Pedido o Proveedor</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Buscador de Pedidos -->
+                        <div class="mb-4">
+                            <label class="form-label small text-muted fw-bold">Buscar por Código de Pedido (ORD-XXX):</label>
+                            <div class="position-relative">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="buscador-pedido" class="form-control" 
+                                           placeholder="Escriba el código de la orden..." autocomplete="off">
+                                </div>
+                                <div id="resultados-pedidos" class="list-group shadow position-absolute w-100 mt-1" 
+                                     style="z-index: 1060; display: none; max-height: 250px; overflow-y: auto;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hr-text text-center text-muted mb-4"><span class="bg-white px-2 small">O SELECCIÓN MANUAL</span></div>
+
+                        <label class="form-label small text-muted">Proveedor de la carga:</label>
+                        <select name="proveedor_id" id="proveedor_id" class="form-select select2" required>
+                            <option value="">-- Buscar Proveedor --</option>
+                            {% for prov in proveedores %}
+                                <option value="{{ prov.id }}" {% if pedido and pedido.proveedor.id == prov.id %}selected{% endif %}>
+                                    {{ prov.razonsocial }} ({{ prov.rif }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-7 col-md-12">
+                <!-- BUSCADOR DE PRODUCTOS -->
+                <div class="card shadow-sm border-0 mb-4 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-search me-2 text-primary"></i>2. Agregar Productos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="position-relative">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-upc-scan text-muted"></i></span>
+                                <input type="text" id="buscador-producto" class="form-control border-start-0" 
+                                       placeholder="Busque por nombre o código para agregar..." autocomplete="off">
+                            </div>
+                            <div id="resultados-busqueda" class="list-group shadow position-absolute w-100 mt-1" 
+                                 style="z-index: 1050; display: none; max-height: 300px; overflow-y: auto;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE ITEMS -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-success text-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2"></i>Lista de Artículos a Ingresar</h5>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0" id="tabla-entrada">
+                    <thead class="table-light text-center">
+                        <tr class="small">
+                            <th style="width: 35%;">Producto / SKU</th>
+                            <th style="width: 15%;">Tipo Empaque</th>
+                            <th style="width: 15%;">Cant. Empaques</th>
+                            <th style="width: 15%;">Cant. Pedido</th>
+                            <th style="width: 15%;">TOTAL UNID.</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-tabla">
+                        <!-- Las filas se agregarán aquí dinámicamente -->
+                        <tr id="fila-vacia">
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-box2 fs-1 mb-3 d-block opacity-25"></i>
+                                Seleccione productos arriba para comenzar la carga.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card-footer bg-white py-3 border-top">
+                <div class="row align-items-center">
+                    <div class="col-md-6 text-muted small">
+                        <span class="fw-bold text-dark" id="resumen-lista">Carga actual: 0 productos.</span>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <a href="{% url 'movimientos.index' %}" class="btn btn-outline-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-success btn-lg px-4" id="btn-procesar" disabled>
+                            Siguiente Paso <i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Estilos para Select2 Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+<!-- JSON de productos y pedidos -->
+{{ productos_json|json_script:"productos-data" }}
+{{ items_pedido|json_script:"pedido-items-data" }}
+{{ pedidos_json|json_script:"pedidos-informativos-data" }}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2
+    $('.select2').select2({
+        theme: 'bootstrap-5',
+        width: '100%'
+    });
+
+    const buscador = document.getElementById('buscador-producto');
+    const resultados = document.getElementById('resultados-busqueda');
+    const buscadorPed = document.getElementById('buscador-pedido');
+    const resultadosPed = document.getElementById('resultados-pedidos');
+    const cuerpoTabla = document.getElementById('cuerpo-tabla');
+    const filaVacia = document.getElementById('fila-vacia');
+    const btnProcesar = document.getElementById('btn-procesar');
+    const labelResumen = document.getElementById('resumen-lista');
+
+    // Cargar datos
+    const productos = JSON.parse(document.getElementById('productos-data').textContent);
+    const pedidosRegistrados = JSON.parse(document.getElementById('pedidos-informativos-data').textContent);
+    const seleccionados = new Set();
+
+    // --- Lógica del Buscador de Pedidos ---
+    buscadorPed.addEventListener('input', function() {
+        const query = this.value.toUpperCase().trim();
+        if (query.length < 3) {
+            resultadosPed.style.display = 'none';
+            return;
+        }
+
+        const matches = pedidosRegistrados.filter(p => 
+            p.codigo.toUpperCase().includes(query) || 
+            p.proveedor_nombre.toUpperCase().includes(query)
+        );
+
+        if (matches.length > 0) {
+            resultadosPed.innerHTML = matches.map(p => `
+                <button type="button" class="list-group-item list-group-item-action py-2" 
+                        onclick="cargarPedidoDesdeJson(${p.id})">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-primary me-2">${p.codigo}</span>
+                            <strong>${p.proveedor_nombre}</strong>
+                        </div>
+                        <small class="text-muted">${p.fecha}</small>
+                    </div>
+                </button>
+            `).join('');
+            resultadosPed.style.display = 'block';
+        } else {
+            resultadosPed.style.display = 'none';
+        }
+    });
+
+    window.cargarPedidoDesdeJson = function(idPedido) {
+        const ped = pedidosRegistrados.find(p => p.id === idPedido);
+        if (!ped) return;
+
+        if (confirm(`¿Desea cargar los productos del pedido ${ped.codigo}? Esto reemplazará la lista actual.`)) {
+            // Limpiar tabla
+            cuerpoTabla.innerHTML = '';
+            seleccionados.clear();
+            
+            // Establecer proveedor
+            $('#proveedor_id').val(ped.proveedor_id).trigger('change');
+            
+            // Cargar items
+            ped.items.forEach(item => {
+                agregarProducto(item.id, item);
+            });
+
+            buscadorPed.value = '';
+            resultadosPed.style.display = 'none';
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Pedido Cargado',
+                text: `Se han cargado ${ped.items.length} productos de la orden ${ped.codigo}.`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    };
+
+    // --- Lógica del Buscador de Productos ---
+    buscador.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        if (query.length < 1) {
+            resultados.style.display = 'none';
+            return;
+        }
+
+        const matches = productos.filter(p => 
+            p.nombre.toLowerCase().includes(query) || 
+            p.codigo.toLowerCase().includes(query)
+        ).slice(0, 10);
+
+        if (matches.length > 0) {
+            resultados.innerHTML = matches.map(p => `
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2" 
+                        onclick="agregarProducto(${p.id})">
+                    <div>
+                        <div class="fw-bold">${p.nombre}</div>
+                        <small class="text-muted">${p.codigo}</small>
+                    </div>
+                    <i class="bi bi-plus-circle text-primary fs-5"></i>
+                </button>
+            `).join('');
+            resultados.style.display = 'block';
+        } else {
+            resultados.style.display = 'none';
+        }
+    });
+
+    // --- Función para agregar producto ---
+    window.agregarProducto = function(id, dataPrevia = null) {
+        if (seleccionados.has(id)) {
+            alert("El producto ya está en la lista.");
+            buscador.value = '';
+            resultados.style.display = 'none';
+            return;
+        }
+
+        const p = productos.find(prod => prod.id === id);
+        if (!p) return;
+
+        if (filaVacia) filaVacia.remove();
+
+        const tr = document.createElement('tr');
+        tr.id = `fila-${id}`;
+        
+        const cantIni = dataPrevia ? dataPrevia.empaques : 0;
+        const porEmpIni = dataPrevia ? dataPrevia.por_empaque : 1;
+        const totalIni = dataPrevia ? dataPrevia.cantidad : 0;
+        const unidDefault = dataPrevia ? dataPrevia.unidad : p.id_unidad_default;
+
+        tr.innerHTML = `
+            <input type="hidden" name="producto_id[]" value="${id}">
+            <td class="ps-3 py-3">
+                <div class="fw-bold">${p.nombre}</div>
+                <div class="text-muted small">${p.codigo}</div>
+            </td>
+            <td>
+                <select name="unidad_empaque[]" class="form-select" id="sel-${id}">
+                    ${p.unidades_html}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="cant_empaques[]" class="form-control text-center fw-bold inp-empaques" 
+                       value="${cantIni}" min="0" oninput="calcularTotalRow(${id})">
+            </td>
+            <td>
+                <input type="number" name="cant_por_empaque[]" class="form-control text-center inp-pe" 
+                       value="${porEmpIni}" min="1" oninput="calcularTotalRow(${id})">
+            </td>
+            <td>
+                <input type="number" name="total_unidades[]" class="form-control text-center fw-bold bg-light inp-total" 
+                       value="${totalIni}" readonly>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-circle" onclick="removerProducto(${id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        cuerpoTabla.appendChild(tr);
+        seleccionados.add(id);
+        
+        // Ajustar valores iniciales
+        document.getElementById(`sel-${id}`).value = unidDefault;
+        
+        buscador.value = '';
+        resultados.style.display = 'none';
+        actualizarEstadoGlobal();
+    };
+
+    window.removerProducto = function(id) {
+        document.getElementById(`fila-${id}`).remove();
+        seleccionados.delete(id);
+        if (seleccionados.size === 0) cuerpoTabla.appendChild(filaVacia);
+        actualizarEstadoGlobal();
+    };
+
+    window.calcularTotalRow = function(id) {
+        const row = document.getElementById(`fila-${id}`);
+        const empaques = parseInt(row.querySelector('.inp-empaques').value) || 0;
+        const porEmpaque = parseInt(row.querySelector('.inp-pe').value) || 1;
+        const totalInput = row.querySelector('.inp-total');
+        
+        // Siguiendo la regla de negocio: Total = Empaques (sin multiplicar por por_empaque según vi antes)
+        // Pero el usuario pidió "ajustarlo" y usualmente para Entrada se querría consistencia.
+        // Re-revisando libreria/forms.py linea 235: cleaned_data['cantidad'] = cantidad_empaques
+        // OK, mantengo la lógica de que Cantidad Total = Cantidad de Empaques ingresada directamente.
+        totalInput.value = empaques;
+    };
+
+    function actualizarEstadoGlobal() {
+        btnProcesar.disabled = seleccionados.size === 0;
+        labelResumen.innerText = `Carga actual: ${seleccionados.size} productos registrados.`;
+    }
+
+    // --- Cargar items del pedido si existen ---
+    const itemsPedido = JSON.parse(document.getElementById('pedido-items-data').textContent);
+    if (itemsPedido && itemsPedido.length > 0) {
+        itemsPedido.forEach(item => {
+            agregarProducto(item.id, item);
+        });
+    }
+
+    // Cerrar buscador al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
+            resultados.style.display = 'none';
+        }
+        if (!buscadorPed.contains(e.target) && !resultadosPed.contains(e.target)) {
+            resultadosPed.style.display = 'none';
+        }
+    });
+});
+</script>
+<style>
+    .list-group-item:hover { background-color: #f8f9fa; cursor: pointer; }
+    .inp-total { border-color: transparent; }
+    .hr-text {
+        position: relative;
+        border-top: 1px solid #dee2e6;
+    }
+    .hr-text span {
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Confirmar Ingreso de Mercancía{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-success text-white py-3">
+            <h4 class="mb-0 fw-bold text-center">Revisión de Ingreso de Mercancía</h4>
+        </div>
+        <div class="card-body p-4">
+            <div class="alert alert-info border-0 shadow-sm mb-4">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <i class="bi bi-info-circle-fill fs-2"></i>
+                    </div>
+                    <div class="col">
+                        <h6 class="mb-1 fw-bold">Verificación de Carga</h6>
+                        <p class="mb-0 small">Verifique que las cantidades coincidan con la mercancía física recibida. Al confirmar, el stock se incrementará automáticamente.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded border-start border-success border-4 h-100">
+                        <label class="text-muted small text-uppercase fw-bold">Proveedor / Origen:</label>
+                        <h5 class="mb-0 fw-bold">{{ proveedor.razonsocial }}</h5>
+                        <p class="text-muted mb-0 small">{{ proveedor.rif }}</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded h-100">
+                        <label class="text-muted small text-uppercase fw-bold">Resumen del Lote:</label>
+                        <h5 class="mb-0 fw-bold">{{ items|length }} Items Seleccionados</h5>
+                        <p class="text-muted mb-0 small">Tipo: Entrada de Inventario (Ingreso)</p>
+                    </div>
+                </div>
+            </div>
+
+            <form action="{% url 'movimientos.entrada_procesar' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="proveedor_id" value="{{ proveedor.id }}">
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-dark">
+                            <tr class="small text-center">
+                                <th style="width: 40%;" class="text-start">Producto</th>
+                                <th style="width: 20%;">Empaques / Unidad</th>
+                                <th style="width: 20%;">Cantidad (Total Unid.)</th>
+                                <th style="width: 20%;">Efecto en Inventario</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                                <input type="hidden" name="producto_id[]" value="{{ item.producto.id_producto }}">
+                                <input type="hidden" name="unidad_empaque[]" value="{{ item.unidad }}">
+                                <input type="hidden" name="cant_empaques[]" value="{{ item.cant_empaques }}">
+                                <input type="hidden" name="total_unidades[]" value="{{ item.total }}">
+                                
+                                <tr>
+                                    <td class="py-3">
+                                        <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
+                                        <code class="text-muted">{{ item.producto.codigo_producto }}</code>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-secondary">{{ item.cant_empaques }} x {{ item.unidad }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="fs-5 fw-bold text-success">+ {{ item.total }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <small class="text-muted d-block">Stock Act: {{ item.producto.cantidad }}</small>
+                                        <i class="bi bi-arrow-right mx-1"></i>
+                                        <span class="fw-bold text-dark">Nuevo: 
+                                            {% with total_nuevo=item.producto.cantidad|add:item.total %}
+                                                {{ total_nuevo }}
+                                            {% endwith %}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-between gap-3 mt-4">
+                    <button type="button" class="btn btn-outline-secondary btn-lg px-4" onclick="history.back()">
+                        <i class="bi bi-pencil-square me-2"></i> Corregir Datos
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg px-5 shadow-sm" id="btn-finalizar">
+                        <i class="bi bi-check-circle-fill me-2"></i> Confirmar y Registrar Ingreso
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('btn-finalizar').addEventListener('click', function() {
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Procesando Ingreso...';
+        this.disabled = true;
+        this.closest('form').submit();
+    });
+</script>
+{% endblock %}

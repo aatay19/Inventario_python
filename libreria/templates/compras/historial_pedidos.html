@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>{{ titulo }}</h2>
+        <div>
+            <form action="{% url 'compras.eliminar_todo_historial' %}" method="post" id="form-vaciar-historial" class="d-inline">
+                {% csrf_token %}
+                <button type="button" class="btn btn-outline-danger me-2" id="btn-vaciar-todo">
+                    <i class="bi bi-trash-fill me-1"></i> Borrar Historial
+                </button>
+            </form>
+            <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nuevo Pedido</a>
+        </div>
+    </div>
+
+    <!-- Buscador -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" 
+                               placeholder="Buscar por proveedor o código de lote...">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if page_obj %}
+        {% for pedido in page_obj %}
+            <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+                <div class="card-header bg-success text-white py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-receipt me-2"></i>
+                                Pedido: {{ pedido.codigo_lote }}
+                            </h5>
+                        </div>
+                        <div class="col-md-6 text-md-end text-white-50 small">
+                            Fecha: {{ pedido.fecha_pedido|date:"d/m/Y H:i:s" }}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body bg-light border-bottom">
+                    <div class="row align-items-center">
+                        <div class="col-xl-4 col-md-12 mb-2 mb-xl-0">
+                            <span class="text-muted small d-block">Proveedor / Destinatario:</span>
+                            <span class="fw-bold">{{ pedido.proveedor.razonsocial }}</span>
+                            <small class="text-muted d-block">{{ pedido.proveedor.rif }}</small>
+                        </div>
+                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
+                            <span class="text-muted small d-block">Estado:</span>
+                            <span class="badge bg-warning text-dark border">{{ pedido.estado }}</span>
+                        </div>
+                        <div class="col-xl-5 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
+                            <!-- Botón de Eliminar -->
+                            <form action="{% url 'compras.eliminar_pedido' %}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar TODO este pedido? Esta acción es solo informativa y no afecta el inventario físico.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="pedido_id" value="{{ pedido.id_pedido }}">
+                                <button type="submit" class="btn btn-danger shadow-sm rounded-pill px-3 text-nowrap" title="Eliminar Pedido Completo">
+                                    <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
+                                </button>
+                            </form>
+                            <a href="{% url 'movimientos.entrada_desde_pedido' pedido.id_pedido %}" class="btn btn-primary shadow-sm rounded-pill px-3 text-nowrap" title="Registrar como Entrada Real">
+                                <i class="bi bi-box-arrow-in-down fs-6 me-1"></i> Registrar Entrada
+                            </a>
+                            <!-- Botón PDF -->
+                            <a href="{% url 'compras.pedido_pdf' pedido.id_pedido %}" class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" title="Descargar PDF">
+                                <i class="bi bi-file-earmark-pdf fs-6 me-1"></i> PDF
+                            </a>
+                            <button class="btn btn-outline-secondary rounded-pill px-3 text-nowrap" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#detalle-{{ forloop.counter }}" aria-expanded="false" title="Ver Detalles">
+                                <i class="bi bi-list-ul fs-6 me-1"></i> Detalles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="collapse show" id="detalle-{{ forloop.counter }}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr class="small text-muted text-uppercase">
+                                    <th class="ps-4">Producto</th>
+                                    <th class="text-center">Cant. Solicitada</th>
+                                    <th class="text-center">Empaques</th>
+                                    <th>Unidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pedido.detalles.all %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
+                                        <div class="x-small text-muted">{{ item.producto.codigo_producto }}</div>
+                                    </td>
+                                    <td class="text-center fw-bold text-success">
+                                        {{ item.cantidad }}
+                                    </td>
+                                    <td class="text-center">
+                                        {{ item.cantidad_empaques }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border font-monospace">{{ item.unidad_empaque }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+
+        <!-- Paginación -->
+        <nav aria-label="Paginación" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Anterior</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Siguiente</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+
+    {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-folder2-open text-muted mb-3" style="font-size: 4rem;"></i>
+            <p class="text-muted fs-5">No se encontraron pedidos de compra.</p>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .x-small { font-size: 0.75rem; }
+</style>
+
+<!-- Lógica para el Prompt de PDF -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Confirmación para vaciar todo
+        const btnVaciar = document.getElementById('btn-vaciar-todo');
+        if (btnVaciar) {
+            btnVaciar.addEventListener('click', function() {
+                Swal.fire({
+                    title: '¿Estás seguro?',
+                    text: "Esta acción eliminará permanentemente TODOS los registros del historial de pedidos informativos.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, borrar todo',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        document.getElementById('form-vaciar-historial').submit();
+                    }
+                });
+            });
+        }
+
+        {% if modal_pdf_id %}
+        Swal.fire({
+            title: '¡Pedido Realizado!',
+            text: "¿Desea descargar el comprobante en PDF ahora?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: '<i class="bi bi-file-earmark-pdf me-2"></i>Descargar PDF',
+            cancelButtonText: 'Más tarde'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = "{% url 'compras.pedido_pdf' modal_pdf_id %}";
+            }
+        });
+        {% endif %}
+    });
+</script>
+{% endblock %}

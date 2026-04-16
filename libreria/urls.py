@@ -22,6 +22,9 @@ urlpatterns = [
     path('compras/confirmar/', views.compras_confirmar, name='compras.confirmar'),
     path('compras/procesar/', views.compras_procesar, name='compras.procesar'),
     path('compras/exportar/pdf', views.exportar_pedido_pdf, name='compras.exportar_pdf'),
+    path('compras/pedido/pdf/<int:pedido_id>', views.exportar_pedido_unico_pdf, name='compras.pedido_pdf'),
+    path('compras/eliminar_pedido/', views.compras_eliminar_pedido, name='compras.eliminar_pedido'),
+    path('compras/historial/eliminar_todo/', views.compras_eliminar_todo_historial, name='compras.eliminar_todo_historial'),
 
     # HistorialProveedoresNotas urls
     path('HistorialProveedoresNotas/', views.historial_proveedores_notas_index, name='HistorialProveedoresNotas.index'),
@@ -49,6 +52,10 @@ urlpatterns = [
     path('movimientos/salida', views.movimientos_salida_form, name='movimientos.salida'),
     path('movimientos/salida/confirmar', views.movimientos_salida_confirmar, name='movimientos.salida_confirmar'),
     path('movimientos/salida/procesar', views.movimientos_salida_procesar, name='movimientos.salida_procesar'),
+    path('movimientos/entrada', views.movimientos_entrada_form, name='movimientos.entrada'),
+    path('movimientos/entrada/<int:pedido_id>', views.movimientos_entrada_form, name='movimientos.entrada_desde_pedido'),
+    path('movimientos/entrada/confirmar', views.movimientos_entrada_confirmar, name='movimientos.entrada_confirmar'),
+    path('movimientos/entrada/procesar', views.movimientos_entrada_procesar, name='movimientos.entrada_procesar'),
     path('movimientos/historial/pedidos', views.movimientos_historial_pedidos, name='movimientos.historial_pedidos'),
     path('movimientos/historial/salidas', views.movimientos_historial_salidas, name='movimientos.historial_salidas'),
     path('movimientos/historial/exportar/pdf', views.exportar_lote_pdf, name='movimientos.exportar_lote_pdf'),

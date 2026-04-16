@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas, MovimientosInventario, PerfilUsuario
+from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas, MovimientosInventario, PerfilUsuario, PedidoCompra, DetallePedidoCompra
 from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm, ImportarArchivoForm
 from django.core.paginator import Paginator
 from django.db.models import Q, F, Sum, Count, Value, Max
@@ -17,6 +17,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import logout
 from django.core.management import call_command
+import uuid
 import openpyxl
 import csv
 import io
@@ -58,7 +59,7 @@ def index(request):
     total_productos = Inventario.objects.count()
 
     # 4. Producto con más movimientos (ENTRADA y SALIDA)
-    pm = MovimientosInventario.objects.values(
+    pm = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').values(
         'producto__nombre_producto',
         'producto__stock_minimo',
         'producto__stock_maximo',
@@ -76,7 +77,7 @@ def index(request):
     }
 
     # 5. LISTADO DE ÚLTIMOS 5 MOVIMIENTOS (NUEVO)
-    ultimos_movimientos = MovimientosInventario.objects.select_related('producto', 'proveedor').order_by('-fecha_movimiento')[:5]
+    ultimos_movimientos = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').select_related('producto', 'proveedor').order_by('-fecha_movimiento')[:5]
 
     # 6. Alerta de Stock Bajo
     productos_bajo_stock = Inventario.objects.filter(
@@ -893,6 +894,165 @@ def movimientos_salida_procesar(request):
             return redirect('movimientos.salida')
 
     return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_entrada_form(request, pedido_id=None):
+    from .models import UnidadEmpaqueChoices
+    unidades_choices = UnidadEmpaqueChoices.choices
+    unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
+
+    pedido = None
+    items_pedido = []
+    if pedido_id:
+        pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
+        # Pre-cargar items del pedido
+        for detalle in pedido.detalles.all():
+            items_pedido.append({
+                'id': detalle.producto.id_producto,
+                'nombre': detalle.producto.nombre_producto,
+                'codigo': detalle.producto.codigo_producto,
+                'cantidad': detalle.cantidad,
+                'unidad': detalle.unidad_empaque,
+                'empaques': detalle.cantidad_empaques,
+                'por_empaque': detalle.cantidad_por_empaque
+            })
+    
+    # Preparar productos para el buscador (si quieren agregar nuevos)
+    qs = Inventario.objects.all().order_by('nombre_producto')
+    productos_json = []
+    for p in qs:
+        productos_json.append({
+            'id': p.id_producto,
+            'nombre': p.nombre_producto,
+            'codigo': p.codigo_producto,
+            'unidades_html': unidades_html,
+            'id_unidad_default': p.unidad_empaque
+        })
+
+    proveedores = Proveedor.objects.all().order_by('razonsocial')
+    
+    # Preparar listado de pedidos informativos para búsqueda rápida
+    pedidos_qs = PedidoCompra.objects.select_related('proveedor').prefetch_related('detalles__producto').order_by('-fecha_pedido')[:50]
+    pedidos_json = []
+    for ped in pedidos_qs:
+        items = []
+        for det in ped.detalles.all():
+            items.append({
+                'id': det.producto.id_producto,
+                'nombre': det.producto.nombre_producto,
+                'codigo': det.producto.codigo_producto,
+                'cantidad': det.cantidad,
+                'unidad': det.unidad_empaque,
+                'empaques': det.cantidad_empaques,
+                'por_empaque': det.cantidad_por_empaque
+            })
+        pedidos_json.append({
+            'id': ped.id_pedido,
+            'codigo': ped.codigo_lote,
+            'proveedor_id': ped.proveedor.id,
+            'proveedor_nombre': ped.proveedor.razonsocial,
+            'fecha': ped.fecha_pedido.strftime('%d/%m/%Y'),
+            'items': items
+        })
+
+    return render(request, 'movimientos/form_entrada.html', {
+        'productos_json': productos_json,
+        'unidades_choices': unidades_choices,
+        'pedido': pedido,
+        'items_pedido': items_pedido,
+        'proveedores': proveedores,
+        'pedidos_json': pedidos_json, # Nueva data para búsqueda dinámica
+    })
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_entrada_confirmar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        proveedor_id = request.POST.get('proveedor_id')
+        
+        items_resumen = []
+        for i in range(len(producto_ids)):
+            cant = int(totales[i])
+            if cant > 0:
+                producto = Inventario.objects.get(id_producto=producto_ids[i])
+                items_resumen.append({
+                    'producto': producto,
+                    'unidad': unidades_empaque[i],
+                    'cant_empaques': cants_empaques[i],
+                    'total': cant,
+                })
+        
+        if not items_resumen:
+            messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
+            return redirect('movimientos.entrada')
+            
+        proveedor = None
+        if proveedor_id:
+            proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+        
+        return render(request, 'movimientos/confirmar_entrada.html', {
+            'items': items_resumen,
+            'proveedor': proveedor
+        })
+    return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_entrada_procesar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        proveedor_id = request.POST.get('proveedor_id')
+
+        if not proveedor_id:
+            messages.error(request, 'Debe seleccionar un proveedor para el ingreso.')
+            return redirect('movimientos.entrada')
+
+        proveedor = Proveedor.objects.get(id=proveedor_id)
+        ahora = timezone.now()
+        lote_id = f"E-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
+        entradas_creadas = 0
+        try:
+            with transaction.atomic():
+                for i in range(len(producto_ids)):
+                    producto = Inventario.objects.get(id_producto=producto_ids[i])
+                    cant_entrada = int(totales[i])
+                    
+                    if cant_entrada > 0:
+                        # Crear el movimiento REAL de entrada
+                        MovimientosInventario.objects.create(
+                            producto=producto,
+                            tipo_movimiento='ENTRADA',
+                            cantidad=cant_entrada,
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=int(cants_empaques[i]),
+                            proveedor=proveedor,
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id
+                        )
+                        # Actualizar stock REAL
+                        producto.cantidad += cant_entrada
+                        # Asociar proveedor al producto
+                        producto.proveedores.add(proveedor)
+                        producto.save()
+                        entradas_creadas += 1
+            
+            messages.success(request, f'Se registraron exitosamente {entradas_creadas} ingresos de stock de {proveedor.razonsocial}.')
+            return redirect('movimientos.index')
+            
+        except Exception as e:
+            messages.error(request, f'Error al procesar las entradas: {str(e)}')
+            return redirect('movimientos.entrada')
+
+    return redirect('movimientos.index')
+
 #======================================
 # La decodificación se realiza ahora en el Front-end con Html5-QRCode
 
@@ -1093,45 +1253,102 @@ def compras_procesar(request):
         cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
 
         ahora = timezone.now()
-        lote_id = f"E-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
+        # Generar un código más "Socio-Amigable" y único (ORD-AÑO-MES-DIA-RANDOM)
+        lote_id = f"ORD-{ahora.strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
         ordenes_creadas = 0
         try:
             with transaction.atomic():
+                pedido = PedidoCompra.objects.create(
+                    proveedor=proveedor,
+                    fecha_pedido=ahora,
+                    estado='PENDIENTE',
+                    codigo_lote=lote_id
+                )
+                
                 for i in range(len(producto_ids)):
                     producto = Inventario.objects.get(id_producto=producto_ids[i])
                     
-                    # 1. Actualizar Mínimos y Máximos
-                    producto.stock_minimo = int(minimos[i])
-                    producto.stock_maximo = int(maximos[i])
-                    producto.unidad_empaque = unidades_empaque[i]
-                    producto.cantidad_por_empaque = int(cants_por_empaque[i])  # Nueva actualización solicitada
-                    producto.save()
+                    # (Todo editado a Informativo puro, sin afectar el inventario)
                     
-                    # 2. Entrada de inventario
+                    # 2. Entrada de Pedido (Informativa)
                     cant_pedir = int(totales[i])
                     if cant_pedir > 0:
-                        MovimientosInventario.objects.create(
+                        DetallePedidoCompra.objects.create(
+                            pedido=pedido,
                             producto=producto,
-                            tipo_movimiento='ENTRADA',
                             cantidad=cant_pedir,
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=int(cants_empaques[i]),
-                            proveedor=proveedor,
-                            fecha_movimiento=ahora,
-                            codigo_lote=lote_id
+                            cantidad_por_empaque=int(cants_por_empaque[i])
                         )
-                        producto.cantidad += cant_pedir
-                        producto.save()
                         ordenes_creadas += 1
             
-            messages.success(request, f'Pedido procesado exitosamente. Se registraron {ordenes_creadas} entradas de productos.')
-            return redirect('compras.index')
+            messages.success(request, f'Pedido procesado exitosamente. Se registraron {ordenes_creadas} productos en la orden.')
+            # Guardamos el ID en la sesión para el prompt de descarga
+            request.session['ultimo_pedido_id'] = pedido.id_pedido
+            return redirect('movimientos.historial_pedidos')
             
         except Exception as e:
             messages.error(request, f'Error al procesar el pedido: {str(e)}')
             return redirect('compras.nuevo', proveedor_id=proveedor_id)
 
     return redirect('compras.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def exportar_pedido_unico_pdf(request, pedido_id):
+    pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Cabecera
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.cell(0, 15, "ORDEN DE PEDIDO", ln=True, align="C")
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, f"Código: {pedido.codigo_lote}", ln=True, align="C")
+    pdf.ln(5)
+    
+    # Datos del Proveedor y Fecha
+    pdf.set_fill_color(245, 245, 245)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(95, 10, " Proveedor:", 0, 0, "L", True)
+    pdf.cell(95, 10, " Detalles:", 0, 1, "L", True)
+    
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(95, 7, f" {pedido.proveedor.razonsocial}", 0, 0)
+    pdf.cell(95, 7, f" Fecha: {pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M')}", 0, 1)
+    pdf.cell(95, 7, f" RIF: {pedido.proveedor.rif}", 0, 0)
+    pdf.cell(95, 7, f" Estado: {pedido.estado}", 0, 1)
+    pdf.ln(10)
+    
+    # Tabla de Productos
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_fill_color(0, 123, 255) # Azul
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(80, 10, " Producto", 1, 0, "L", True)
+    pdf.cell(35, 10, " Empaques", 1, 0, "C", True)
+    pdf.cell(35, 10, " Tipo", 1, 0, "C", True)
+    pdf.cell(40, 10, " Total Unid.", 1, 1, "C", True)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Helvetica", "", 10)
+    
+    for det in pedido.detalles.all():
+        pdf.cell(80, 10, f" {det.producto.nombre_producto[:35]}", 1, 0, "L")
+        pdf.cell(35, 10, str(det.cantidad_empaques), 1, 0, "C")
+        pdf.cell(35, 10, str(det.unidad_empaque), 1, 0, "C")
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(40, 10, str(det.cantidad), 1, 1, "C")
+        pdf.set_font("Helvetica", "", 10)
+
+    pdf.ln(15)
+    pdf.set_font("Helvetica", "I", 9)
+    pdf.cell(0, 10, "Nota: Este documento es una orden informativa de pedido interna.", ln=True, align="C")
+    
+    response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.codigo_lote}.pdf"'
+    return response
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
@@ -1186,7 +1403,55 @@ def exportar_pedido_pdf(request):
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_historial_pedidos(request):
-    return _historial_agrupado(request, 'ENTRADA', 'Historial de Pedidos y Entradas')
+    q = request.GET.get('q', '').strip()
+    qs = PedidoCompra.objects.select_related('proveedor').all()
+    
+    if q:
+        qs = qs.filter(Q(proveedor__razonsocial__icontains=q) | Q(codigo_lote__icontains=q))
+        
+    qs = qs.prefetch_related('detalles__producto').order_by('-fecha_pedido')
+    
+    paginator = Paginator(qs, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Revisar si hay un pedido recién creado para preguntar por su descarga
+    ultimo_pedido_id = request.session.pop('ultimo_pedido_id', None)
+    
+    return render(request, 'compras/historial_pedidos.html', {
+        'page_obj': page_obj,
+        'titulo': 'Historial de Pedidos de Compra (Informativo)',
+        'q': q,
+        'modal_pdf_id': ultimo_pedido_id
+    })
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def compras_eliminar_pedido(request):
+    if request.method == 'POST':
+        pedido_id = request.POST.get('pedido_id')
+        try:
+            pedido = PedidoCompra.objects.get(id_pedido=pedido_id)
+            pedido.delete()
+            messages.success(request, 'Pedido eliminado exitosamente.')
+        except Exception as e:
+            messages.error(request, f'Error al eliminar el pedido: {str(e)}')
+            
+    return redirect('movimientos.historial_pedidos')
+
+@login_required
+@user_passes_test(es_admin, login_url='index')
+def compras_eliminar_todo_historial(request):
+    if request.method == 'POST':
+        try:
+            # Eliminar todos los pedidos informativos
+            cantidad = PedidoCompra.objects.count()
+            PedidoCompra.objects.all().delete()
+            messages.success(request, f'Se han eliminado correctamente {cantidad} registros del historial de pedidos.')
+        except Exception as e:
+            messages.error(request, f'Error al limpiar el historial: {str(e)}')
+            
+    return redirect('movimientos.historial_pedidos')
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
@@ -1197,7 +1462,12 @@ def _historial_agrupado(request, tipo, titulo):
     q = request.GET.get('q', '').strip()
     
     # Obtenemos movimientos filtrados por tipo
-    qs = MovimientosInventario.objects.filter(tipo_movimiento=tipo).select_related('producto', 'proveedor')
+    if isinstance(tipo, list):
+        qs = MovimientosInventario.objects.filter(tipo_movimiento__in=tipo).select_related('producto', 'proveedor')
+        tipo_template = tipo[0]
+    else:
+        qs = MovimientosInventario.objects.filter(tipo_movimiento=tipo).select_related('producto', 'proveedor')
+        tipo_template = tipo
     
     if q:
         qs = qs.filter(
@@ -1247,7 +1517,7 @@ def _historial_agrupado(request, tipo, titulo):
     return render(request, 'movimientos/historial_lotes.html', {
         'page_obj': page_obj,
         'titulo': titulo,
-        'tipo': tipo,
+        'tipo': tipo_template,
         'q': q
     })
 
@@ -1385,9 +1655,9 @@ def movimientos_lote_editar(request, lote_id):
                         # Si es 0, eliminamos el registro y revertimos
                         if nueva_cantidad == 0:
                             producto = mov.producto
-                            if tipo == 'ENTRADA':
+                            if mov.tipo_movimiento == 'ENTRADA':
                                 producto.cantidad -= mov.cantidad
-                            else:
+                            elif mov.tipo_movimiento == 'SALIDA':
                                 producto.cantidad += mov.cantidad
                             producto.save()
                             mov.delete()
@@ -1405,15 +1675,15 @@ def movimientos_lote_editar(request, lote_id):
                                     raise Exception(f"Stock insuficiente para {producto.nombre_producto}. Faltan {diff - producto.cantidad} unid.")
                             
                             # Revertir
-                            if tipo == 'ENTRADA':
+                            if mov.tipo_movimiento == 'ENTRADA':
                                 producto.cantidad -= mov.cantidad
-                            else:
+                            elif mov.tipo_movimiento == 'SALIDA':
                                 producto.cantidad += mov.cantidad
                                 
                             # Aplicar nuevo
-                            if tipo == 'ENTRADA':
+                            if mov.tipo_movimiento == 'ENTRADA':
                                 producto.cantidad += nueva_cantidad
-                            else:
+                            elif mov.tipo_movimiento == 'SALIDA':
                                 producto.cantidad -= nueva_cantidad
                                 
                             producto.save()
@@ -1450,7 +1720,7 @@ def movimientos_lote_editar(request, lote_id):
                             # Actualizar stock
                             if tipo == 'ENTRADA':
                                 prod_nuevo.cantidad += nueva_cant_prod
-                            else:
+                            elif tipo == 'SALIDA':
                                 prod_nuevo.cantidad -= nueva_cant_prod
                             prod_nuevo.save()
                             

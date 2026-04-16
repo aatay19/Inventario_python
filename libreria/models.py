@@ -170,3 +170,35 @@ def guardar_perfil_usuario(sender, instance, **kwargs):
         PerfilUsuario.objects.create(user=instance)
     else:
         instance.perfilusuario.save()
+
+class PedidoCompra(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('COMPLETADO', 'Completado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    id_pedido = models.AutoField(primary_key=True)
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, verbose_name="Proveedor")
+    fecha_pedido = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Pedido")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
+    codigo_lote = models.CharField(max_length=50, unique=True, verbose_name="Código de Pedido")
+
+    def __str__(self):
+        return f"Pedido {self.codigo_lote} - {self.proveedor.razonsocial}"
+
+    class Meta:
+        verbose_name = "Pedido de Compra"
+        verbose_name_plural = "Pedidos de Comppras"
+        ordering = ['-fecha_pedido']
+
+class DetallePedidoCompra(models.Model):
+    id_detalle = models.AutoField(primary_key=True)
+    pedido = models.ForeignKey(PedidoCompra, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
+    cantidad = models.IntegerField(verbose_name="Cantidad Solicitada")
+    unidad_empaque = models.CharField(max_length=20, choices=UnidadEmpaqueChoices.choices, verbose_name="Tipo de Empaque")
+    cantidad_empaques = models.IntegerField(verbose_name="Cantidad de Empaques")
+    cantidad_por_empaque = models.IntegerField(verbose_name="Cantidad por Empaque", default=1)
+    
+    def __str__(self):
+        return f"{self.cantidad} {self.unidad_empaque} de {self.producto.nombre_producto}"
