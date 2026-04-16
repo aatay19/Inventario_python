@@ -1,31 +1,33 @@
-from django.shortcuts import render, redirect
-from django.http import HttpResponse
-from .models import Cliente, Proveedor, Inventario, HistorialProveedoresNotas, MovimientosInventario, PerfilUsuario, PedidoCompra, DetallePedidoCompra
-from .forms import ClienteForm, ProveedorForm, InventarioForm, HistorialProveedoresNotasForm, MovimientosInventarioForm, UserForm, PerfilUsuarioForm, ImportarArchivoForm
-from django.core.paginator import Paginator
-from django.db.models import Q, F, Sum, Count, Value, Max
-from django.utils import timezone
-from django.db import transaction
-from datetime import timedelta, datetime
-from django.shortcuts import get_object_or_404
-from django import forms
-from django.contrib import messages
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from fpdf import FPDF
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.decorators import user_passes_test
-from django.contrib.auth import logout
-from django.core.management import call_command
-import uuid
-import openpyxl
 import csv
 import io
-import uuid
-# Create your views here.
-# libreria/views.py
- 
 import json
+import uuid
+from datetime import datetime, timedelta
+
+import openpyxl
+from fpdf import FPDF
+from django import forms
+from django.contrib import messages
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.management import call_command
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Count, F, Max, Q, Sum, Value
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+
+from .forms import (
+    ClienteForm, HistorialProveedoresNotasForm, ImportarArchivoForm,
+    InventarioForm, MovimientosInventarioForm, PerfilUsuarioForm,
+    ProveedorForm, UserForm
+)
+from .models import (
+    Cliente, DetallePedidoCompra, HistorialProveedoresNotas,
+    Inventario, MovimientosInventario, PedidoCompra, PerfilUsuario, Proveedor
+)
 # ...
 def custom_logout(request):
     logout(request)
@@ -494,7 +496,7 @@ def exportar_inventario_pdf(request):
     return response
 
 #======================================
-#HistorialProveedoresNotas vista
+# notas vista
 #========================================
 
 @login_required

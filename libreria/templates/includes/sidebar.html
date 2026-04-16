@@ -7,29 +7,29 @@
 
 
         {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
-            <!-- PRODUCTOS -->
-            <li class="nav-item mb-2">
-                <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
-                    <span><i class="bi bi-box-seam me-2"></i> Productos</span>
-                    
-                </a>
-                <ul class="submenu list-unstyled ms-4">
-                    <li><a class="nav-link small" href="{% url 'inventario.index' %}">➤ lista de productos</a></li>
-                    <li><a class="nav-link small" href="{% url 'inventario.crear' %}">➤ Crear producto</a></li>
-                </ul>
-            </li>
-    
-            <!-- PROVEEDORES -->
-            <li class="nav-item mb-2">
-                <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
-                    <span><i class="bi bi-buildings me-2"></i> Proveedores</span>
-                    
-                </a>
-                <ul class="submenu list-unstyled ms-4">
-                    <li><a class="nav-link small" href="{% url 'proveedores.crear' %}">➤ Registrar proveedor</a></li>
-                    <li><a class="nav-link small" href="{% url  'proveedores.index' %}">➤ Lista de proveedores</a></li>
-                </ul>
-            </li>
+        <!-- PRODUCTOS -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-box-seam me-2"></i> Productos</span>
+
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'inventario.index' %}">➤ lista de productos</a></li>
+                <li><a class="nav-link small" href="{% url 'inventario.crear' %}">➤ Crear producto</a></li>
+            </ul>
+        </li>
+
+        <!-- PROVEEDORES -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-buildings me-2"></i> Proveedores</span>
+
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'proveedores.crear' %}">➤ Registrar proveedor</a></li>
+                <li><a class="nav-link small" href="{% url  'proveedores.index' %}">➤ Lista de proveedores</a></li>
+            </ul>
+        </li>
         {% endif %}
 
         <!-- USUARIOS -->
@@ -37,7 +37,7 @@
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-person-circle me-2"> </i> Usuarios</span>
-                
+
             </a>
             <ul class="submenu list-unstyled ms-4">
                 <li><a class="nav-link small" href="{% url 'usuarios.crear' %}">➤ Registrar Usuario</a></li>
@@ -45,7 +45,7 @@
             </ul>
         </li>
         {% endif %}
-        
+
         <!-- PEDIDOS / COMPRAS -->
         {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
         <li class="nav-item mb-2">
@@ -54,7 +54,8 @@
             </a>
             <ul class="submenu list-unstyled ms-4">
                 <li><a class="nav-link small" href="{% url 'compras.index' %}">➤ Generar Pedido</a></li>
-                <li><a class="nav-link small" href="{% url 'movimientos.historial_pedidos' %}">➤ Historial de Pedidos</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_pedidos' %}">➤ Historial de
+                        Pedidos</a></li>
             </ul>
         </li>
         {% endif %}
@@ -63,10 +64,11 @@
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-cart-check me-2"></i> Movimientos Inventario</span>
-                
+
             </a>
             <ul class="submenu list-unstyled ms-4">
-                <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento (Gral)</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento (Gral)</a>
+                </li>
                 <li><a class="nav-link small" href="{% url 'movimientos.entrada' %}">➤ Entrada de Mercancía</a></li>
                 <li><a class="nav-link small" href="{% url 'movimientos.index' %}">➤ Lista de Movimientos</a></li>
             </ul>
@@ -80,14 +82,15 @@
             </a>
             <ul class="submenu list-unstyled ms-4">
                 <li><a class="nav-link small" href="{% url 'movimientos.salida' %}">➤ Generar Salida</a></li>
-                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial de Salidas</a></li>
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial de
+                        Salidas</a></li>
             </ul>
         </li>
         {% endif %}
 
         <!-- HISTORIAL DE NOTAS (Separado) -->
         <li class="nav-item mb-2">
-            <a class="nav-link d-flex align-items-center" href="{% url 'HistorialProveedoresNotas.index' %}">
+            <a class="nav-link d-flex align-items-center" href="{% url 'notas.index' %}">
                 <span><i class="bi bi-journal-text me-2"></i> Historial de Proveedores - Notas</span>
             </a>
         </li>
@@ -107,6 +110,6 @@
                 <i class="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
             </a>
         </li>
-        
+
     </ul>
 </div>
