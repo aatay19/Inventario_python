@@ -40,14 +40,17 @@
             <form action="{% url 'movimientos.entrada_procesar' %}" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="proveedor_id" value="{{ proveedor.id }}">
+                {% if pedido_id_vincular %}
+                    <input type="hidden" name="pedido_id_vincular" value="{{ pedido_id_vincular }}">
+                {% endif %}
 
                 <div class="table-responsive">
                     <table class="table table-hover align-middle border">
                         <thead class="table-dark">
                             <tr class="small text-center">
                                 <th style="width: 40%;" class="text-start">Producto</th>
-                                <th style="width: 20%;">Empaques / Unidad</th>
-                                <th style="width: 20%;">Cantidad (Total Unid.)</th>
+                                <th style="width: 20%;">Cant. Pedido / Unidad</th>
+                                <th style="width: 20%;">Total Unid.</th>
                                 <th style="width: 20%;">Efecto en Inventario</th>
                             </tr>
                         </thead>

@@ -19,6 +19,9 @@
     <form action="{% url 'compras.procesar' %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="proveedor_id" value="{{ proveedor.id }}">
+        {% if pedido_id %}
+            <input type="hidden" name="pedido_id" value="{{ pedido_id }}">
+        {% endif %}
 
         <div class="row g-4">
             <!-- Datos del Proveedor -->
@@ -55,7 +58,7 @@
                                 <tr class="small">
                                     <th>Producto</th>
                                     <th class="text-center">Nuevos Niveles (Min/Max)</th>
-                                    <th class="text-center">Cant. a Ingresar</th>
+                                    <th class="text-center">Cant. Pedido</th>
                                     <th>Unidad</th>
                                 </tr>
                             </thead>

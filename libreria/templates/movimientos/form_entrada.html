@@ -20,6 +20,9 @@
 
     <form action="{% url 'movimientos.entrada_confirmar' %}" method="post" id="form-entrada">
         {% csrf_token %}
+        {% if pedido %}
+            <input type="hidden" name="pedido_id_vincular" value="{{ pedido.id_pedido }}">
+        {% endif %}
 
         <div class="row">
             <div class="col-lg-5 col-md-12">
@@ -93,8 +96,8 @@
                         <tr class="small">
                             <th style="width: 35%;">Producto / SKU</th>
                             <th style="width: 15%;">Tipo Empaque</th>
-                            <th style="width: 15%;">Cant. Empaques</th>
                             <th style="width: 15%;">Cant. Pedido</th>
+                            <th style="width: 15%;">Cant. Unid. por Empaque</th>
                             <th style="width: 15%;">TOTAL UNID.</th>
                             <th style="width: 5%;"></th>
                         </tr>
@@ -158,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const filaVacia = document.getElementById('fila-vacia');
     const btnProcesar = document.getElementById('btn-procesar');
     const labelResumen = document.getElementById('resumen-lista');
+    const formEntrada = document.getElementById('form-entrada');
 
     // Cargar datos
     const productos = JSON.parse(document.getElementById('productos-data').textContent);
@@ -208,6 +212,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Establecer proveedor
             $('#proveedor_id').val(ped.proveedor_id).trigger('change');
             
+            // Vincular pedido ID para marcar como entregado al procesar
+            let inputVincular = document.querySelector('input[name="pedido_id_vincular"]');
+            if (!inputVincular) {
+                inputVincular = document.createElement('input');
+                inputVincular.type = 'hidden';
+                inputVincular.name = 'pedido_id_vincular';
+                formEntrada.appendChild(inputVincular);
+            }
+            inputVincular.value = ped.id;
+
             // Cargar items
             ped.items.forEach(item => {
                 agregarProducto(item.id, item);

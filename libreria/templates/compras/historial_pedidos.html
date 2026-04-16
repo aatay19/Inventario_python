@@ -73,6 +73,10 @@
                             <a href="{% url 'movimientos.entrada_desde_pedido' pedido.id_pedido %}" class="btn btn-primary shadow-sm rounded-pill px-3 text-nowrap" title="Registrar como Entrada Real">
                                 <i class="bi bi-box-arrow-in-down fs-6 me-1"></i> Registrar Entrada
                             </a>
+                            <!-- Botón de Editar -->
+                            <a href="{% url 'compras.editar' pedido.id_pedido %}" class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Editar Pedido">
+                                <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
+                            </a>
                             <!-- Botón PDF -->
                             <a href="{% url 'compras.pedido_pdf' pedido.id_pedido %}" class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" title="Descargar PDF">
                                 <i class="bi bi-file-earmark-pdf fs-6 me-1"></i> PDF
@@ -90,8 +94,8 @@
                             <thead class="table-light">
                                 <tr class="small text-muted text-uppercase">
                                     <th class="ps-4">Producto</th>
-                                    <th class="text-center">Cant. Solicitada</th>
-                                    <th class="text-center">Empaques</th>
+                                    <th class="text-center">Total Unid.</th>
+                                    <th class="text-center">Cant. Pedido</th>
                                     <th>Unidad</th>
                                 </tr>
                             </thead>

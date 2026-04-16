@@ -23,6 +23,7 @@ urlpatterns = [
     path('compras/procesar/', views.compras_procesar, name='compras.procesar'),
     path('compras/exportar/pdf', views.exportar_pedido_pdf, name='compras.exportar_pdf'),
     path('compras/pedido/pdf/<int:pedido_id>', views.exportar_pedido_unico_pdf, name='compras.pedido_pdf'),
+    path('compras/pedido/editar/<int:pedido_id>', views.compras_editar_pedido, name='compras.editar'),
     path('compras/eliminar_pedido/', views.compras_eliminar_pedido, name='compras.eliminar_pedido'),
     path('compras/historial/eliminar_todo/', views.compras_eliminar_todo_historial, name='compras.eliminar_todo_historial'),
 

@@ -991,13 +991,16 @@ def movimientos_entrada_confirmar(request):
             messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
             return redirect('movimientos.entrada')
             
+        pedido_id_vincular = request.POST.get('pedido_id_vincular')
+            
         proveedor = None
         if proveedor_id:
             proveedor = get_object_or_404(Proveedor, id=proveedor_id)
         
         return render(request, 'movimientos/confirmar_entrada.html', {
             'items': items_resumen,
-            'proveedor': proveedor
+            'proveedor': proveedor,
+            'pedido_id_vincular': pedido_id_vincular
         })
     return redirect('movimientos.index')
 
@@ -1045,6 +1048,18 @@ def movimientos_entrada_procesar(request):
                         entradas_creadas += 1
             
             messages.success(request, f'Se registraron exitosamente {entradas_creadas} ingresos de stock de {proveedor.razonsocial}.')
+            
+            # AUTOMATIZACIÓN: Cambiar estado del pedido si existe
+            pedido_id_input = request.POST.get('pedido_id_vincular')
+            if pedido_id_input:
+                try:
+                    pedido_real = PedidoCompra.objects.get(id_pedido=pedido_id_input)
+                    pedido_real.estado = 'COMPLETADO'
+                    pedido_real.save()
+                    messages.info(request, f"El pedido {pedido_real.codigo_lote} ha sido marcado como COMPLETADO.")
+                except PedidoCompra.DoesNotExist:
+                    pass
+
             return redirect('movimientos.index')
             
         except Exception as e:
@@ -1052,6 +1067,36 @@ def movimientos_entrada_procesar(request):
             return redirect('movimientos.entrada')
 
     return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def compras_editar_pedido(request, pedido_id):
+    pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
+    proveedor = pedido.proveedor
+    # Filtrar productos que tienen asociado este proveedor
+    productos = Inventario.objects.filter(proveedores__id=proveedor.id).order_by('nombre_producto')
+    
+    # Necesitamos las opciones de unidad de empaque para los selectores
+    from .models import UnidadEmpaqueChoices
+    unidades_choices = UnidadEmpaqueChoices.choices
+
+    # Mapeamos los detalles actuales para facilitar el acceso en el template
+    detalles_dict = {d.producto_id: d for d in pedido.detalles.all()}
+    
+    productos_con_detalles = []
+    for p in productos:
+        productos_con_detalles.append({
+            'producto': p,
+            'detalle': detalles_dict.get(p.id_producto)
+        })
+
+    return render(request, 'compras/form_pedido.html', {
+        'proveedor': proveedor,
+        'productos': productos, # se mantiene por si acaso
+        'productos_con_detalles': productos_con_detalles,
+        'unidades_choices': unidades_choices,
+        'pedido': pedido
+    })
 
 #======================================
 # La decodificación se realiza ahora en el Front-end con Html5-QRCode
@@ -1192,6 +1237,7 @@ def compras_form_pedido(request, proveedor_id):
     return render(request, 'compras/form_pedido.html', {
         'proveedor': proveedor,
         'productos': productos,
+        'productos_con_detalles': [{'producto': p, 'detalle': None} for p in productos],
         'unidades_choices': unidades_choices
     })
 
@@ -1211,6 +1257,7 @@ def compras_confirmar(request):
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
         cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
+        pedido_id = request.POST.get('pedido_id')
         
         items_resumen = []
         for i in range(len(producto_ids)):
@@ -1233,7 +1280,8 @@ def compras_confirmar(request):
             
         return render(request, 'compras/confirmar_pedido.html', {
             'proveedor': proveedor,
-            'items': items_resumen
+            'items': items_resumen,
+            'pedido_id': pedido_id
         })
     return redirect('compras.index')
 
@@ -1251,6 +1299,7 @@ def compras_procesar(request):
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
         cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
+        pedido_id = request.POST.get('pedido_id')
 
         ahora = timezone.now()
         # Generar un código más "Socio-Amigable" y único (ORD-AÑO-MES-DIA-RANDOM)
@@ -1258,12 +1307,20 @@ def compras_procesar(request):
         ordenes_creadas = 0
         try:
             with transaction.atomic():
-                pedido = PedidoCompra.objects.create(
-                    proveedor=proveedor,
-                    fecha_pedido=ahora,
-                    estado='PENDIENTE',
-                    codigo_lote=lote_id
-                )
+                if pedido_id:
+                    pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
+                    # Limpiar detalles previos si se está editando
+                    pedido.detalles.all().delete()
+                    # Opcional: actualizar fecha o mantener la original
+                    pedido.fecha_pedido = ahora 
+                    pedido.save()
+                else:
+                    pedido = PedidoCompra.objects.create(
+                        proveedor=proveedor,
+                        fecha_pedido=ahora,
+                        estado='PENDIENTE',
+                        codigo_lote=lote_id
+                    )
                 
                 for i in range(len(producto_ids)):
                     producto = Inventario.objects.get(id_producto=producto_ids[i])

@@ -21,6 +21,9 @@
     <form action="{% url 'compras.confirmar' %}" method="post" id="form-pedido">
         {% csrf_token %}
         <input type="hidden" name="proveedor_id" value="{{ proveedor.id }}">
+        {% if pedido %}
+            <input type="hidden" name="pedido_id" value="{{ pedido.id_pedido }}">
+        {% endif %}
 
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-primary text-white py-3">
@@ -53,19 +56,20 @@
                             <th style="width: 8%;">Mínimo</th>
                             <th style="width: 8%;">Máximo</th>
                             <th style="width: 12%;">Unid. Empaque</th>
-                            <th style="width: 8%;">CANT.Pedido</th>
-                            <th style="width: 8%;">Num. Empaques</th>
+                            <th style="width: 8%;">Cant. Unid. por Empaque</th>
+                            <th style="width: 8%;">Cant. Pedido</th>
                             <th style="width: 10%;">Subtotal Unid.</th>
                             <th style="width: 18%;">Nota del Movimiento</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for p in productos %}
-                        <tr class="row-producto row-locked" data-id="{{ p.id_producto }}" id="row-{{ p.id_producto }}" 
+                        {% for p_data in productos_con_detalles %}
+                        {% with p=p_data.producto detalle=p_data.detalle %}
+                        <tr class="row-producto {% if not detalle %}row-locked{% else %}table-info{% endif %}" data-id="{{ p.id_producto }}" id="row-{{ p.id_producto }}" 
                             data-orig-min="{{ p.stock_minimo }}" data-orig-max="{{ p.stock_maximo }}" 
                             data-orig-unidad="{{ p.unidad_empaque }}" data-orig-cant-empaque="{{ p.cantidad_por_empaque }}">
                             <td class="text-center">
-                                <input type="checkbox" name="items_seleccionados[]" value="{{ p.id_producto }}" class="form-check-input item-checkbox">
+                                <input type="checkbox" name="items_seleccionados[]" value="{{ p.id_producto }}" class="form-check-input item-checkbox" {% if detalle %}checked{% endif %}>
                             </td>
                             <input type="hidden" name="producto_id[]" value="{{ p.id_producto }}">
                             
@@ -79,31 +83,32 @@
                                 </span>
                             </td>
                             <td>
-                                <input type="number" name="minimo[]" value="{{ p.stock_minimo }}" class="form-control form-control-sm text-center input-item" disabled>
+                                <input type="number" name="minimo[]" value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="maximo[]" value="{{ p.stock_maximo }}" class="form-control form-control-sm text-center input-item" disabled>
+                                <input type="number" name="maximo[]" value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <select name="unidad_empaque[]" class="form-select form-select-sm input-item" disabled>
+                                <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not detalle %}disabled{% endif %}>
                                     {% for val, label in unidades_choices %}
-                                        <option value="{{ val }}" {% if p.unidad_empaque == val %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque == val %}selected{% endif %}{% else %}{% if p.unidad_empaque == val %}selected{% endif %}{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
                             <td>
-                                <input type="number" name="cant_por_empaque[]" value="{{ p.cantidad_por_empaque }}" class="form-control form-control-sm text-center input-calc input-item" min="1" disabled>
+                                <input type="number" name="cant_por_empaque[]" value="{% if detalle %}{{ detalle.cantidad_por_empaque }}{% else %}{{ p.cantidad_por_empaque }}{% endif %}" class="form-control form-control-sm text-center input-calc input-item" min="1" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="cant_empaques[]" value="0" class="form-control form-control-sm text-center input-calc border-primary input-item" min="0" disabled>
+                                <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" class="form-control form-control-sm text-center input-calc border-primary input-item" min="0" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="total_unidades[]" value="0" class="form-control form-control-sm text-center fw-bold bg-light" readonly>
+                                <input type="number" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}" class="form-control form-control-sm text-center fw-bold bg-light" readonly>
                             </td>
                             <td>
-                                <input type="text" name="detalle[]" value="Pedido generado vía módulo compras" class="form-control form-control-sm input-item" disabled>
+                                <input type="text" name="detalle[]" value="Pedido generado vía módulo compras" class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                         </tr>
+                        {% endwith %}
                         {% empty %}
                         <tr>
                             <td colspan="10" class="text-center py-5">
