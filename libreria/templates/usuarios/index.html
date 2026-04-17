@@ -46,6 +46,8 @@
                             <td>
                                 {% if usuario.rol == 'admin' %}
                                     <span class="badge bg-danger">Administrador</span>
+                                {% elif usuario.rol == 'soporte' %}
+                                    <span class="badge bg-purple" style="background-color: #6f42c1;">Soporte</span>
                                 {% elif usuario.rol == 'inventario' %}
                                     <span class="badge bg-info text-dark">Inventario</span>
                                 {% else %}

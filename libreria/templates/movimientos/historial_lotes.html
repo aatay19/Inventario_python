@@ -6,10 +6,12 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>{{ titulo }}</h2>
         <div>
-            {% if tipo == 'ENTRADA' %}
-                <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nuevo Pedido</a>
-            {% else %}
-                <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="bi bi-dash-lg me-2"></i>Nueva Salida Masiva</a>
+            {% if user.perfilusuario.rol|lower != 'consulta' %}
+                {% if tipo == 'ENTRADA' %}
+                    <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nuevo Pedido</a>
+                {% else %}
+                    <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="bi bi-dash-lg me-2"></i>Nueva Salida Masiva</a>
+                {% endif %}
             {% endif %}
         </div>
     </div>
@@ -61,14 +63,17 @@
                             <span class="badge bg-white text-dark border">{{ lote.info.total_unidades }} Unidades Totales</span>
                         </div>
                         <div class="col-xl-6 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
+                            {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <a href="{% url 'movimientos.lote_editar' lote.info.codigo_lote %}" 
                                class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Edición Masiva">
                                 <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
                             </a>
+                            {% endif %}
                             <a href="{% url 'movimientos.exportar_lote_pdf' %}?lote={{ lote.info.codigo_lote }}&fecha={{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ lote.info.proveedor__razonsocial }}&tipo={{ tipo }}" 
                                class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" target="_blank" title="Comprobante PDF">
                                 <i class="bi bi-file-earmark-pdf-fill fs-6 me-1"></i> PDF
                             </a>
+                            {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <form action="{% url 'movimientos.lote_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar TODO este lote? Se revertirá el stock de todos sus productos y no se puede deshacer.');">
                                 {% csrf_token %}
                                 <input type="hidden" name="lote_id" value="{{ lote.info.codigo_lote }}">
@@ -79,6 +84,7 @@
                                     <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
                                 </button>
                             </form>
+                            {% endif %}
                             <button class="btn btn-outline-secondary rounded-pill px-3 text-nowrap" type="button" data-bs-toggle="collapse" 
                                     data-bs-target="#detalle-{{ forloop.counter }}" aria-expanded="false" title="Ver Detalles">
                                 <i class="bi bi-list-ul fs-6 me-1"></i> Detalles
@@ -95,7 +101,7 @@
                                     <th class="text-center">Total Unid.</th>
                                     <th class="text-center">Cant. Pedido</th>
                                     <th>Unidad</th>
-                                    <th class="text-end pe-4">Acciones</th>
+                                    <th class="text-end pe-4">{% if user.perfilusuario.rol|lower != 'consulta' %}Acciones{% endif %}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -115,6 +121,7 @@
                                         <span class="badge bg-light text-dark border font-monospace">{{ item.unidad_empaque }}</span>
                                     </td>
                                     <td class="text-end pe-4">
+                                        {% if user.perfilusuario.rol|lower != 'consulta' %}
                                         <div class="d-flex justify-content-end gap-2">
                                             <a href="{% url 'movimientos.editar' item.id_movimiento %}" 
                                                class="btn btn-outline-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm hover-elevate border-2" 
@@ -127,6 +134,7 @@
                                                 <i class="bi bi-trash3-fill fs-6"></i>
                                             </a>
                                         </div>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -163,4 +171,30 @@
     .hover-elevate { transition: all 0.2s ease-in-out; }
     .hover-elevate:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if ultimo_pdf_params %}
+        Swal.fire({
+            title: '¡Operación Exitosa!',
+            text: "¿Desea descargar el comprobante en PDF ahora?",
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: '<i class="bi bi-file-earmark-pdf me-2"></i>Descargar PDF',
+            cancelButtonText: 'Cerrar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const url = "{% url 'movimientos.exportar_lote_pdf' %}" + 
+                            "?lote={{ ultimo_pdf_params.lote }}" +
+                            "&fecha={{ ultimo_pdf_params.fecha }}" +
+                            "&prov={{ ultimo_pdf_params.prov }}" +
+                            "&tipo={{ tipo }}";
+                window.open(url, '_blank');
+            }
+        });
+        {% endif %}
+    });
+</script>
 {% endblock %}

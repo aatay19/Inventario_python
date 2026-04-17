@@ -30,29 +30,30 @@
     {% endif %}
 
     <!-- ======= CARDS PRINCIPALES ======= -->
-    <div class="row g-4">
+    <div class="row g-4 mb-4">
         <!-- Producto con más movimiento  -->
         <div class="col-12">
-            <div class="card card-dashboard border-0 shadow-sm h-100 {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}border-start border-danger border-5{% endif %}" 
+            <div class="card border-0 shadow-sm h-100 {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}border-start border-danger border-5{% endif %}" 
                  style="{% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}background-color: #fff5f5;{% endif %}">
                 <div class="card-body d-flex justify-content-between align-items-center">
-                    <div style="overflow: hidden;">
-                        <h6 class="text-muted text-uppercase mb-2">Con Más Movimiento </h6>
-                        <h3 class="mb-0 fw-bold {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}text-danger{% else %}text-warning{% endif %} text-truncate" title="{{ producto_top.nombre }}">
-                            {{ producto_top.nombre|default:"N/A" }}
-                        </h3>
-                        <div class="mt-1 mb-1">
-                            <span class="badge {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}bg-danger{% else %}bg-info{% endif %}">
-                                Stock: {{ producto_top.stock }}
-                            </span>
-                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
-                                (Mín: {{ producto_top.min }} / Máx: {{ producto_top.max }})
-                            </small>
+                    <div>
+                        <div class="d-flex align-items-center mb-2">
+                            <h6 class="text-muted text-uppercase mb-0 me-3">Récord Histórico de Movimiento</h6>
+                            <i class="fas fa-trophy text-warning"></i>
                         </div>
-                        <small class="text-muted">Total movido: <strong>{{ producto_top.total|default:"0" }}</strong></small>
+                        <h3 class="fw-bold text-dark mb-1">{{ producto_top.nombre|default:"N/A" }}</h3>
+                        <div class="mt-2">
+                            <span class="badge {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}bg-danger{% else %}bg-info{% endif %} fs-6">
+                                Stock Actual: {{ producto_top.stock }}
+                            </span>
+                            <span class="badge bg-dark fs-6 ms-2">
+                                Total Movido: {{ producto_top.total|default:"0" }}
+                            </span>
+                        </div>
                     </div>
-                    <div class="icon-shape bg-light {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}text-danger{% else %}text-warning{% endif %} rounded-circle p-3">
-                        <i class="fas fa-trophy fa-2x"></i>
+                    <div class="text-end d-none d-md-block">
+                        <div class="text-muted small mb-1">Margen de Stock Requerido</div>
+                        <div class="fw-bold text-muted small">Mín: {{ producto_top.min }} / Máx: {{ producto_top.max }}</div>
                     </div>
                 </div>
             </div>

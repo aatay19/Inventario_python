@@ -116,16 +116,25 @@ document.addEventListener('DOMContentLoaded', function() {
         ).slice(0, 10); // Limitar a 10 resultados
 
         if (matches.length > 0) {
-            resultados.innerHTML = matches.map(p => `
-                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
-                        onclick="agregarProducto(${p.id})">
-                    <div>
-                        <strong>${p.nombre}</strong><br>
-                        <small class="text-muted">${p.codigo}</small>
-                    </div>
-                    <span class="badge ${p.stock <= 0 ? 'bg-danger' : 'bg-primary'} rounded-pill">Stock: ${p.stock}</span>
-                </button>
-            `).join('');
+            resultados.innerHTML = matches.map(p => {
+                let rotBadge = `<span class="badge rounded-pill bg-light text-dark border small">${p.rotacion || 0}</span>`;
+                if (p.rotacion >= 50) rotBadge = `<span class="badge rounded-pill bg-danger shadow-sm small"><i class="fas fa-fire me-1"></i>${p.rotacion}</span>`;
+                else if (p.rotacion <= 5 && p.stock > 0) rotBadge = `<span class="badge rounded-pill bg-primary bg-opacity-75 small"><i class="fas fa-snowflake me-1"></i>${p.rotacion}</span>`;
+
+                return `
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
+                            onclick="agregarProducto(${p.id})">
+                        <div>
+                            <strong>${p.nombre}</strong><br>
+                            <small class="text-muted">${p.codigo}</small>
+                        </div>
+                        <div class="text-end">
+                            ${rotBadge}
+                            <span class="badge ${p.stock <= 0 ? 'bg-danger' : 'bg-primary'} rounded-pill ms-2">Stock: ${p.stock}</span>
+                        </div>
+                    </button>
+                `;
+            }).join('');
             resultados.style.display = 'block';
         } else {
             resultados.style.display = 'none';
@@ -146,6 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (filaVacia) filaVacia.remove();
 
+        let rowRotBadge = `<span class="badge bg-light text-dark border ms-2" style="font-size: 0.6rem;">ROT: ${p.rotacion || 0}</span>`;
+        if (p.rotacion >= 50) rowRotBadge = `<span class="badge bg-danger ms-2" style="font-size: 0.6rem;"><i class="fas fa-fire me-1"></i>ROT: ${p.rotacion}</span>`;
+
         const tr = document.createElement('tr');
         tr.id = `fila-${id}`;
         tr.innerHTML = `
@@ -154,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <input type="hidden" name="cant_empaques[]" id="hidden-cant-${id}" value="0">
             
             <td class="fw-bold">
-                ${p.nombre}
+                ${p.nombre} ${rowRotBadge}
                 <div class="text-muted x-small">${p.codigo}</div>
             </td>
             <td class="text-center">

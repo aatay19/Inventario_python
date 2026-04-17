@@ -33,14 +33,27 @@ def custom_logout(request):
 
 # --- Decorador para verificar rol de Administrador ---
 def es_admin(user):
-    return hasattr(user, 'perfilusuario') and user.perfilusuario.rol == 'admin'
+    if not hasattr(user, 'perfilusuario'): return False
+    return user.perfilusuario.rol.lower() in ['admin', 'soporte']
 
 def es_inventario_acceso(user):
-    return hasattr(user, 'perfilusuario') and user.perfilusuario.rol in ['admin', 'inventario', 'consulta']
+    if not hasattr(user, 'perfilusuario'): return False
+    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'consulta', 'soporte']
 
 # Nuevo decorador para restringir acceso a Proveedores y Productos (excluye a 'consulta')
 def es_pleno_acceso(user):
-    return hasattr(user, 'perfilusuario') and user.perfilusuario.rol in ['admin', 'inventario']
+    if not hasattr(user, 'perfilusuario'): return False
+    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte']
+
+# Nuevo decorador exclusivo para Pedidos e Historial de Pedidos (Excluye 'inventario')
+def es_gestion_pedidos(user):
+    if not hasattr(user, 'perfilusuario'): return False
+    return user.perfilusuario.rol.lower() in ['admin', 'consulta', 'soporte']
+
+# Decorador exclusivo para acciones críticas de Soporte
+def es_soporte(user):
+    if not hasattr(user, 'perfilusuario'): return False
+    return user.perfilusuario.rol.lower() == 'soporte'
 
 @login_required
 def index(request):
@@ -76,13 +89,38 @@ def index(request):
         'stock': pm['producto__cantidad'] if pm else 0,
     }
 
-    # 5. LISTADO DE ÚLTIMOS 5 MOVIMIENTOS (NUEVO)
-    ultimos_movimientos = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').select_related('producto', 'proveedor').order_by('-fecha_movimiento')[:5]
+    # 5. LISTADO DE MOVIMIENTOS (NUEVO: Dinámico por rol)
+    cantidad_movs = 5
+    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol.lower() == 'consulta':
+        cantidad_movs = 10
+        
+    ultimos_movimientos = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').select_related('producto', 'proveedor').order_by('-fecha_movimiento')[:cantidad_movs]
 
     # 6. Alerta de Stock Bajo
     productos_bajo_stock = Inventario.objects.filter(
         cantidad__lte=F('stock_minimo')
     ).values('nombre_producto', 'cantidad', 'stock_minimo')
+
+    # 7. Estadísticas de Rotación (Últimos 30 días)
+    hace_30_dias = timezone.now() - timedelta(days=30)
+    
+    # Mayor Rotación (Productos que más han salido)
+    mayor_rotacion = MovimientosInventario.objects.filter(
+        tipo_movimiento='SALIDA',
+        fecha_movimiento__gte=hace_30_dias
+    ).values('producto__nombre_producto').annotate(
+        total=Sum('cantidad')
+    ).order_by('-total')[:5]
+
+    # Menor Rotación (Productos con stock que NO se han movido o han salido muy poco)
+    # Ordenamos por menores salidas y mayor stock acumulado (dinero estancado)
+    menor_rotacion = Inventario.objects.annotate(
+        total_salidas=Sum(
+            'movimientosinventario__cantidad',
+            filter=Q(movimientosinventario__tipo_movimiento='SALIDA') & 
+                   Q(movimientosinventario__fecha_movimiento__gte=hace_30_dias)
+        )
+    ).filter(cantidad__gt=0).order_by('total_salidas', '-cantidad')[:5]
 
     # --- CONTEXTO PARA LA PLANTILLA ---
     context = {
@@ -90,6 +128,8 @@ def index(request):
         'ultimos_movimientos': ultimos_movimientos,
         'productos_bajo_stock': productos_bajo_stock,
         'num_bajo_stock': productos_bajo_stock.count(),
+        'mayor_rotacion': mayor_rotacion,
+        'menor_rotacion': menor_rotacion,
     }
 
     return render(request, 'index.html', context)
@@ -260,13 +300,43 @@ def inventario_index(request):
     if low and low.lower() in ('1', 'true', 'on'):
         qs = qs.filter(cantidad__lte=F('stock_minimo'))
 
-    # Orden
+    # --- ANOTACIÓN DE ROTACIÓN Y TOTALES ---
+    hace_30_dias = timezone.now() - timedelta(days=30)
+    qs = qs.annotate(
+        rotacion_30d=Sum(
+            'movimientosinventario__cantidad',
+            filter=Q(movimientosinventario__tipo_movimiento='SALIDA') & 
+                   Q(movimientosinventario__fecha_movimiento__gte=hace_30_dias)
+        ),
+        total_entradas_hist=Sum(
+            'movimientosinventario__cantidad',
+            filter=Q(movimientosinventario__tipo_movimiento='ENTRADA')
+        ),
+        total_salidas_hist=Sum(
+            'movimientosinventario__cantidad',
+            filter=Q(movimientosinventario__tipo_movimiento='SALIDA')
+        )
+    )
+
+    # Orden (Debe ir DESPUÉS de las anotaciones si queremos ordenar por ellas)
     if order == 'name_desc':
         qs = qs.order_by('-nombre_producto')
     elif order == 'cantidad_desc':
         qs = qs.order_by('-cantidad')
     elif order == 'cantidad_asc':
         qs = qs.order_by('cantidad')
+    elif order == 'rotacion_desc':
+        qs = qs.order_by('-rotacion_30d', '-nombre_producto')
+    elif order == 'rotacion_asc':
+        qs = qs.order_by('rotacion_30d', 'nombre_producto')
+    elif order == 'entradas_desc':
+        qs = qs.order_by('-total_entradas_hist', '-nombre_producto')
+    elif order == 'entradas_asc':
+        qs = qs.order_by('total_entradas_hist', 'nombre_producto')
+    elif order == 'salidas_desc':
+        qs = qs.order_by('-total_salidas_hist', '-nombre_producto')
+    elif order == 'salidas_asc':
+        qs = qs.order_by('total_salidas_hist', 'nombre_producto')
     else:
         qs = qs.order_by('nombre_producto')
 
@@ -407,22 +477,19 @@ def exportar_inventario_excel(request):
     ws.title = "Inventario"
 
     # Encabezados
-    headers = ["Código", "Producto", "Categoría", "Cantidad", "Unidad Empaque", "Costo Actual", "Valor Total"]
+    headers = ["Código", "Producto", "Categoría", "Cantidad", "Unidad Empaque"]
     ws.append(headers)
 
-    # Obtener datos (puedes aplicar los mismos filtros que en el index si quisieras, aquí exportamos todo)
+    # Obtener datos
     productos = Inventario.objects.all()
 
     for p in productos:
-        valor_total = p.cantidad * p.costo_actual
         ws.append([
             p.codigo_producto,
             p.nombre_producto,
             p.get_categoria_display(),
             p.cantidad,
-            p.get_unidad_empaque_display(),
-            p.costo_actual,
-            valor_total
+            p.get_unidad_empaque_display()
         ])
 
     # Preparar la respuesta HTTP
@@ -440,7 +507,6 @@ def exportar_inventario_pdf(request):
     
     # Calcular totales generales para el reporte
     total_items = productos.count()
-    valor_total_inventario = sum(p.cantidad * p.costo_actual for p in productos)
     fecha_emision = timezone.now().strftime('%d/%m/%Y %H:%M')
 
     # Crear PDF usando fpdf2 (Pure Python)
@@ -459,7 +525,6 @@ def exportar_inventario_pdf(request):
     pdf.cell(0, 10, f"Resumen General:", ln=True)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 7, f"Total de Productos: {total_items}", ln=True)
-    pdf.cell(0, 7, f"Valor Total del Inventario: {valor_total_inventario:,.2f}", ln=True)
     pdf.ln(5)
 
     # Tabla de Productos
@@ -468,24 +533,20 @@ def exportar_inventario_pdf(request):
     
     # Encabezados
     pdf.cell(30, 10, "Codigo", 1, 0, "C", True)
-    pdf.cell(70, 10, "Producto", 1, 0, "C", True)
-    pdf.cell(30, 10, "Categoria", 1, 0, "C", True)
-    pdf.cell(20, 10, "Stock", 1, 0, "C", True)
-    pdf.cell(40, 10, "Valor Total", 1, 1, "C", True)
+    pdf.cell(90, 10, "Producto", 1, 0, "C", True)
+    pdf.cell(40, 10, "Categoria", 1, 0, "C", True)
+    pdf.cell(30, 10, "Stock", 1, 1, "C", True)
 
     pdf.set_font("Helvetica", "", 9)
     for p in productos:
-        valor_total = p.cantidad * p.costo_actual
-        
         # Truncar nombres largos para que no se desborden
-        nombre = p.nombre_producto[:35]
-        categoria = p.get_categoria_display()[:15]
+        nombre = p.nombre_producto[:45]
+        categoria = p.get_categoria_display()[:20]
         
         pdf.cell(30, 8, str(p.codigo_producto), 1, 0, "L")
-        pdf.cell(70, 8, nombre, 1, 0, "L")
-        pdf.cell(30, 8, categoria, 1, 0, "L")
-        pdf.cell(20, 8, str(p.cantidad), 1, 0, "C")
-        pdf.cell(40, 8, f"{valor_total:,.2f}", 1, 1, "R")
+        pdf.cell(90, 8, nombre, 1, 0, "L")
+        pdf.cell(40, 8, categoria, 1, 0, "L")
+        pdf.cell(30, 8, str(p.cantidad), 1, 1, "C")
 
     # Preparar la respuesta HTTP
     response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
@@ -786,6 +847,16 @@ def movimientos_salida_form(request):
     # Pre-renderizar las opciones de unidades para ahorrar JS en el front
     unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
 
+    # 30-day rotation map
+    hace_30_dias = timezone.now() - timedelta(days=30)
+    rotacion_map = {
+        item['producto_id']: item['total']
+        for item in MovimientosInventario.objects.filter(
+            tipo_movimiento='SALIDA',
+            fecha_movimiento__gte=hace_30_dias
+        ).values('producto_id').annotate(total=Sum('cantidad'))
+    }
+
     # Preparar datos para el buscador en el frontend
     productos_json = []
     for p in qs:
@@ -794,6 +865,7 @@ def movimientos_salida_form(request):
             'nombre': p.nombre_producto,
             'codigo': p.codigo_producto,
             'stock': p.cantidad,
+            'rotacion': rotacion_map.get(p.id_producto, 0),
             'unidades_html': unidades_html,
             'id_unidad_default': p.unidad_empaque
         })
@@ -884,7 +956,15 @@ def movimientos_salida_procesar(request):
                         salidas_creadas += 1
             
             messages.success(request, f'Se registraron exitosamente {salidas_creadas} salidas del inventario con descargo a {proveedor.razonsocial}.')
-            return redirect('movimientos.index')
+            
+            # Preparamos los parámetros para el prompt de PDF en el historial
+            request.session['ultimo_pdf_params'] = {
+                'lote': lote_id,
+                'fecha': ahora.strftime('%Y-%m-%d %H:%M:%S.%f'),
+                'prov': proveedor.razonsocial
+            }
+            
+            return redirect('movimientos.historial_salidas')
             
         except forms.ValidationError as e:
             messages.error(request, str(e))
@@ -897,28 +977,22 @@ def movimientos_salida_procesar(request):
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
-def movimientos_entrada_form(request, pedido_id=None):
+def movimientos_entrada_form(request):
     from .models import UnidadEmpaqueChoices
     unidades_choices = UnidadEmpaqueChoices.choices
     unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
-
-    pedido = None
-    items_pedido = []
-    if pedido_id:
-        pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
-        # Pre-cargar items del pedido
-        for detalle in pedido.detalles.all():
-            items_pedido.append({
-                'id': detalle.producto.id_producto,
-                'nombre': detalle.producto.nombre_producto,
-                'codigo': detalle.producto.codigo_producto,
-                'cantidad': detalle.cantidad,
-                'unidad': detalle.unidad_empaque,
-                'empaques': detalle.cantidad_empaques,
-                'por_empaque': detalle.cantidad_por_empaque
-            })
     
-    # Preparar productos para el buscador (si quieren agregar nuevos)
+    # 30-day rotation map
+    hace_30_dias = timezone.now() - timedelta(days=30)
+    rotacion_map = {
+        item['producto_id']: item['total']
+        for item in MovimientosInventario.objects.filter(
+            tipo_movimiento='SALIDA',
+            fecha_movimiento__gte=hace_30_dias
+        ).values('producto_id').annotate(total=Sum('cantidad'))
+    }
+
+    # Preparar productos para el buscador
     qs = Inventario.objects.all().order_by('nombre_producto')
     productos_json = []
     for p in qs:
@@ -926,43 +1000,17 @@ def movimientos_entrada_form(request, pedido_id=None):
             'id': p.id_producto,
             'nombre': p.nombre_producto,
             'codigo': p.codigo_producto,
+            'rotacion': rotacion_map.get(p.id_producto, 0),
             'unidades_html': unidades_html,
             'id_unidad_default': p.unidad_empaque
         })
 
     proveedores = Proveedor.objects.all().order_by('razonsocial')
     
-    # Preparar listado de pedidos informativos para búsqueda rápida
-    pedidos_qs = PedidoCompra.objects.select_related('proveedor').prefetch_related('detalles__producto').order_by('-fecha_pedido')[:50]
-    pedidos_json = []
-    for ped in pedidos_qs:
-        items = []
-        for det in ped.detalles.all():
-            items.append({
-                'id': det.producto.id_producto,
-                'nombre': det.producto.nombre_producto,
-                'codigo': det.producto.codigo_producto,
-                'cantidad': det.cantidad,
-                'unidad': det.unidad_empaque,
-                'empaques': det.cantidad_empaques,
-                'por_empaque': det.cantidad_por_empaque
-            })
-        pedidos_json.append({
-            'id': ped.id_pedido,
-            'codigo': ped.codigo_lote,
-            'proveedor_id': ped.proveedor.id,
-            'proveedor_nombre': ped.proveedor.razonsocial,
-            'fecha': ped.fecha_pedido.strftime('%d/%m/%Y'),
-            'items': items
-        })
-
     return render(request, 'movimientos/form_entrada.html', {
         'productos_json': productos_json,
         'unidades_choices': unidades_choices,
-        'pedido': pedido,
-        'items_pedido': items_pedido,
         'proveedores': proveedores,
-        'pedidos_json': pedidos_json, # Nueva data para búsqueda dinámica
     })
 
 @login_required
@@ -1049,6 +1097,13 @@ def movimientos_entrada_procesar(request):
             
             messages.success(request, f'Se registraron exitosamente {entradas_creadas} ingresos de stock de {proveedor.razonsocial}.')
             
+            # Preparamos los parámetros para el prompt de PDF en el historial
+            request.session['ultimo_pdf_params'] = {
+                'lote': lote_id,
+                'fecha': ahora.strftime('%Y-%m-%d %H:%M:%S.%f'),
+                'prov': proveedor.razonsocial
+            }
+            
             # AUTOMATIZACIÓN: Cambiar estado del pedido si existe
             pedido_id_input = request.POST.get('pedido_id_vincular')
             if pedido_id_input:
@@ -1060,7 +1115,7 @@ def movimientos_entrada_procesar(request):
                 except PedidoCompra.DoesNotExist:
                     pass
 
-            return redirect('movimientos.index')
+            return redirect('movimientos.historial_entradas')
             
         except Exception as e:
             messages.error(request, f'Error al procesar las entradas: {str(e)}')
@@ -1069,7 +1124,7 @@ def movimientos_entrada_procesar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_admin, login_url='index')
 def compras_editar_pedido(request, pedido_id):
     pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
     proveedor = pedido.proveedor
@@ -1211,7 +1266,7 @@ def realizar_copia_seguridad(request):
 # ======================================
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_admin, login_url='index')
 def compras_seleccionar_proveedor(request):
     q = request.GET.get('q', '').strip()
     qs = Proveedor.objects.all()
@@ -1224,7 +1279,7 @@ def compras_seleccionar_proveedor(request):
     })
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_admin, login_url='index')
 def compras_form_pedido(request, proveedor_id):
     proveedor = get_object_or_404(Proveedor, id=proveedor_id)
     # Filtrar productos que tienen asociado este proveedor
@@ -1243,7 +1298,7 @@ def compras_form_pedido(request, proveedor_id):
 
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_admin, login_url='index')
 def compras_confirmar(request):
     if request.method == 'POST':
         proveedor_id = request.POST.get('proveedor_id')
@@ -1286,7 +1341,7 @@ def compras_confirmar(request):
     return redirect('compras.index')
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_admin, login_url='index')
 def compras_procesar(request):
     if request.method == 'POST':
         proveedor_id = request.POST.get('proveedor_id')
@@ -1352,7 +1407,7 @@ def compras_procesar(request):
     return redirect('compras.index')
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def exportar_pedido_unico_pdf(request, pedido_id):
     pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
     
@@ -1483,7 +1538,7 @@ def movimientos_historial_pedidos(request):
     })
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_admin, login_url='index')
 def compras_eliminar_pedido(request):
     if request.method == 'POST':
         pedido_id = request.POST.get('pedido_id')
@@ -1497,7 +1552,7 @@ def compras_eliminar_pedido(request):
     return redirect('movimientos.historial_pedidos')
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_soporte, login_url='index')
 def compras_eliminar_todo_historial(request):
     if request.method == 'POST':
         try:
@@ -1514,6 +1569,11 @@ def compras_eliminar_todo_historial(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_historial_salidas(request):
     return _historial_agrupado(request, 'SALIDA', 'Historial de Salidas Masivas')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_historial_entradas(request):
+    return _historial_agrupado(request, 'ENTRADA', 'Historial de Entradas Masivas')
 
 def _historial_agrupado(request, tipo, titulo):
     q = request.GET.get('q', '').strip()
@@ -1571,11 +1631,15 @@ def _historial_agrupado(request, tipo, titulo):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # Revisar si hay un lote recién creado para el prompt de PDF
+    ultimo_pdf_params = request.session.pop('ultimo_pdf_params', None)
+
     return render(request, 'movimientos/historial_lotes.html', {
         'page_obj': page_obj,
         'titulo': titulo,
         'tipo': tipo_template,
-        'q': q
+        'q': q,
+        'ultimo_pdf_params': ultimo_pdf_params
     })
 
 @login_required
@@ -1648,7 +1712,7 @@ def exportar_lote_pdf(request):
         return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_lote_eliminar(request):
     if request.method == 'POST':
         lote_id = request.POST.get('lote_id')
@@ -1688,7 +1752,7 @@ def movimientos_lote_eliminar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_lote_editar(request, lote_id):
     movimientos = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
     if not movimientos.exists():

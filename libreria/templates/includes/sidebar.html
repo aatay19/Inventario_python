@@ -1,61 +1,60 @@
 <div id="sidebar" class="sidebar bg-dark text-white p-3">
     <a href="{% url 'index' %}" class="text-decoration-none text-white">
-        <h4 class="mb-4 text-center">Inventario test</h4>
+        <h4 class="mb-4 text-center">Inventario</h4>
     </a>
 
     <ul class="nav flex-column">
 
 
-        {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
+        {% if user.perfilusuario.rol|lower in 'admin,inventario,consulta,soporte' %}
         <!-- PRODUCTOS -->
+        {% if user.perfilusuario.rol|lower != 'consulta' %}
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-box-seam me-2"></i> Productos</span>
-
             </a>
             <ul class="submenu list-unstyled ms-4">
                 <li><a class="nav-link small" href="{% url 'inventario.index' %}">➤ lista de productos</a></li>
+                {% if user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small" href="{% url 'inventario.crear' %}">➤ Crear producto</a></li>
+                {% endif %}
             </ul>
         </li>
+        {% endif %}
 
         <!-- PROVEEDORES -->
+        {% if user.perfilusuario.rol|lower != 'consulta' %}
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-buildings me-2"></i> Proveedores</span>
-
             </a>
             <ul class="submenu list-unstyled ms-4">
+                {% if user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small" href="{% url 'proveedores.crear' %}">➤ Registrar proveedor</a></li>
+                {% endif %}
                 <li><a class="nav-link small" href="{% url  'proveedores.index' %}">➤ Lista de proveedores</a></li>
             </ul>
         </li>
         {% endif %}
 
-        <!-- USUARIOS -->
-        {% if user.perfilusuario.rol == 'admin' %}
+        <!-- HISTORIAL DE NOTAS -->
         <li class="nav-item mb-2">
-            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
-                <span><i class="bi bi-person-circle me-2"> </i> Usuarios</span>
-
+            <a class="nav-link d-flex align-items-center" href="{% url 'HistorialProveedoresNotas.index' %}">
+                <span><i class="bi bi-journal-text me-2"></i> Historial de Proveedores - Notas</span>
             </a>
-            <ul class="submenu list-unstyled ms-4">
-                <li><a class="nav-link small" href="{% url 'usuarios.crear' %}">➤ Registrar Usuario</a></li>
-                <li><a class="nav-link small" href="{% url  'usuarios.index' %}">➤ Lista de Usuarios</a></li>
-            </ul>
         </li>
-        {% endif %}
 
         <!-- PEDIDOS / COMPRAS -->
-        {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
+        {% if user.perfilusuario.rol|lower in 'admin,consulta,soporte' %}
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-cart-plus me-2"></i> Pedidos / Compras</span>
             </a>
             <ul class="submenu list-unstyled ms-4">
+                {% if user.perfilusuario.rol|lower in 'admin,soporte' %}
                 <li><a class="nav-link small" href="{% url 'compras.index' %}">➤ Generar Pedido</a></li>
-                <li><a class="nav-link small" href="{% url 'movimientos.historial_pedidos' %}">➤ Historial de
-                        Pedidos</a></li>
+                {% endif %}
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_pedidos' %}">➤ Historial de Pedidos</a></li>
             </ul>
         </li>
         {% endif %}
@@ -64,39 +63,55 @@
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-cart-check me-2"></i> Movimientos Inventario</span>
-
             </a>
             <ul class="submenu list-unstyled ms-4">
-                <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento (Gral)</a>
-                </li>
-                <li><a class="nav-link small" href="{% url 'movimientos.entrada' %}">➤ Entrada de Mercancía</a></li>
+                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                <li><a class="nav-link small" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento (Gral)</a></li>
+                {% endif %}
                 <li><a class="nav-link small" href="{% url 'movimientos.index' %}">➤ Lista de Movimientos</a></li>
             </ul>
         </li>
 
+        <!-- ENTRADAS MASIVAS -->
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-download me-2"></i> Entradas Masivas</span>
+            </a>
+            <ul class="submenu list-unstyled ms-4">
+                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                <li><a class="nav-link small" href="{% url 'movimientos.entrada' %}">➤ Generar Entrada</a></li>
+                {% endif %}
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_entradas' %}">➤ Historial de Entradas</a></li>
+            </ul>
+        </li>
+
         <!-- SALIDAS MASIVAS -->
-        {% if user.perfilusuario.rol == 'admin' or user.perfilusuario.rol == 'inventario' %}
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-box-arrow-up-right me-2"></i> Salidas Masivas</span>
             </a>
             <ul class="submenu list-unstyled ms-4">
+                {% if user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small" href="{% url 'movimientos.salida' %}">➤ Generar Salida</a></li>
-                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial de
-                        Salidas</a></li>
+                {% endif %}
+                <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial de Salidas</a></li>
             </ul>
         </li>
         {% endif %}
 
-        <!-- HISTORIAL DE NOTAS (Separado) -->
+        <!-- USUARIOS -->
+        {% if user.perfilusuario.rol|lower in 'admin,soporte' %}
         <li class="nav-item mb-2">
-            <a class="nav-link d-flex align-items-center" href="{% url 'HistorialProveedoresNotas.index' %}">
-                <span><i class="bi bi-journal-text me-2"></i> Historial de Proveedores - Notas</span>
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
+                <span><i class="bi bi-person-circle me-2"> </i> Usuarios</span>
             </a>
+            <ul class="submenu list-unstyled ms-4">
+                <li><a class="nav-link small" href="{% url 'usuarios.crear' %}">➤ Registrar Usuario</a></li>
+                <li><a class="nav-link small" href="{% url  'usuarios.index' %}">➤ Lista de Usuarios</a></li>
+            </ul>
         </li>
 
-        <!-- BACKUP (Solo Admin) -->
-        {% if user.perfilusuario.rol == 'admin' %}
+        <!-- BACKUP -->
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center" href="{% url 'backup' %}">
                 <span><i class="bi bi-database-down me-2"></i> Respaldo (Backup)</span>

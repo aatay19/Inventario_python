@@ -6,13 +6,18 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>{{ titulo }}</h2>
         <div>
+            {% if user.perfilusuario.rol|lower == 'soporte' %}
             <form action="{% url 'compras.eliminar_todo_historial' %}" method="post" id="form-vaciar-historial" class="d-inline">
                 {% csrf_token %}
                 <button type="button" class="btn btn-outline-danger me-2" id="btn-vaciar-todo">
                     <i class="bi bi-trash-fill me-1"></i> Borrar Historial
                 </button>
             </form>
+            {% endif %}
+            
+            {% if user.perfilusuario.rol|lower != 'consulta' %}
             <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nuevo Pedido</a>
+            {% endif %}
         </div>
     </div>
 
@@ -57,11 +62,8 @@
                             <span class="fw-bold">{{ pedido.proveedor.razonsocial }}</span>
                             <small class="text-muted d-block">{{ pedido.proveedor.rif }}</small>
                         </div>
-                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
-                            <span class="text-muted small d-block">Estado:</span>
-                            <span class="badge bg-warning text-dark border">{{ pedido.estado }}</span>
-                        </div>
                         <div class="col-xl-5 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
+                            {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <!-- Botón de Eliminar -->
                             <form action="{% url 'compras.eliminar_pedido' %}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar TODO este pedido? Esta acción es solo informativa y no afecta el inventario físico.');">
                                 {% csrf_token %}
@@ -70,13 +72,11 @@
                                     <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
                                 </button>
                             </form>
-                            <a href="{% url 'movimientos.entrada_desde_pedido' pedido.id_pedido %}" class="btn btn-primary shadow-sm rounded-pill px-3 text-nowrap" title="Registrar como Entrada Real">
-                                <i class="bi bi-box-arrow-in-down fs-6 me-1"></i> Registrar Entrada
-                            </a>
                             <!-- Botón de Editar -->
                             <a href="{% url 'compras.editar' pedido.id_pedido %}" class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Editar Pedido">
                                 <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
                             </a>
+                            {% endif %}
                             <!-- Botón PDF -->
                             <a href="{% url 'compras.pedido_pdf' pedido.id_pedido %}" class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" title="Descargar PDF">
                                 <i class="bi bi-file-earmark-pdf fs-6 me-1"></i> PDF

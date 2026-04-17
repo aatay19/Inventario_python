@@ -8,7 +8,9 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0 fw-bold">Historial de Proveedores</h2>
+        {% if user.perfilusuario.rol|lower != 'consulta' %}
         <a href="{% url 'movimientos.crear' %}" class="btn btn-primary shadow-sm"><i class="fas fa-plus me-2"></i>Registrar Movimiento</a>
+        {% endif %}
     </div>
  
     <div class="card shadow-sm border-0">

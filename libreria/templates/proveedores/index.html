@@ -9,8 +9,10 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0 fw-bold">Gestión de Proveedores</h2>
     <div>
+      {% if user.perfilusuario.rol|lower != 'consulta' %}
       <a href="{% url 'proveedores.crear' %}" class="btn btn-primary shadow-sm"><i class="fas fa-plus me-2"></i>Crear Proveedor</a>
       <a href="{% url 'proveedores.importar' %}" class="btn btn-info shadow-sm text-white"><i class="fas fa-file-import me-2"></i>Importar Masivo</a>
+      {% endif %}
     </div>
   </div>
 
@@ -59,8 +61,10 @@
           <td>{{ proveedor.dias_descuentos|default:"-" }}</td>
           <td class="text-nowrap">
             <a href="{% url 'inventario.index' %}?proveedor_id={{ proveedor.id }}" class="btn btn-outline-info btn-sm" title="Ver Productos"><i class="fas fa-box-open"></i></a>
+            {% if user.perfilusuario.rol|lower != 'consulta' %}
             <a href="{% url 'proveedores.editar' proveedor.id %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
             <a href="{% url 'proveedores.eliminar' proveedor.id %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar este proveedor?');"><i class="fas fa-trash-alt"></i></a>
+            {% endif %}
           </td>
         </tr>
         {% empty %}

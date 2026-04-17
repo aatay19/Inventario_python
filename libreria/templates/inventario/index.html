@@ -9,10 +9,14 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0 fw-bold">Gestión de Productos</h2>
     <div class="btn-group shadow-sm">
+      {% if user.perfilusuario.rol|lower != 'consulta' %}
       <a href="{% url 'inventario.crear' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Crear</a>
+      {% endif %}
       <a href="{% url 'inventario.exportar_excel' %}" class="btn btn-success"><i class="fas fa-file-excel me-2"></i>Excel</a>
       <a href="{% url 'inventario.exportar_pdf' %}" class="btn btn-danger"><i class="fas fa-file-pdf me-2"></i>PDF</a>
+      {% if user.perfilusuario.rol|lower != 'consulta' %}
       <a href="{% url 'inventario.importar' %}" class="btn btn-info text-white"><i class="fas fa-file-import me-2"></i>Importar</a>
+      {% endif %}
     </div>
   </div>
 
@@ -54,6 +58,12 @@
         <option value="name_desc" {% if order == 'name_desc' %}selected{% endif %}>Nombre ↓</option>
         <option value="cantidad_desc" {% if order == 'cantidad_desc' %}selected{% endif %}>Cantidad ↓</option>
         <option value="cantidad_asc" {% if order == 'cantidad_asc' %}selected{% endif %}>Cantidad ↑</option>
+        <option value="rotacion_desc" {% if order == 'rotacion_desc' %}selected{% endif %}>Mayor Rotación (30d)</option>
+        <option value="rotacion_asc" {% if order == 'rotacion_asc' %}selected{% endif %}>Menor Rotación (30d)</option>
+        <option value="entradas_desc" {% if order == 'entradas_desc' %}selected{% endif %}>Mayor Ingreso (Histórico)</option>
+        <option value="entradas_asc" {% if order == 'entradas_asc' %}selected{% endif %}>Menor Ingreso (Histórico)</option>
+        <option value="salidas_desc" {% if order == 'salidas_desc' %}selected{% endif %}>Mayor Salida (Histórico)</option>
+        <option value="salidas_asc" {% if order == 'salidas_asc' %}selected{% endif %}>Menor Salida (Histórico)</option>
       </select>
     </div>
     <div class="col-md-2">
@@ -74,6 +84,9 @@
           <th>Costo</th>
           <th>Categoría</th>
           <th>Cantidad</th>
+          <th class="text-center">Hist. Entradas</th>
+          <th class="text-center">Hist. Salidas</th>
+          <th class="text-center">Rotación (30d)</th>
           <th>Unidad Empaque</th>
           <th>Cant. x Empaque</th>
           <th>Total Empaques</th>
@@ -93,7 +106,26 @@
             {% if producto.cantidad <= producto.stock_minimo %}
               <span class="badge bg-danger">Bajo ({{ producto.cantidad }})</span>
             {% else %}
-              {{ producto.cantidad }}
+              <span class="fw-bold">{{ producto.cantidad }}</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <span class="text-success fw-bold"><i class="fas fa-arrow-down small"></i> {{ producto.total_entradas_hist|default:0 }}</span>
+          </td>
+          <td class="text-center">
+            <span class="text-danger fw-bold"><i class="fas fa-arrow-up small"></i> {{ producto.total_salidas_hist|default:0 }}</span>
+          </td>
+          <td class="text-center">
+            {% if producto.rotacion_30d >= 50 %}
+              <span class="badge rounded-pill bg-danger border border-white shadow-sm" title="Alta Rotación">
+                <i class="fas fa-fire me-1"></i> {{ producto.rotacion_30d|default:0 }}
+              </span>
+            {% elif producto.rotacion_30d <= 5 and producto.cantidad > 0 %}
+              <span class="badge rounded-pill bg-primary bg-opacity-75" title="Baja Rotación">
+                <i class="fas fa-snowflake me-1"></i> {{ producto.rotacion_30d|default:0 }}
+              </span>
+            {% else %}
+              <span class="badge rounded-pill bg-light text-dark border">{{ producto.rotacion_30d|default:0 }}</span>
             {% endif %}
           </td>
           <td>{{ producto.get_unidad_empaque_display }}</td>
@@ -107,8 +139,12 @@
             {% endfor %}
           </td>
           <td class="text-nowrap">
+            {% if user.perfilusuario.rol|lower != 'consulta' %}
             <a href="{% url 'inventario.editar' producto.id_producto %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
             <a href="{% url 'inventario.eliminar' producto.id_producto %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de eliminar este producto?');"><i class="fas fa-trash-alt"></i></a>
+            {% else %}
+            <span class="badge bg-light text-muted">Solo lectura</span>
+            {% endif %}
           </td>
         </tr>
         {% empty %}
