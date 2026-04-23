@@ -97,7 +97,6 @@
                 <li><a class="nav-link small" href="{% url 'movimientos.historial_salidas' %}">➤ Historial de Salidas</a></li>
             </ul>
         </li>
-        {% endif %}
 
         <!-- USUARIOS -->
         {% if user.perfilusuario.rol|lower in 'admin,soporte' %}
@@ -115,6 +114,17 @@
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center" href="{% url 'backup' %}">
                 <span><i class="bi bi-database-down me-2"></i> Respaldo (Backup)</span>
+            </a>
+        </li>
+        {% endif %}
+        {% endif %}
+
+        <!-- SECCIÓN DEL PARQUE (Visible para Admin, Soporte y Parque) -->
+        {% if user.perfilusuario.rol|lower in 'admin,soporte,parque' %}
+        <li class="nav-item mt-3 pt-3 border-top">
+            <h6 class="text-uppercase small text-muted mb-3 px-3">Sistemas Externos</h6>
+            <a class="nav-link d-flex align-items-center bg-success bg-opacity-10 rounded text-success" href="{% url 'parque:dashboard' %}">
+                <i class="bi bi-tree-fill me-2"></i> <span>Control del Parque</span>
             </a>
         </li>
         {% endif %}

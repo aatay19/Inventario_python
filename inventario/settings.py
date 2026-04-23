@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     'libreria',
+    'parque',
 ]
 
 MIDDLEWARE = [
@@ -76,7 +77,7 @@ WSGI_APPLICATION = "inventario.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": 'inventario',
+        "NAME": 'inventario_final',
         "USER": 'root',
         "PASSWORD": 'A30205683.',
         "PORT": '3306',
@@ -145,4 +146,3 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # 5. Soporte para proveedores con inventarios grandes (Evita TooManyFieldsSent)
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Aumenta el límite de campos de 1000 a 10000
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # Aumenta el límite de memoria a 5MB (por si acaso)
-

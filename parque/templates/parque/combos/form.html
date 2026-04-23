@@ -1,0 +1,97 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">{{ titulo }}</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.errors %}
+                        <div class="alert alert-danger shadow-sm mb-4">
+                            <h6 class="fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Revisa los datos:</h6>
+                            <ul class="mb-0 small">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li>{{ field|title }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre del Combo</label>
+                            {{ form.nombre }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">¿Qué incluye? (Descripción)</label>
+                            {{ form.descripcion }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Selecciona los productos incluidos</label>
+                            <p class="text-muted small">Mantén presionada la tecla Ctrl (o Cmd) para seleccionar varios.</p>
+                            {{ form.productos }}
+                            <div class="mt-2 d-flex justify-content-between align-items-center">
+                                <a href="{% url 'parque:crear_producto' %}" class="small text-decoration-none">+ Registrar nuevo producto</a>
+                                <div class="bg-light p-2 px-3 rounded border border-info">
+                                    <span class="text-muted small text-uppercase">Costo Sugerido (Suma):</span>
+                                    <span class="fw-bold text-info fs-5 ms-2" id="sumPrecios">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Precio Final del Combo ($)</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">$</span>
+                                {{ form.precio }}
+                            </div>
+                            <small class="text-muted">Este es el precio que se le cobrará al cliente por el paquete.</small>
+                        </div>
+
+                        <div class="d-flex justify-content-between border-top pt-3">
+                            <a href="{% url 'parque:lista_combos' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary px-5">Guardar Combo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const PRECIOS = JSON.parse('{{ precios_productos|safe }}');
+    const selectProductos = document.getElementById('id_productos');
+    const displaySuma = document.getElementById('sumPrecios');
+
+    function actualizarSuma() {
+        let suma = 0;
+        // Obtenemos todas las opciones seleccionadas
+        const selectedOptions = Array.from(selectProductos.selectedOptions);
+        
+        selectedOptions.forEach(option => {
+            const id = option.value;
+            if (PRECIOS[id]) {
+                suma += parseFloat(PRECIOS[id]);
+            }
+        });
+
+        displaySuma.innerText = '$' + suma.toFixed(2);
+    }
+
+    // Escuchar cambios en el selector
+    selectProductos.addEventListener('change', actualizarSuma);
+
+    // Inicializar al cargar
+    document.addEventListener('DOMContentLoaded', actualizarSuma);
+</script>
+{% endblock %}

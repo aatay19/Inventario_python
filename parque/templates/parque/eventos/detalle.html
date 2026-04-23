@@ -1,0 +1,101 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-primary">Detalles del Evento #{{ evento.id }}</h5>
+                    <a href="{% url 'parque:lista_eventos' %}" class="btn btn-sm btn-outline-secondary">Volver al listado</a>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h2 class="fw-bold">{{ evento.titulo }}</h2>
+                            <span class="badge bg-success mb-3 px-3 py-2 fs-6">{{ evento.zona|default:"Sin Zona Especificada" }}</span>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <div class="mb-2">
+                                <span class="text-muted small text-uppercase fw-bold d-block">Estado Actual</span>
+                                <span class="badge {% if evento.estado == 'FINALIZADO' %}bg-success{% elif evento.estado == 'CANCELADO' %}bg-danger{% else %}bg-primary{% endif %} px-3">
+                                    {{ evento.get_estado_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="fw-bold border-bottom pb-2 mb-3">Resumen de Venta (Entradas y Productos)</h6>
+                        <div class="table-responsive border rounded shadow-sm">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Descripción del Item</th>
+                                        <th class="text-center">Cant.</th>
+                                        <th class="text-end">Precio Unit.</th>
+                                        <th class="text-end">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detalle in evento.detalles.all %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge {% if detalle.tipo_item == 'BRAZALETE' %}bg-primary{% elif detalle.tipo_item == 'COMBO' %}bg-success{% else %}bg-info{% endif %} rounded-pill">
+                                                {{ detalle.tipo_item }}
+                                            </span>
+                                        </td>
+                                        <td class="fw-bold text-dark">{{ detalle.nombre_item }}</td>
+                                        <td class="text-center">{{ detalle.cantidad }}</td>
+                                        <td class="text-end text-muted">${{ detalle.precio_unitario }}</td>
+                                        <td class="text-end fw-bold text-dark">${{ detalle.subtotal }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-3 text-muted">No hay detalles de venta registrados.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-light fw-bold border-top-2">
+                                    <tr>
+                                        <td colspan="4" class="text-end fs-5">TOTAL GENERAL:</td>
+                                        <td class="text-end fs-5 text-success">${{ evento.total_pagar }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="fw-bold border-bottom pb-2 mb-3">Descripción Detallada</h6>
+                        <p class="text-secondary lead">{{ evento.descripcion|linebreaks }}</p>
+                    </div>
+
+                    <div class="p-3 border-start border-primary border-4 bg-light mb-4">
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <span class="text-muted small d-block">Responsable del Registro:</span>
+                                <strong>{{ evento.responsable.get_full_name|default:evento.responsable.username }}</strong>
+                            </div>
+                            <div class="col-sm-6 text-sm-end">
+                                <span class="text-muted small d-block">Fecha de Fin Estimada:</span>
+                                <strong>{{ evento.fecha_fin|date:"d/m/Y H:i"|default:"Indefinida" }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 border-top pt-3">
+                        <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Editar Información
+                        </a>
+                        <a href="{% url 'parque:eliminar_evento' evento.pk %}" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-5">
+                    <i class="bi bi-gift-fill text-danger display-1 mb-4"></i>
+                    <h2 class="fw-bold mb-3">¿Eliminar combo?</h2>
+                    <p class="text-muted mb-4">
+                        Vas a eliminar el combo <strong>"{{ combo.nombre }}"</strong>. Los productos individuales que lo componen NO serán eliminados.
+                    </p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">Sí, eliminar combo</button>
+                            <a href="{% url 'parque:lista_combos' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Precios de Brazaletes</h1>
+            <p class="text-muted small">Aquí puedes configurar los precios de los combos y brazaletes individuales.</p>
+        </div>
+        <a href="{% url 'parque:crear_brazalete' %}" class="btn btn-dark shadow-sm">
+            <i class="bi bi-gear-fill me-1"></i> Nueva Configuración
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nombre/Tipo</th>
+                            <th class="text-center">Brazaletes Incluidos</th>
+                            <th class="text-center">Precio Unitario Configurado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for brazalete in brazaletes %}
+                        <tr>
+                            <td class="fw-bold">{{ brazalete.nombre }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary rounded-pill px-3">{{ brazalete.cantidad }} unidades</span>
+                            </td>
+                            <td class="text-center fw-bold text-success fs-5">${{ brazalete.precio }}</td>
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    <a href="{% url 'parque:editar_brazalete' brazalete.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'parque:eliminar_brazalete' brazalete.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <p class="text-muted mb-0">No has configurado ningún precio de brazalete aún.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

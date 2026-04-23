@@ -145,6 +145,7 @@ class PerfilUsuario(models.Model):
         ('inventario', 'Inventario'),
         ('consulta', 'Consulta'),
         ('soporte', 'Soporte'),
+        ('parque', 'Parque'),
     ]
  
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")
