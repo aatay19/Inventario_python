@@ -37,6 +37,40 @@
     </div>
     {% endif %}
 
+    {% if eventos_en_curso %}
+    <!-- Eventos en Curso -->
+    <div class="row mb-4">
+        <div class="col-xl-12 col-lg-12">
+            <div class="card shadow-sm border-0 border-start border-warning border-4">
+                <div class="card-header bg-white py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 fw-bold text-warning"><i class="bi bi-play-circle-fill me-2"></i>Eventos en Curso</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for evento in eventos_en_curso %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 bg-light border-0 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-dark mb-1">{{ evento.titulo }}</h6>
+                                    <p class="small text-muted mb-2"><i class="bi bi-person-fill me-1"></i>{{ evento.nombre_reserva|default:"N/A" }}</p>
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <span class="badge bg-secondary opacity-75"><i class="bi bi-geo-alt-fill me-1"></i>{{ evento.zona|default:"Sin zona" }}</span>
+                                        <span class="small fw-bold text-danger">{{ evento.fecha_fin|timeuntil }} restantes</span>
+                                    </div>
+                                    <div class="d-grid">
+                                        <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-sm btn-outline-warning text-dark fw-bold">Ver Detalles</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Próximos Eventos -->
     <div class="row">
         <div class="col-xl-12 col-lg-12">

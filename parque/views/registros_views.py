@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
-from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEvento
+from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEvento, ProductoEnCombo
 from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm
 
 def actualizar_estados_eventos():
@@ -132,7 +132,7 @@ def finalizar_evento(request, pk):
     evento = get_object_or_404(Evento, pk=pk)
     evento.estado = 'FINALIZADO'
     evento.save()
-    messages.success(request, f"Evento '{evento.titulo}' finalizado.")
+    messages.success(request, f"El evento {evento.titulo} ha sido finalizado con éxito.")
     return redirect('parque:dashboard')
 
 # ... Resto de CRUD de productos y combos se mantiene igual ...
@@ -198,16 +198,31 @@ def lista_combos(request):
 def crear_combo(request):
     if request.method == 'POST':
         form = ComboParqueForm(request.POST)
+        items_json = request.POST.get('items_data')
         if form.is_valid():
-            form.save()
-            messages.success(request, "Combo creado correctamente.")
-            return redirect('parque:lista_combos')
+            try:
+                with transaction.atomic():
+                    combo = form.save()
+                    if items_json:
+                        items = json.loads(items_json)
+                        for item in items:
+                            ProductoEnCombo.objects.create(
+                                combo=combo,
+                                producto_id=item['id'],
+                                cantidad=item['cantidad']
+                            )
+                    messages.success(request, "Combo creado correctamente.")
+                    return redirect('parque:lista_combos')
+            except Exception as e:
+                messages.error(request, f"Error al guardar el combo: {str(e)}")
     else:
         form = ComboParqueForm()
     
-    precios_productos = {p.id: float(p.precio) for p in ProductoParque.objects.all()}
+    productos = ProductoParque.objects.all()
+    precios_productos = {p.id: float(p.precio) for p in productos}
     return render(request, 'parque/combos/form.html', {
         'form': form, 'titulo': 'Crear Nuevo Combo',
+        'productos': productos,
         'precios_productos': json.dumps(precios_productos)
     })
 
@@ -216,17 +231,44 @@ def editar_combo(request, pk):
     combo = get_object_or_404(ComboParque, pk=pk)
     if request.method == 'POST':
         form = ComboParqueForm(request.POST, instance=combo)
+        items_json = request.POST.get('items_data')
         if form.is_valid():
-            form.save()
-            messages.success(request, "Combo actualizado correctamente.")
-            return redirect('parque:lista_combos')
+            try:
+                with transaction.atomic():
+                    combo = form.save()
+                    combo.items.all().delete()
+                    if items_json:
+                        items = json.loads(items_json)
+                        for item in items:
+                            ProductoEnCombo.objects.create(
+                                combo=combo,
+                                producto_id=item['id'],
+                                cantidad=item['cantidad']
+                            )
+                    messages.success(request, "Combo actualizado correctamente.")
+                    return redirect('parque:lista_combos')
+            except Exception as e:
+                messages.error(request, f"Error al actualizar: {str(e)}")
     else:
         form = ComboParqueForm(instance=combo)
     
-    precios_productos = {p.id: float(p.precio) for p in ProductoParque.objects.all()}
+    productos = ProductoParque.objects.all()
+    precios_productos = {p.id: float(p.precio) for p in productos}
+    
+    detalles_actuales = []
+    for item in combo.items.all():
+        detalles_actuales.append({
+            'id': item.producto.id,
+            'nombre': item.producto.nombre,
+            'cantidad': item.cantidad,
+            'precio': float(item.producto.precio)
+        })
+
     return render(request, 'parque/combos/form.html', {
         'form': form, 'titulo': 'Editar Combo',
-        'precios_productos': json.dumps(precios_productos)
+        'productos': productos,
+        'precios_productos': json.dumps(precios_productos),
+        'detalles_actuales': json.dumps(detalles_actuales)
     })
 
 @login_required

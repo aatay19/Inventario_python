@@ -23,10 +23,8 @@ class ProductoParque(models.Model):
     ]
 
     nombre = models.CharField(max_length=100, verbose_name="Nombre del Producto")
-    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
     sabor = models.CharField(max_length=10, choices=SABOR_CHOICES, default='NINGUNO', verbose_name="Sabor")
     precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio de Venta")
-    existencia = models.IntegerField(default=0, verbose_name="Stock/Existencia")
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -39,7 +37,6 @@ class ProductoParque(models.Model):
 class ComboParque(models.Model):
     nombre = models.CharField(max_length=100, verbose_name="Nombre del Combo")
     descripcion = models.TextField(blank=True, null=True, verbose_name="¿Qué incluye?")
-    productos = models.ManyToManyField(ProductoParque, verbose_name="Productos incluidos")
     precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio del Combo")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
@@ -49,6 +46,14 @@ class ComboParque(models.Model):
     class Meta:
         verbose_name = "Combo del Parque"
         verbose_name_plural = "Combos del Parque"
+
+class ProductoEnCombo(models.Model):
+    combo = models.ForeignKey(ComboParque, on_delete=models.CASCADE, related_name='items')
+    producto = models.ForeignKey(ProductoParque, on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.cantidad} x {self.producto.nombre} en {self.combo.nombre}"
 
 class Evento(models.Model):
     ESTADO_CHOICES = [

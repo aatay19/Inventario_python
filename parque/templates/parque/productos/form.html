@@ -31,11 +31,7 @@
                             {{ form.nombre.errors }}
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Descripción</label>
-                            {{ form.descripcion }}
-                            {{ form.descripcion.errors }}
-                        </div>
+
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Sabor / Tipo</label>
@@ -45,18 +41,13 @@
                         </div>
 
                         <div class="row mb-4">
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <label class="form-label fw-bold">Precio ($)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
                                     {{ form.precio }}
                                 </div>
                                 {{ form.precio.errors }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Existencia Inicial</label>
-                                {{ form.existencia }}
-                                {{ form.existencia.errors }}
                             </div>
                         </div>
 

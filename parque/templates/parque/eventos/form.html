@@ -170,7 +170,8 @@
 
         const [tipo, id] = option.value.split('-');
         const nombre = option.dataset.nombre;
-        const precio = parseFloat(option.dataset.precio);
+        const precioStr = option.dataset.precio.toString().replace(',', '.');
+        const precio = parseFloat(precioStr);
 
         // Verificar si ya existe para sumar cantidad
         const existing = cart.find(i => i.tipo === tipo && i.id === id);

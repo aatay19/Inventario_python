@@ -24,23 +24,20 @@ class EventoForm(forms.ModelForm):
 class ProductoParqueForm(forms.ModelForm):
     class Meta:
         model = ProductoParque
-        fields = ['nombre', 'descripcion', 'sabor', 'precio', 'existencia']
+        fields = ['nombre', 'sabor', 'precio']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
-            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'sabor': forms.Select(attrs={'class': 'form-select'}),
             'precio': forms.NumberInput(attrs={'class': 'form-control'}),
-            'existencia': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 class ComboParqueForm(forms.ModelForm):
     class Meta:
         model = ComboParque
-        fields = ['nombre', 'descripcion', 'productos', 'precio']
+        fields = ['nombre', 'descripcion', 'precio']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'productos': forms.SelectMultiple(attrs={'class': 'form-select', 'size': '5'}),
             'precio': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 

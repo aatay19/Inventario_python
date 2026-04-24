@@ -3,15 +3,16 @@
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm border-0">
+        <!-- Columna Formulario -->
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-header bg-primary text-white py-3">
                     <h5 class="mb-0">{{ titulo }}</h5>
                 </div>
                 <div class="card-body p-4">
                     {% if form.errors %}
-                        <div class="alert alert-danger shadow-sm mb-4">
-                            <h6 class="fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Revisa los datos:</h6>
+                        <div class="alert alert-danger">
+                            <h6 class="fw-bold">Errores:</h6>
                             <ul class="mb-0 small">
                                 {% for field, errors in form.errors.items %}
                                     {% for error in errors %}
@@ -22,12 +23,15 @@
                         </div>
                     {% endif %}
 
-                    <form method="post" novalidate>
+                    <form method="post" id="comboForm" novalidate>
                         {% csrf_token %}
-                        
+                        <!-- Campo oculto para los productos del combo -->
+                        <input type="hidden" name="items_data" id="items_data">
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre del Combo</label>
                             {{ form.nombre }}
+                            <small class="text-muted">Ej: Combo Fiesta, Combo Merienda...</small>
                         </div>
 
                         <div class="mb-3">
@@ -35,26 +39,13 @@
                             {{ form.descripcion }}
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Selecciona los productos incluidos</label>
-                            <p class="text-muted small">Mantén presionada la tecla Ctrl (o Cmd) para seleccionar varios.</p>
-                            {{ form.productos }}
-                            <div class="mt-2 d-flex justify-content-between align-items-center">
-                                <a href="{% url 'parque:crear_producto' %}" class="small text-decoration-none">+ Registrar nuevo producto</a>
-                                <div class="bg-light p-2 px-3 rounded border border-info">
-                                    <span class="text-muted small text-uppercase">Costo Sugerido (Suma):</span>
-                                    <span class="fw-bold text-info fs-5 ms-2" id="sumPrecios">$0.00</span>
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="mb-4">
-                            <label class="form-label fw-bold">Precio Final del Combo ($)</label>
+                            <label class="form-label fw-bold">Precio Final de Oferta ($)</label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text">$</span>
                                 {{ form.precio }}
                             </div>
-                            <small class="text-muted">Este es el precio que se le cobrará al cliente por el paquete.</small>
+                            <small class="text-muted">Este es el precio especial que pagará el cliente.</small>
                         </div>
 
                         <div class="d-flex justify-content-between border-top pt-3">
@@ -65,33 +56,158 @@
                 </div>
             </div>
         </div>
+
+        <!-- Columna de Selección de Productos -->
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0 border-start border-primary border-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-box-seam me-2"></i>Contenido del Combo</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Selector de Producto -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">AÑADIR PRODUCTO AL COMBO</label>
+                        <div class="input-group">
+                            <select id="productSelector" class="form-select">
+                                <option value="">-- Seleccionar Producto --</option>
+                                {% for p in productos %}
+                                <option value="{{ p.id }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio }}">
+                                    {{ p.nombre }} (${{ p.precio }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" id="btnAddProduct" class="btn btn-dark">Añadir</button>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Productos -->
+                    <div id="cartContainer" class="mb-4" style="min-height: 200px;">
+                        <table class="table table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cartBody">
+                                <!-- Se llena con JS -->
+                            </tbody>
+                        </table>
+                        <div id="emptyCart" class="text-center py-4 text-muted">
+                            <i class="bi bi-cart-plus display-6 d-block mb-2"></i>
+                            Selecciona los productos que forman este combo
+                        </div>
+                    </div>
+
+                    <!-- Costo Sugerido -->
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded border border-info">
+                        <h6 class="mb-0 fw-bold text-info">Costo Sugerido (Suma):</h6>
+                        <div class="text-end">
+                            <span class="fs-4 fw-bold text-info" id="displayTotalSugerido">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
     const PRECIOS = JSON.parse('{{ precios_productos|safe }}');
-    const selectProductos = document.getElementById('id_productos');
-    const displaySuma = document.getElementById('sumPrecios');
+    let cart = [];
 
-    function actualizarSuma() {
-        let suma = 0;
-        // Obtenemos todas las opciones seleccionadas
-        const selectedOptions = Array.from(selectProductos.selectedOptions);
+    // Cargar detalles actuales si estamos editando
+    {% if detalles_actuales %}
+        cart = JSON.parse('{{ detalles_actuales|safe }}');
+    {% endif %}
+
+    function updateUI() {
+        const cartBody = document.getElementById('cartBody');
+        const emptyCart = document.getElementById('emptyCart');
+        const displayTotal = document.getElementById('displayTotalSugerido');
+        const itemsInput = document.getElementById('items_data');
         
-        selectedOptions.forEach(option => {
-            const id = option.value;
-            if (PRECIOS[id]) {
-                suma += parseFloat(PRECIOS[id]);
-            }
-        });
+        cartBody.innerHTML = '';
+        let total = 0;
 
-        displaySuma.innerText = '$' + suma.toFixed(2);
+        if (cart.length === 0) {
+            emptyCart.style.display = 'block';
+        } else {
+            emptyCart.style.display = 'none';
+            cart.forEach((item, index) => {
+                const subtotal = item.precio * item.cantidad;
+                total += subtotal;
+                
+                cartBody.innerHTML += `
+                    <tr>
+                        <td>
+                            <div class="fw-bold small">${item.nombre}</div>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary py-0" onclick="changeQty(${index}, -1)">-</button>
+                                <span class="px-2 small">${item.cantidad}</span>
+                                <button type="button" class="btn btn-outline-secondary py-0" onclick="changeQty(${index}, 1)">+</button>
+                            </div>
+                        </td>
+                        <td class="text-end small">$${subtotal.toFixed(2)}</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm text-danger py-0" onclick="removeItem(${index})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        displayTotal.innerText = '$' + total.toFixed(2);
+        itemsInput.value = JSON.stringify(cart);
     }
 
-    // Escuchar cambios en el selector
-    selectProductos.addEventListener('change', actualizarSuma);
+    document.getElementById('btnAddProduct').addEventListener('click', function() {
+        const selector = document.getElementById('productSelector');
+        const id = selector.value;
+        if (!id) return;
 
-    // Inicializar al cargar
-    document.addEventListener('DOMContentLoaded', actualizarSuma);
+        const option = selector.options[selector.selectedIndex];
+        const nombre = option.getAttribute('data-nombre');
+        const precioStr = option.getAttribute('data-precio').toString().replace(',', '.');
+        const precio = parseFloat(precioStr);
+
+        const existing = cart.find(item => item.id == id);
+        if (existing) {
+            existing.cantidad += 1;
+        } else {
+            cart.push({ id, nombre, precio, cantidad: 1 });
+        }
+        
+        selector.value = "";
+        updateUI();
+    });
+
+    window.changeQty = function(index, delta) {
+        cart[index].cantidad += delta;
+        if (cart[index].cantidad < 1) cart[index].cantidad = 1;
+        updateUI();
+    };
+
+    window.removeItem = function(index) {
+        cart.splice(index, 1);
+        updateUI();
+    };
+
+    // Prevenir envío si el combo está vacío
+    document.getElementById('comboForm').addEventListener('submit', function(e) {
+        if (cart.length === 0) {
+            e.preventDefault();
+            alert('Debes añadir al menos un producto al combo.');
+        }
+    });
+
+    // Cargar UI inicial
+    updateUI();
 </script>
 {% endblock %}

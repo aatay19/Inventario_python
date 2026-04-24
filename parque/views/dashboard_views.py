@@ -12,7 +12,10 @@ def dashboard(request):
         actualizar_estados_eventos()
         ahora = timezone.now()
         # Eventos futuros ordenados por inicio
-        eventos_proximos = Evento.objects.filter(fecha_inicio__gte=ahora).order_by('fecha_inicio')[:5]
+        eventos_proximos = Evento.objects.filter(fecha_inicio__gte=ahora, estado='PROGRAMADO').order_by('fecha_inicio')[:5]
+        
+        # Eventos en curso
+        eventos_en_curso = Evento.objects.filter(estado='EN_CURSO').order_by('fecha_inicio')
         
         # Eventos pasados pendientes de cierre ordenados por inicio
         eventos_por_finalizar = Evento.objects.filter(
@@ -23,6 +26,7 @@ def dashboard(request):
         context = {
             'fecha_hoy': ahora,
             'eventos_proximos': eventos_proximos,
+            'eventos_en_curso': eventos_en_curso,
             'eventos_por_finalizar': eventos_por_finalizar,
         }
         return render(request, 'parque/dashboard.html', context)
