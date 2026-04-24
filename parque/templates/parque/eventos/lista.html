@@ -20,7 +20,7 @@
                             <th>Título</th>
                             <th>Zona</th>
                             <th>Total Pagar</th>
-                            <th>Fecha Inicio</th>
+                            <th>Fecha Reserva</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -33,7 +33,7 @@
                             <td>{{ evento.titulo }}</td>
                             <td><span class="badge bg-secondary opacity-75">{{ evento.zona|default:"N/A" }}</span></td>
                             <td><strong class="text-success">${{ evento.total_pagar }}</strong></td>
-                            <td>{{ evento.fecha_inicio|date:"d/m/Y H:i" }}</td>
+                            <td>{{ evento.fecha_inicio|date:"d/m/Y" }}</td>
                             <td>
                                 {% if evento.estado == 'PROGRAMADO' %}
                                     <span class="badge bg-info">Programado</span>
@@ -46,14 +46,16 @@
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <div class="btn-group">
                                     <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-sm btn-outline-primary" title="Ver Detalles">
                                         <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'parque:generar_pdf_evento' evento.pk %}" class="btn btn-sm btn-outline-danger" title="Descargar PDF">
+                                        <i class="bi bi-file-earmark-pdf"></i>
                                     </a>
                                     <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <a href="{% url 'parque:eliminar_evento' evento.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                    <a href="{% url 'parque:eliminar_evento' evento.pk %}" class="btn btn-sm btn-outline-dark" title="Eliminar">
                                         <i class="bi bi-trash"></i>
                                     </a>
                                 </div>

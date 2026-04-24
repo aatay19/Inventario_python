@@ -13,6 +13,7 @@ urlpatterns = [
     path('eventos/eliminar/<int:pk>/', views.eliminar_evento, name='eliminar_evento'),
     path('eventos/finalizar/<int:pk>/', views.finalizar_evento, name='finalizar_evento'),
     path('eventos/detalle/<int:pk>/', views.detalle_evento, name='detalle_evento'),
+    path('eventos/pdf/<int:pk>/', views.generar_pdf_evento, name='generar_pdf_evento'),
 
     # Productos CRUD
     path('productos/', views.lista_productos, name='lista_productos'),

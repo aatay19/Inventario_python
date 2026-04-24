@@ -7,46 +7,44 @@ class EventoForm(forms.ModelForm):
     class Meta:
         model = Evento
         fields = [
-            'titulo', 'nombre_reserva', 'zona', 'total_pagar', 
-            'descripcion', 'fecha_inicio', 'fecha_fin', 'estado', 'responsable'
+            'titulo', 'nombre_reserva', 'zona', 'metodo_pago', 'total_pagar', 
+            'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'
         ]
         widgets = {
-            'fecha_inicio': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
-            'fecha_fin': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+            'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'hora_inicio': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'duracion_horas': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'titulo': forms.TextInput(attrs={'class': 'form-control'}),
             'nombre_reserva': forms.TextInput(attrs={'class': 'form-control'}),
-            'zona': forms.TextInput(attrs={'class': 'form-control'}),
+            'zona': forms.Select(attrs={'class': 'form-select'}),
+            'metodo_pago': forms.Select(attrs={'class': 'form-select'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
-            'responsable': forms.Select(attrs={'class': 'form-select'}),
         }
 
 class ProductoParqueForm(forms.ModelForm):
     class Meta:
         model = ProductoParque
-        fields = ['nombre', 'sabor', 'precio']
+        fields = ['nombre', 'sabor']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'sabor': forms.Select(attrs={'class': 'form-select'}),
-            'precio': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 class ComboParqueForm(forms.ModelForm):
     class Meta:
         model = ComboParque
-        fields = ['nombre', 'descripcion', 'precio']
+        fields = ['nombre', 'descripcion']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'precio': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 class BrazaleteForm(forms.ModelForm):
     class Meta:
         model = Brazalete
-        fields = ['nombre', 'cantidad', 'precio']
+        fields = ['nombre', 'cantidad']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Combo #1 o Individual'}),
             'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
-            'precio': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
         }

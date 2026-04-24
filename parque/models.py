@@ -5,10 +5,9 @@ from django.utils import timezone
 class Brazalete(models.Model):
     nombre = models.CharField(max_length=100, verbose_name="Nombre (ej: Combo #1)")
     cantidad = models.PositiveIntegerField(verbose_name="Cantidad de Brazaletes que incluye", default=1)
-    precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio ($)")
 
     def __str__(self):
-        return f"{self.nombre} - ${self.precio}"
+        return self.nombre
 
     class Meta:
         verbose_name = "Configuración de Brazalete"
@@ -24,7 +23,6 @@ class ProductoParque(models.Model):
 
     nombre = models.CharField(max_length=100, verbose_name="Nombre del Producto")
     sabor = models.CharField(max_length=10, choices=SABOR_CHOICES, default='NINGUNO', verbose_name="Sabor")
-    precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio de Venta")
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -37,7 +35,6 @@ class ProductoParque(models.Model):
 class ComboParque(models.Model):
     nombre = models.CharField(max_length=100, verbose_name="Nombre del Combo")
     descripcion = models.TextField(blank=True, null=True, verbose_name="¿Qué incluye?")
-    precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio del Combo")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -63,17 +60,33 @@ class Evento(models.Model):
         ('CANCELADO', 'Cancelado'),
     ]
 
+    ZONA_CHOICES = [
+        ('PULPO', 'Pulpo'),
+        ('PARED_BLANCA', 'Pared blanca'),
+        ('VENTANA', 'Ventana'),
+    ]
+    METODO_PAGO_CHOICES = [
+        ('DIVISA', 'Divisa'),
+        ('ZELLE', 'Zelle'),
+        ('PAGO_MOVIL', 'Pago móvil'),
+        ('PUNTO_VENTA', 'Punto de venta'),
+        ('BIO_PAGO', 'Bio pago'),
+        ('EFECTIVO_BS', 'Efectivo Bolívares'),
+    ]
+
     titulo = models.CharField(max_length=150, verbose_name="Título del Evento")
     nombre_reserva = models.CharField(max_length=100, verbose_name="Nombre de la Reserva", null=True, blank=True)
-    zona = models.CharField(max_length=100, verbose_name="Zona/Área", null=True, blank=True)
+    zona = models.CharField(max_length=100, choices=ZONA_CHOICES, verbose_name="Zona/Área", null=True, blank=True)
+    metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES, verbose_name="Método de Pago", null=True, blank=True)
     
     total_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total a Pagar")
     
     descripcion = models.TextField(verbose_name="Descripción General", blank=True, null=True)
-    fecha_inicio = models.DateTimeField(default=timezone.now)
+    fecha_inicio = models.DateField(default=timezone.now, verbose_name="Fecha de Reserva")
+    hora_inicio = models.TimeField(null=True, blank=True, verbose_name="Hora de Inicio")
+    duracion_horas = models.PositiveIntegerField(default=1, verbose_name="Duración (Horas)")
     fecha_fin = models.DateTimeField(blank=True, null=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PROGRAMADO')
-    responsable = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Responsable")
 
     def __str__(self):
         return f"{self.titulo} ({self.get_estado_display()})"
@@ -92,9 +105,8 @@ class DetalleEvento(models.Model):
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
 
-    def save(self, *args, **kwargs):
-        self.subtotal = self.cantidad * self.precio_unitario
-        super().save(*args, **kwargs)
+    def __str__(self):
+        return f"{self.cantidad}x {self.nombre_item} en {self.evento.titulo}"
 
 class HistorialEvento(models.Model):
     evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='historial')

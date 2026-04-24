@@ -54,7 +54,12 @@
                                     <h6 class="fw-bold text-dark mb-1">{{ evento.titulo }}</h6>
                                     <p class="small text-muted mb-2"><i class="bi bi-person-fill me-1"></i>{{ evento.nombre_reserva|default:"N/A" }}</p>
                                     <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="small">
+                                            <i class="bi bi-clock me-1"></i>{{ evento.hora_inicio|time:"H:i" }}
+                                        </div>
                                         <span class="badge bg-secondary opacity-75"><i class="bi bi-geo-alt-fill me-1"></i>{{ evento.zona|default:"Sin zona" }}</span>
+                                    </div>
+                                    <div class="text-center mb-3">
                                         <span class="small fw-bold text-danger">{{ evento.fecha_fin|timeuntil }} restantes</span>
                                     </div>
                                     <div class="d-grid">
@@ -86,7 +91,8 @@
                                     <th>Reserva / Persona</th>
                                     <th>Evento</th>
                                     <th>Zona</th>
-                                    <th>Hora de Inicio</th>
+                                    <th>Fecha</th>
+                                    <th>Hora</th>
                                     <th>Estado</th>
                                     <th class="text-center">Acciones</th>
                                 </tr>
@@ -99,7 +105,8 @@
                                     </td>
                                     <td>{{ evento.titulo }}</td>
                                     <td><span class="badge bg-secondary opacity-75">{{ evento.zona|default:"Sin zona" }}</span></td>
-                                    <td>{{ evento.fecha_inicio|date:"H:i" }} <small class="text-muted">({{ evento.fecha_inicio|date:"d/m" }})</small></td>
+                                    <td><span class="badge bg-primary text-white">{{ evento.fecha_inicio|date:"d/m/Y" }}</span></td>
+                                    <td><span class="badge bg-dark text-white">{{ evento.hora_inicio|time:"H:i" }}</span></td>
                                     <td>
                                         {% if evento.estado == 'PROGRAMADO' %}
                                             <span class="badge bg-info">Programado</span>
@@ -122,7 +129,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-4">
+                                    <td colspan="7" class="text-center py-4">
                                         <i class="bi bi-calendar-x display-4 text-muted d-block mb-2"></i>
                                         No hay eventos programados próximamente.
                                     </td>

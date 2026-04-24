@@ -54,12 +54,16 @@
                                 {{ form.zona }}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-bold">Fecha Inicio</label>
+                                <label class="form-label fw-bold">Fecha Reserva</label>
                                 {{ form.fecha_inicio }}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-bold">Fecha Fin</label>
-                                {{ form.fecha_fin }}
+                                <label class="form-label fw-bold">Hora Inicio</label>
+                                {{ form.hora_inicio }}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold">Duración (h)</label>
+                                {{ form.duracion_horas }}
                             </div>
                         </div>
 
@@ -72,8 +76,8 @@
                                 <label class="form-label fw-bold">Estado</label>
                                 {{ form.estado }}
                                 <div class="mt-3">
-                                    <label class="form-label fw-bold">Responsable</label>
-                                    {{ form.responsable }}
+                                    <label class="form-label fw-bold">Método de Pago</label>
+                                    {{ form.metodo_pago }}
                                 </div>
                             </div>
                         </div>
@@ -96,32 +100,45 @@
                 <div class="card-body">
                     <!-- Selector de Items -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-uppercase">Añadir Item al Evento</label>
-                        <div class="input-group mb-2">
-                            <select id="itemSelector" class="form-select">
-                                <optgroup label="🎟 Brazaletes y Combos de Entradas">
-                                    {% for b in brazaletes %}
-                                    <option value="BRAZALETE-{{ b.id }}" data-nombre="{{ b.nombre }}" data-precio="{{ b.precio }}">
-                                        🎟 {{ b.nombre }} (${{ b.precio }})
-                                    </option>
-                                    {% endfor %}
-                                </optgroup>
-                                <optgroup label="🍔 Combos de Productos">
-                                    {% for c in combos %}
-                                    <option value="COMBO-{{ c.id }}" data-nombre="{{ c.nombre }}" data-precio="{{ c.precio }}">
-                                        🎁 {{ c.nombre }} (${{ c.precio }})
-                                    </option>
-                                    {% endfor %}
-                                </optgroup>
-                                <optgroup label="🥤 Productos Individuales">
-                                    {% for p in productos %}
-                                    <option value="PRODUCTO-{{ p.id }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio }}">
-                                        🍿 {{ p.nombre }} (${{ p.precio }})
-                                    </option>
-                                    {% endfor %}
-                                </optgroup>
-                            </select>
-                            <button type="button" class="btn btn-dark" onclick="addItem()">Añadir</button>
+                        <h6 class="fw-bold small text-uppercase mb-3">Añadir Item al Evento</h6>
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted mb-1 fw-bold">Seleccionar Item</label>
+                                <select id="itemSelector" class="form-select">
+                                    <optgroup label="🎟 Brazaletes y Entradas">
+                                        {% for b in brazaletes %}
+                                        <option value="BRAZALETE-{{ b.id }}" data-nombre="{{ b.nombre }}">
+                                            🎟 {{ b.nombre }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    <optgroup label="🍔 Combos de Productos">
+                                        {% for c in combos %}
+                                        <option value="COMBO-{{ c.id }}" data-nombre="{{ c.nombre }}">
+                                            🎁 {{ c.nombre }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    <optgroup label="🥤 Productos Individuales">
+                                        {% for p in productos %}
+                                        <option value="PRODUCTO-{{ p.id }}" data-nombre="{{ p.nombre }}">
+                                            🍿 {{ p.nombre }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1 fw-bold">Costo Total ($)</label>
+                                <input type="number" id="itemPrecio" class="form-control" placeholder="0.00" min="0" step="0.01">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted mb-1 fw-bold">Cantidad</label>
+                                <input type="number" id="itemCantidad" class="form-control" value="1" min="1">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-dark w-100" onclick="addItem()">Añadir</button>
+                            </div>
                         </div>
                     </div>
 
@@ -165,27 +182,49 @@
 
     function addItem() {
         const selector = document.getElementById('itemSelector');
+        const precioInput = document.getElementById('itemPrecio');
+        const cantidadInput = document.getElementById('itemCantidad');
+        
         const option = selector.options[selector.selectedIndex];
         if (!option) return;
 
+        let precio = parseFloat(precioInput.value);
+        if (isNaN(precio) || precio < 0) {
+            alert("Por favor ingresa un precio válido.");
+            return;
+        }
+
+        let cantidad = parseInt(cantidadInput.value);
+        if (isNaN(cantidad) || cantidad <= 0) {
+            cantidad = 1;
+        }
+
         const [tipo, id] = option.value.split('-');
         const nombre = option.dataset.nombre;
-        const precioStr = option.dataset.precio.toString().replace(',', '.');
-        const precio = parseFloat(precioStr);
 
-        // Verificar si ya existe para sumar cantidad
-        const existing = cart.find(i => i.tipo === tipo && i.id === id);
+        // Verificar si ya existe el mismo item (solo para brazaletes y combos)
+        let existing = null;
+        if (tipo === 'BRAZALETE' || tipo === 'COMBO') {
+            existing = cart.find(i => i.tipo === tipo && i.id === id);
+        }
+
         if (existing) {
-            existing.cantidad += 1;
+            existing.cantidad += cantidad;
+            existing.precio += precio; // Sumar al costo total acumulado
         } else {
             cart.push({
                 tipo: tipo,
                 id: id,
                 nombre: nombre,
                 precio: precio,
-                cantidad: 1
+                cantidad: cantidad
             });
         }
+        
+        // Resetear inputs
+        precioInput.value = '';
+        cantidadInput.value = '1';
+        
         renderCart();
     }
 
@@ -209,7 +248,7 @@
         let total = 0;
 
         cart.forEach((item, index) => {
-            const subtotal = item.cantidad * item.precio;
+            const subtotal = item.precio; // El precio ingresado es el costo total, no se multiplica
             total += subtotal;
 
             tbody.innerHTML += `
@@ -219,11 +258,7 @@
                         <div class="text-muted" style="font-size: 0.7rem;">${item.tipo}</div>
                     </td>
                     <td class="text-center">
-                        <div class="d-flex align-items-center justify-content-center gap-1">
-                            <button type="button" class="btn btn-xs btn-outline-secondary p-0 px-1" onclick="changeQuantity(${index}, -1)">-</button>
-                            <span class="fw-bold">${item.cantidad}</span>
-                            <button type="button" class="btn btn-xs btn-outline-secondary p-0 px-1" onclick="changeQuantity(${index}, 1)">+</button>
-                        </div>
+                        <span class="fw-bold">${item.cantidad}</span>
                     </td>
                     <td class="text-end fw-bold text-dark">$${subtotal.toFixed(2)}</td>
                     <td class="text-center text-danger">

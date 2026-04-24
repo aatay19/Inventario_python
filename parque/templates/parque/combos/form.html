@@ -39,14 +39,7 @@
                             {{ form.descripcion }}
                         </div>
 
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">Precio Final de Oferta ($)</label>
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text">$</span>
-                                {{ form.precio }}
-                            </div>
-                            <small class="text-muted">Este es el precio especial que pagará el cliente.</small>
-                        </div>
+
 
                         <div class="d-flex justify-content-between border-top pt-3">
                             <a href="{% url 'parque:lista_combos' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
@@ -71,8 +64,8 @@
                             <select id="productSelector" class="form-select">
                                 <option value="">-- Seleccionar Producto --</option>
                                 {% for p in productos %}
-                                <option value="{{ p.id }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio }}">
-                                    {{ p.nombre }} (${{ p.precio }})
+                                <option value="{{ p.id }}" data-nombre="{{ p.nombre }}">
+                                    {{ p.nombre }}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -87,7 +80,6 @@
                                 <tr>
                                     <th>Item</th>
                                     <th class="text-center">Cant.</th>
-                                    <th class="text-end">Subtotal</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -101,13 +93,7 @@
                         </div>
                     </div>
 
-                    <!-- Costo Sugerido -->
-                    <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded border border-info">
-                        <h6 class="mb-0 fw-bold text-info">Costo Sugerido (Suma):</h6>
-                        <div class="text-end">
-                            <span class="fs-4 fw-bold text-info" id="displayTotalSugerido">$0.00</span>
-                        </div>
-                    </div>
+
                 </div>
             </div>
         </div>
@@ -115,7 +101,6 @@
 </div>
 
 <script>
-    const PRECIOS = JSON.parse('{{ precios_productos|safe }}');
     let cart = [];
 
     // Cargar detalles actuales si estamos editando
@@ -126,20 +111,15 @@
     function updateUI() {
         const cartBody = document.getElementById('cartBody');
         const emptyCart = document.getElementById('emptyCart');
-        const displayTotal = document.getElementById('displayTotalSugerido');
         const itemsInput = document.getElementById('items_data');
         
         cartBody.innerHTML = '';
-        let total = 0;
 
         if (cart.length === 0) {
             emptyCart.style.display = 'block';
         } else {
             emptyCart.style.display = 'none';
             cart.forEach((item, index) => {
-                const subtotal = item.precio * item.cantidad;
-                total += subtotal;
-                
                 cartBody.innerHTML += `
                     <tr>
                         <td>
@@ -152,7 +132,6 @@
                                 <button type="button" class="btn btn-outline-secondary py-0" onclick="changeQty(${index}, 1)">+</button>
                             </div>
                         </td>
-                        <td class="text-end small">$${subtotal.toFixed(2)}</td>
                         <td class="text-end">
                             <button type="button" class="btn btn-sm text-danger py-0" onclick="removeItem(${index})">
                                 <i class="bi bi-trash"></i>
@@ -163,7 +142,6 @@
             });
         }
 
-        displayTotal.innerText = '$' + total.toFixed(2);
         itemsInput.value = JSON.stringify(cart);
     }
 
@@ -174,14 +152,12 @@
 
         const option = selector.options[selector.selectedIndex];
         const nombre = option.getAttribute('data-nombre');
-        const precioStr = option.getAttribute('data-precio').toString().replace(',', '.');
-        const precio = parseFloat(precioStr);
 
         const existing = cart.find(item => item.id == id);
         if (existing) {
             existing.cantidad += 1;
         } else {
-            cart.push({ id, nombre, precio, cantidad: 1 });
+            cart.push({ id, nombre, cantidad: 1 });
         }
         
         selector.value = "";
