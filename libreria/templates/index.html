@@ -11,97 +11,137 @@
         <span class="text-muted"><i class="far fa-calendar-alt me-1"></i> {% now "d F Y" %}</span>
     </div>
 
-    <!-- ======= ALERTAS DE STOCK BAJO ======= -->
-    {% if num_bajo_stock > 0 %}
-    <div class="alert alert-danger shadow-sm border-start border-danger border-5 mb-4 d-flex align-items-center" role="alert">
-        <div class="pe-3">
-            <i class="fas fa-exclamation-triangle fa-2x"></i>
+    <!-- ACCESO RÁPIDO AL PARQUE (Solo para roles autorizados) -->
+    {% if user.perfilusuario.rol|lower in 'admin,soporte,parque' %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-success text-white overflow-hidden" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%);">
+                <div class="card-body p-0">
+                    <a href="{% url 'parque:dashboard' %}" class="btn btn-link text-white text-decoration-none w-100 p-4 d-flex align-items-center justify-content-between hover-lift">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-4">
+                                <i class="bi bi-tree-fill fs-1"></i>
+                            </div>
+                            <div class="text-start">
+                                <h2 class="fw-bold mb-1">IR AL CONTROL DEL PARQUE</h2>
+                                <p class="mb-0 opacity-75">Gestión de eventos, reservas y ventas diarias</p>
+                            </div>
+                        </div>
+                        <div class="d-none d-md-block">
+                            <i class="bi bi-arrow-right-circle fs-1"></i>
+                        </div>
+                    </a>
+                </div>
+            </div>
         </div>
-        <div class="flex-grow-1">
-            <h5 class="alert-heading mb-1 fw-bold">Alerta de Reposición Urgente</h5>
-            <p class="mb-0">
-                Se han detectado <strong>{{ num_bajo_stock }}</strong> productos en o por debajo de su nivel mínimo permitido. 
-                Es necesario realizar una nueva compra para evitar quiebres de stock.
-                <a href="{% url 'inventario.index' %}" class="fw-bold text-danger ms-2">Ver detalles <i class="fas fa-arrow-right small"></i></a>
-            </p>
-        </div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+    <style>
+        .hover-lift { transition: all 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-3px); background: rgba(255,255,255,0.1); }
+    </style>
     {% endif %}
 
-    <!-- ======= CARDS PRINCIPALES ======= -->
-    <div class="row g-4 mb-4">
-        <!-- Producto con más movimiento  -->
-        <div class="col-12">
-            <div class="card border-0 shadow-sm h-100 {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}border-start border-danger border-5{% endif %}" 
-                 style="{% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}background-color: #fff5f5;{% endif %}">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="d-flex align-items-center mb-2">
-                            <h6 class="text-muted text-uppercase mb-0 me-3">Récord Histórico de Movimiento</h6>
-                            <i class="fas fa-trophy text-warning"></i>
-                        </div>
-                        <h3 class="fw-bold text-dark mb-1">{{ producto_top.nombre|default:"N/A" }}</h3>
-                        <div class="mt-2">
-                            <span class="badge {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}bg-danger{% else %}bg-info{% endif %} fs-6">
-                                Stock Actual: {{ producto_top.stock }}
-                            </span>
-                            <span class="badge bg-dark fs-6 ms-2">
-                                Total Movido: {{ producto_top.total|default:"0" }}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="text-end d-none d-md-block">
-                        <div class="text-muted small mb-1">Margen de Stock Requerido</div>
-                        <div class="fw-bold text-muted small">Mín: {{ producto_top.min }} / Máx: {{ producto_top.max }}</div>
-                    </div>
-                </div>
+    <!-- ======= SECCIONES DE INVENTARIO (Ocultas para rol Parque) ======= -->
+    {% if user.perfilusuario.rol|lower != 'parque' %}
+        <!-- ======= ALERTAS DE STOCK BAJO ======= -->
+        {% if num_bajo_stock > 0 %}
+        <div class="alert alert-danger shadow-sm border-start border-danger border-5 mb-4 d-flex align-items-center" role="alert">
+            <div class="pe-3">
+                <i class="fas fa-exclamation-triangle fa-2x"></i>
             </div>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading mb-1 fw-bold">Alerta de Reposición Urgente</h5>
+                <p class="mb-0">
+                    Se han detectado <strong>{{ num_bajo_stock }}</strong> productos en o por debajo de su nivel mínimo permitido. 
+                    Es necesario realizar una nueva compra para evitar quiebres de stock.
+                    <a href="{% url 'inventario.index' %}" class="fw-bold text-danger ms-2">Ver detalles <i class="fas fa-arrow-right small"></i></a>
+                </p>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-    </div>
+        {% endif %}
 
-    <!-- ======= TABLA DE ÚLTIMOS MOVIMIENTOS ======= -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card p-4 shadow-sm border-0">
-                <h5 class="mb-3 fw-bold text-primary"><i class="fas fa-history me-2"></i>Últimos 5 Movimientos</h5>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">Fecha</th>
-                                <th scope="col">Producto</th>
-                                <th scope="col">Tipo</th>
-                                <th scope="col">Cantidad</th>
-                                <th scope="col">Proveedor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for mov in ultimos_movimientos %}
-                            <tr>
-                                <td>{{ mov.fecha_movimiento|date:"d/m/Y H:i" }}</td>
-                                <td class="fw-bold">{{ mov.producto.nombre_producto }}</td>
-                                <td>
-                                    {% if mov.tipo_movimiento == 'ENTRADA' %}
-                                        <span class="badge bg-success">ENTRADA</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">SALIDA</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ mov.cantidad }}</td>
-                                <td>{{ mov.proveedor.razonsocial|default:"-" }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="5" class="text-center text-muted">No hay movimientos recientes registrados.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="text-end mt-2">
-                    <a href="{% url 'movimientos.index' %}" class="btn btn-sm btn-outline-primary">Ver todo el historial</a>
+        <!-- ======= CARDS PRINCIPALES ======= -->
+        <div class="row g-4 mb-4">
+            <!-- Producto con más movimiento  -->
+            <div class="col-12">
+                <div class="card border-0 shadow-sm h-100 {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}border-start border-danger border-5{% endif %}" 
+                     style="{% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}background-color: #fff5f5;{% endif %}">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="d-flex align-items-center mb-2">
+                                <h6 class="text-muted text-uppercase mb-0 me-3">Récord Histórico de Movimiento</h6>
+                                <i class="fas fa-trophy text-warning"></i>
+                            </div>
+                            <h3 class="fw-bold text-dark mb-1">{{ producto_top.nombre|default:"N/A" }}</h3>
+                            <div class="mt-2">
+                                <span class="badge {% if producto_top.stock <= producto_top.min and producto_top.nombre != 'N/A' %}bg-danger{% else %}bg-info{% endif %} fs-6">
+                                    Stock Actual: {{ producto_top.stock }}
+                                </span>
+                                <span class="badge bg-dark fs-6 ms-2">
+                                    Total Movido: {{ producto_top.total|default:"0" }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end d-none d-md-block">
+                            <div class="text-muted small mb-1">Margen de Stock Requerido</div>
+                            <div class="fw-bold text-muted small">Mín: {{ producto_top.min }} / Máx: {{ producto_top.max }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- ======= TABLA DE ÚLTIMOS MOVIMIENTOS ======= -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card p-4 shadow-sm border-0">
+                    <h5 class="mb-3 fw-bold text-primary"><i class="fas fa-history me-2"></i>Últimos 5 Movimientos</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Fecha</th>
+                                    <th scope="col">Producto</th>
+                                    <th scope="col">Tipo</th>
+                                    <th scope="col">Cantidad</th>
+                                    <th scope="col">Proveedor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mov in ultimos_movimientos %}
+                                <tr>
+                                    <td>{{ mov.fecha_movimiento|date:"d/m/Y H:i" }}</td>
+                                    <td class="fw-bold">{{ mov.producto.nombre_producto }}</td>
+                                    <td>
+                                        {% if mov.tipo_movimiento == 'ENTRADA' %}
+                                            <span class="badge bg-success">ENTRADA</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">SALIDA</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ mov.cantidad }}</td>
+                                    <td>{{ mov.proveedor.razonsocial|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center text-muted">No hay movimientos recientes registrados.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-end mt-2">
+                        <a href="{% url 'movimientos.index' %}" class="btn btn-sm btn-outline-primary">Ver todo el historial</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Mensaje de bienvenida para personal del Parque -->
+        <div class="text-center py-5">
+            <i class="bi bi-person-check fs-1 text-muted mb-3 d-block"></i>
+            <h4 class="text-muted">Bienvenido al Sistema de Gestión</h4>
+            <p class="text-muted">Utiliza el botón de arriba para acceder a las herramientas del parque.</p>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

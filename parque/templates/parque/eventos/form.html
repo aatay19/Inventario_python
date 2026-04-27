@@ -104,7 +104,7 @@
                         <div class="row g-2 align-items-end mb-3">
                             <div class="col-md-5">
                                 <label class="form-label small text-muted mb-1 fw-bold">Seleccionar Item</label>
-                                <select id="itemSelector" class="form-select">
+                                <select id="itemSelector" class="form-select" onchange="updatePriceLabel()">
                                     <optgroup label="🎟 Brazaletes y Entradas">
                                         {% for b in brazaletes %}
                                         <option value="BRAZALETE-{{ b.id }}" data-nombre="{{ b.nombre }}">
@@ -129,7 +129,7 @@
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1 fw-bold">Costo Total ($)</label>
+                                <label id="priceLabel" class="form-label small text-muted mb-1 fw-bold">Costo Unitario ($)</label>
                                 <input type="number" id="itemPrecio" class="form-control" placeholder="0.00" min="0" step="0.01">
                             </div>
                             <div class="col-md-2">
@@ -188,8 +188,8 @@
         const option = selector.options[selector.selectedIndex];
         if (!option) return;
 
-        let precio = parseFloat(precioInput.value);
-        if (isNaN(precio) || precio < 0) {
+        let inputVal = parseFloat(precioInput.value);
+        if (isNaN(inputVal) || inputVal < 0) {
             alert("Por favor ingresa un precio válido.");
             return;
         }
@@ -202,22 +202,32 @@
         const [tipo, id] = option.value.split('-');
         const nombre = option.dataset.nombre;
 
-        // Verificar si ya existe el mismo item (solo para brazaletes y combos)
-        let existing = null;
-        if (tipo === 'BRAZALETE' || tipo === 'COMBO') {
-            existing = cart.find(i => i.tipo === tipo && i.id === id);
+        // Lógica de precio: 
+        // Si es brazalete, el input es precio UNITARIO y se multiplica.
+        // Si es combo o producto, el usuario ingresa el precio total del lote (comportamiento anterior).
+        let precioFinal = inputVal;
+        if (tipo === 'BRAZALETE') {
+            precioFinal = inputVal * cantidad;
         }
+
+        // Verificar si ya existe el mismo item
+        let existing = cart.find(i => i.tipo === tipo && i.id === id);
 
         if (existing) {
             existing.cantidad += cantidad;
-            existing.precio += precio; // Sumar al costo total acumulado
+            if (tipo === 'BRAZALETE') {
+                existing.precio += (inputVal * cantidad);
+            } else {
+                existing.precio += inputVal; 
+            }
         } else {
             cart.push({
                 tipo: tipo,
                 id: id,
                 nombre: nombre,
-                precio: precio,
-                cantidad: cantidad
+                precio: precioFinal,
+                cantidad: cantidad,
+                precio_unitario_original: (tipo === 'BRAZALETE' ? inputVal : precioFinal/cantidad)
             });
         }
         
@@ -226,6 +236,19 @@
         cantidadInput.value = '1';
         
         renderCart();
+    }
+
+    function updatePriceLabel() {
+        const selector = document.getElementById('itemSelector');
+        const label = document.getElementById('priceLabel');
+        const option = selector.options[selector.selectedIndex];
+        const [tipo, id] = option.value.split('-');
+
+        if (tipo === 'BRAZALETE') {
+            label.innerText = 'Costo Unitario ($)';
+        } else {
+            label.innerText = 'Costo Total ($)';
+        }
     }
 
     function removeItem(index) {

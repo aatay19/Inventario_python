@@ -46,9 +46,46 @@ def actualizar_estados_eventos():
 
 @login_required
 def lista_eventos(request):
+    from django.core.paginator import Paginator
+    from django.db.models import Q
     actualizar_estados_eventos()
-    eventos = Evento.objects.all().order_by('-fecha_inicio')
-    return render(request, 'parque/eventos/lista.html', {'eventos': eventos})
+    
+    q = request.GET.get('q', '').strip()
+    order_by = request.GET.get('order_by', '-fecha_inicio')
+    
+    eventos = Evento.objects.all()
+    
+    if q:
+        eventos = eventos.filter(
+            Q(nombre_reserva__icontains=q) | Q(titulo__icontains=q)
+        )
+        
+    # Manejar orden dinámico
+    if order_by == 'fecha_asc':
+        eventos = eventos.order_by('fecha_inicio', 'hora_inicio')
+    elif order_by == 'fecha_desc':
+        eventos = eventos.order_by('-fecha_inicio', '-hora_inicio')
+    elif order_by == 'hora_asc':
+        eventos = eventos.order_by('hora_inicio', 'fecha_inicio')
+    elif order_by == 'hora_desc':
+        eventos = eventos.order_by('-hora_inicio', '-fecha_inicio')
+    elif order_by == 'nombre_asc':
+        eventos = eventos.order_by('nombre_reserva')
+    elif order_by == 'nombre_desc':
+        eventos = eventos.order_by('-nombre_reserva')
+    else:
+        # Default: Más recientes primero
+        eventos = eventos.order_by('-fecha_inicio', '-hora_inicio')
+
+    paginator = Paginator(eventos, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'parque/eventos/lista.html', {
+        'page_obj': page_obj,
+        'q': q,
+        'order_by': order_by
+    })
 
 @login_required
 def crear_evento(request):
@@ -251,8 +288,12 @@ def generar_pdf_evento(request, pk):
 
 @login_required
 def lista_productos(request):
+    from django.core.paginator import Paginator
     productos = ProductoParque.objects.all().order_by('nombre')
-    return render(request, 'parque/productos/lista.html', {'productos': productos})
+    paginator = Paginator(productos, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'parque/productos/lista.html', {'page_obj': page_obj})
 
 @login_required
 def crear_producto(request):
