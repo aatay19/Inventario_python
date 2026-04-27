@@ -46,10 +46,14 @@
                             <td>
                                 {% if usuario.rol == 'admin' %}
                                     <span class="badge bg-danger">Administrador</span>
+                                {% elif usuario.rol == 'supervisor' %}
+                                    <span class="badge bg-primary">Supervisor</span>
                                 {% elif usuario.rol == 'soporte' %}
                                     <span class="badge bg-purple" style="background-color: #6f42c1;">Soporte</span>
                                 {% elif usuario.rol == 'inventario' %}
                                     <span class="badge bg-info text-dark">Inventario</span>
+                                {% elif usuario.rol == 'parque' %}
+                                    <span class="badge bg-success">Parque</span>
                                 {% else %}
                                     <span class="badge bg-secondary">Consulta</span>
                                 {% endif %}

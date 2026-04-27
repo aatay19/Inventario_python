@@ -78,6 +78,14 @@ $(document).ready(function() {
             console.log("Mostrando todos los proveedores...");
         }
     });
+
+    // Actualizar total_empaques automáticamente
+    const $cantidad = $('#id_cantidad');
+    const $totalEmpaques = $('#id_total_empaques');
+
+    $cantidad.on('input', function() {
+        $totalEmpaques.val($(this).val());
+    });
 });
 </script>
 

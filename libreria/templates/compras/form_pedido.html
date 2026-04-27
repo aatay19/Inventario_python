@@ -51,15 +51,13 @@
                     <thead class="table-dark text-center">
                         <tr class="small">
                             <th style="width: 4%;"><input type="checkbox" id="select-all"></th>
-                            <th style="width: 16%;">Producto</th>
-                            <th style="width: 8%;">Stock Actual</th>
-                            <th style="width: 8%;">Mínimo</th>
-                            <th style="width: 8%;">Máximo</th>
-                            <th style="width: 12%;">Unid. Empaque</th>
-                            <th style="width: 8%;">Cant. Unid. por Empaque</th>
-                            <th style="width: 8%;">Cant. Pedido</th>
-                            <th style="width: 10%;">Subtotal Unid.</th>
-                            <th style="width: 18%;">Nota del Movimiento</th>
+                            <th style="width: 25%;">Producto</th>
+                            <th style="width: 10%;">Stock Actual</th>
+                            <th style="width: 15%;">Unid. Empaque</th>
+                            <th style="width: 10%;">Mínimo</th>
+                            <th style="width: 10%;">Máximo</th>
+                            <th style="width: 10%;">Cant. Pedido</th>
+                            <th style="width: 16%;">Nota del Movimiento</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -83,12 +81,6 @@
                                 </span>
                             </td>
                             <td>
-                                <input type="number" name="minimo[]" value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
-                            </td>
-                            <td>
-                                <input type="number" name="maximo[]" value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
-                            </td>
-                            <td>
                                 <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not detalle %}disabled{% endif %}>
                                     {% for val, label in unidades_choices %}
                                         <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque == val %}selected{% endif %}{% else %}{% if p.unidad_empaque == val %}selected{% endif %}{% endif %}>{{ label }}</option>
@@ -96,13 +88,15 @@
                                 </select>
                             </td>
                             <td>
-                                <input type="number" name="cant_por_empaque[]" value="{% if detalle %}{{ detalle.cantidad_por_empaque }}{% else %}{{ p.cantidad_por_empaque }}{% endif %}" class="form-control form-control-sm text-center input-calc input-item" min="1" {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="minimo[]" value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
+                            <td>
+                                <input type="number" name="maximo[]" value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
+                            </td>
+                            <input type="hidden" name="cant_por_empaque[]" value="1">
                             <td>
                                 <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" class="form-control form-control-sm text-center input-calc border-primary input-item" min="0" {% if not detalle %}disabled{% endif %}>
-                            </td>
-                            <td>
-                                <input type="number" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}" class="form-control form-control-sm text-center fw-bold bg-light" readonly>
+                                <input type="hidden" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}">
                             </td>
                             <td>
                                 <input type="text" name="detalle[]" value="Pedido generado vía módulo compras" class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif %}>
@@ -141,7 +135,7 @@
                     </div>
                     <div class="col-md-4 text-end">
                         <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary me-2">Cancelar</a>
-                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not productos %}disabled{% endif %}>
+                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not productos_con_detalles %}disabled{% endif %}>
                             Siguiente <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
@@ -262,8 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalInput = row.querySelector('input[name="total_unidades[]"]');
         
         // El requerimiento es que no se multipliquen. Total unidades = num empaques.
-        const subtotal = numEmpaques;
-        totalInput.value = subtotal;
+        totalInput.value = numEmpaques;
     }
 
     // Funcionalidad Seleccionar Todo
@@ -275,11 +268,74 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // --- Lógica de Persistencia (Corregir datos) ---
+    const storageKey = `pedido_data_prov_${document.querySelector('input[name="proveedor_id"]').value}`;
+    
+    function guardarEstado() {
+        const data = {};
+        allRows.forEach(row => {
+            const cb = row.querySelector('.item-checkbox');
+            if (cb.checked) {
+                data[row.dataset.id] = {
+                    min: row.querySelector('input[name="minimo[]"]').value,
+                    max: row.querySelector('input[name="maximo[]"]').value,
+                    unidad: row.querySelector('select[name="unidad_empaque[]"]').value,
+                    cant: row.querySelector('input[name="cant_empaques[]"]').value,
+                    detalle: row.querySelector('input[name="detalle[]"]').value
+                };
+            }
+        });
+        sessionStorage.setItem(storageKey, JSON.stringify(data));
+    }
+
+    function restaurarEstado() {
+        const saved = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
+        Object.keys(saved).forEach(id => {
+            const row = document.getElementById(`row-${id}`);
+            if (row) {
+                const data = saved[id];
+                const cb = row.querySelector('.item-checkbox');
+                cb.checked = true;
+                toggleRowSelection(row, true);
+                
+                row.querySelector('input[name="minimo[]"]').value = data.min;
+                row.querySelector('input[name="maximo[]"]').value = data.max;
+                row.querySelector('select[name="unidad_empaque[]"]').value = data.unidad;
+                row.querySelector('input[name="cant_empaques[]"]').value = data.cant;
+                row.querySelector('input[name="detalle[]"]').value = data.detalle;
+                
+                calcularSubtotal(row);
+            }
+        });
+    }
+
+    // Ejecutar restauración inicial
+    restaurarEstado();
+
+    // Listeners para guardar
+    table.addEventListener('input', guardarEstado);
+    table.addEventListener('change', guardarEstado);
+
     // IMPORTANTE: Antes de enviar, habilitar temporalmente todo para que Django reciba los arrays completos
-    // y los indices coincidan en el backend.
+    // y los indices coincidan en el backend. Quitamos validaciones de filas no seleccionadas para evitar bloqueos.
     form.addEventListener('submit', function() {
-        const allDisabled = form.querySelectorAll('input:disabled, select:disabled');
-        allDisabled.forEach(el => el.disabled = false);
+        // Limpiar storage al confirmar (el backend se encargará del resto)
+        // Nota: Solo se limpia si el envío es exitoso.
+        const rows = form.querySelectorAll('.row-producto');
+        rows.forEach(row => {
+            const isSelected = row.querySelector('.item-checkbox').checked;
+            const inputs = row.querySelectorAll('.input-item, .input-calc');
+            
+            if (!isSelected) {
+                // Si no está seleccionado, quitar validaciones para que no bloquee el submit
+                inputs.forEach(input => {
+                    input.removeAttribute('min');
+                    input.removeAttribute('required');
+                });
+            }
+            // Habilitar todos los inputs para que viajen al backend
+            inputs.forEach(input => input.disabled = false);
+        });
     });
 });
 </script>

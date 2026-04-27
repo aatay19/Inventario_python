@@ -167,15 +167,9 @@ class MovimientosInventarioForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select select2'})
     )
 
-    unidades_por_empaque = forms.IntegerField(
-        required=False,
-        label="Unidades por Empaque",
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'placeholder': 'Ej. 12'})
-    )
-
     cantidad_empaques = forms.IntegerField(
-        required=False,
-        label="Cantidad de Empaques",
+        required=True,
+        label="Cantidad",
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Ej. 5'})
     )
 
@@ -187,30 +181,22 @@ class MovimientosInventarioForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Hacemos que el campo proveedor no sea requerido a nivel de HTML.
-        # La validación real se hará en el método clean().
         self.fields['proveedor'].required = False
-        # Hacemos que la cantidad total sea readonly porque se calculará
-        self.fields['cantidad'].widget.attrs['readonly'] = True
-        self.fields['cantidad'].help_text = "Calculado: Cantidad de Empaques x Unidades por Empaque"
-
-        # Si estamos editando un movimiento, pre-rellenamos el campo 'unidades_por_empaque'
-        # para que los cálculos en el frontend y backend funcionen correctamente.
-        if self.instance and self.instance.pk:
-            if self.instance.cantidad_empaques and self.instance.cantidad_empaques > 0:
-                unidades = self.instance.cantidad // self.instance.cantidad_empaques
-                self.fields['unidades_por_empaque'].initial = unidades
+        self.fields['cantidad'].widget = forms.HiddenInput()
 
         # Inicializar fecha visualmente con la hora actual
         if not self.instance.pk:
             self.fields['fecha_movimiento'].initial = timezone.localtime(timezone.now())
+        
+        if self.instance and self.instance.pk:
+            self.fields['cantidad_empaques'].initial = self.instance.cantidad_empaques
 
         # Reordenar campos para una mejor experiencia de usuario
         field_order = [
             'producto', 'tipo_movimiento', 'unidad_empaque', 
-            'cantidad_empaques', 'unidades_por_empaque', 'cantidad', 'fecha_movimiento', 'proveedor'
+            'cantidad_empaques', 'proveedor', 'fecha_movimiento', 'cantidad'
         ]
-        self.fields = {k: self.fields[k] for k in field_order}
+        self.fields = {k: self.fields[k] for k in field_order if k in self.fields}
 
     class Meta:
         model = MovimientosInventario
@@ -224,18 +210,15 @@ class MovimientosInventarioForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         tipo_movimiento = cleaned_data.get("tipo_movimiento")
-        cantidad = cleaned_data.get("cantidad")
         producto = cleaned_data.get("producto")
         proveedor = cleaned_data.get("proveedor")
-
-        unidades_por_empaque = cleaned_data.get('unidades_por_empaque')
         cantidad_empaques = cleaned_data.get("cantidad_empaques")
 
-        # Requerimiento: Ya no se multiplica. La cantidad es igual a los empaques.
+        # 1 empaque = 1 unidad
         if cantidad_empaques is not None:
              cleaned_data['cantidad'] = cantidad_empaques
         
-        cantidad = cleaned_data.get("cantidad") # Recargar la cantidad
+        cantidad = cleaned_data.get("cantidad")
 
         # Validación 1: Si es una SALIDA, verificar que haya stock suficiente.
         if tipo_movimiento == 'SALIDA' and producto and cantidad is not None:
@@ -248,10 +231,6 @@ class MovimientosInventarioForm(forms.ModelForm):
         # Validación 2: Si es una ENTRADA, el proveedor es obligatorio.
         if tipo_movimiento == 'ENTRADA' and not proveedor:
             self.add_error('proveedor', 'Para un movimiento de entrada, es obligatorio seleccionar un proveedor.')
-
-        # Asegurar que si se usó empaques, se guarde la relación
-        if cantidad_empaques is None:
-            cleaned_data['cantidad_empaques'] = 0
 
         return cleaned_data
 

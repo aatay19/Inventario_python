@@ -74,9 +74,7 @@
                         <tr class="small">
                             <th style="width: 35%;">Producto / SKU</th>
                             <th style="width: 15%;">Tipo Empaque</th>
-                            <th style="width: 15%;">Cant. Pedido</th>
-                            <th style="width: 15%;">Cant. Unid. por Empaque</th>
-                            <th style="width: 15%;">TOTAL UNID.</th>
+                            <th style="width: 25%;">Cant. Ingresada</th>
                             <th style="width: 5%;"></th>
                         </tr>
                     </thead>
@@ -214,14 +212,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>
                 <input type="number" name="cant_empaques[]" class="form-control text-center fw-bold inp-empaques" 
                        value="0" min="0" oninput="calcularTotalRow(${id})">
-            </td>
-            <td>
-                <input type="number" name="cant_por_empaque[]" class="form-control text-center inp-pe" 
-                       value="1" min="1" oninput="calcularTotalRow(${id})">
-            </td>
-            <td>
-                <input type="number" name="total_unidades[]" class="form-control text-center fw-bold bg-light inp-total" 
-                       value="0" readonly>
+                <input type="hidden" name="cant_por_empaque[]" value="1">
+                <input type="hidden" name="total_unidades[]" class="inp-total" value="0">
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-outline-danger btn-sm rounded-circle" onclick="removerProducto(${id})">

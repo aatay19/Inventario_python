@@ -1,9 +1,104 @@
 {% csrf_token %}
 
 {% if formulario.non_field_errors %}
-    <div class="alert alert-danger">
-        {{ formulario.non_field_errors }}
+    <div class="alert alert-danger shadow-sm border-0 mb-4 animate__animated animate__shakeX">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ formulario.non_field_errors }}
     </div>
 {% endif %}
 
-{{ formulario.as_p }}
+<div class="row g-4">
+    <!-- Producto -->
+    <div class="col-12">
+        <div class="form-group">
+            <label class="form-label fw-bold text-dark mb-1">
+                <i class="bi bi-search text-primary me-1"></i> {{ formulario.producto.label }}
+            </label>
+            {{ formulario.producto }}
+            {% if formulario.producto.errors %}
+                <div class="invalid-feedback d-block mt-1">{{ formulario.producto.errors }}</div>
+            {% endif %}
+            <div class="form-text small text-muted">Seleccione el producto al que desea realizar el ajuste.</div>
+        </div>
+    </div>
+
+    <!-- Tipo Movimiento y Unidad -->
+    <div class="col-md-6">
+        <div class="form-group">
+            <label class="form-label fw-bold text-dark mb-1">
+                <i class="bi bi-arrow-left-right text-primary me-1"></i> {{ formulario.tipo_movimiento.label }}
+            </label>
+            {{ formulario.tipo_movimiento }}
+            {% if formulario.tipo_movimiento.errors %}
+                <div class="invalid-feedback d-block mt-1">{{ formulario.tipo_movimiento.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label class="form-label fw-bold text-dark mb-1">
+                <i class="bi bi-tag text-primary me-1"></i> {{ formulario.unidad_empaque.label }}
+            </label>
+            {{ formulario.unidad_empaque }}
+            {% if formulario.unidad_empaque.errors %}
+                <div class="invalid-feedback d-block mt-1">{{ formulario.unidad_empaque.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Cantidad y Proveedor -->
+    <div class="col-md-6">
+        <div class="form-group">
+            <label class="form-label fw-bold text-dark mb-1">
+                <i class="bi bi-plus-slash-minus text-primary me-1"></i> {{ formulario.cantidad_empaques.label }}
+            </label>
+            {{ formulario.cantidad_empaques }}
+            {% if formulario.cantidad_empaques.errors %}
+                <div class="invalid-feedback d-block mt-1">{{ formulario.cantidad_empaques.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label class="form-label fw-bold text-dark mb-1">
+                <i class="bi bi-truck text-primary me-1"></i> {{ formulario.proveedor.label }}
+            </label>
+            {{ formulario.proveedor }}
+            {% if formulario.proveedor.errors %}
+                <div class="invalid-feedback d-block mt-1">{{ formulario.proveedor.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Fecha y Hora -->
+    <div class="col-12">
+        <div class="form-group">
+            <label class="form-label fw-bold text-dark mb-1">
+                <i class="bi bi-clock-history text-primary me-1"></i> {{ formulario.fecha_movimiento.label }}
+            </label>
+            {{ formulario.fecha_movimiento }}
+        </div>
+    </div>
+    
+    <!-- Campo oculto para cantidad técnica -->
+    {{ formulario.cantidad }}
+</div>
+
+<style>
+    .form-group .form-control, .form-group .form-select {
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        border: 1px solid #e0e0e0;
+        transition: all 0.2s ease;
+    }
+    .form-group .form-control:focus, .form-group .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+    }
+    .select2-container--bootstrap-5 .select2-selection {
+        border-radius: 10px !important;
+        padding: 0.6rem 1rem !important;
+        height: auto !important;
+    }
+</style>

@@ -72,4 +72,5 @@ urlpatterns = [
 
     # Backup
     path('configuracion/backup', views.realizar_copia_seguridad, name='backup'),
+    path('inventario/buscar_ajax/', views.buscar_productos_ajax, name='inventario.buscar_ajax'),
 ]

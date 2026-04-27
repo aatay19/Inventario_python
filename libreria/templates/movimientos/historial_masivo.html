@@ -8,7 +8,7 @@
         <div>
             {% if user.perfilusuario.rol|lower != 'consulta' %}
                 {% if tipo == 'ENTRADA' %}
-                    <a href="{% url 'compras.index' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nuevo Pedido</a>
+                    <a href="{% url 'movimientos.entrada' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nueva Entrada</a>
                 {% else %}
                     <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="bi bi-dash-lg me-2"></i>Nueva Salida Masiva</a>
                 {% endif %}
@@ -20,22 +20,30 @@
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
             <form method="get" class="row g-3">
-                <div class="col-md-10">
+                <div class="col-md-5">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" 
-                               placeholder="Buscar por proveedor o producto dentro de los lotes...">
+                               placeholder="Buscar producto...">
                     </div>
                 </div>
+                <div class="col-md-5">
+                    <select name="prov" class="form-select">
+                        <option value="">Todos los Proveedores</option>
+                        {% for p in proveedores_list %}
+                            <option value="{{ p.id }}" {% if prov_id|stringformat:"s" == p.id|stringformat:"s" %}selected{% endif %}>{{ p.razonsocial }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
                 </div>
             </form>
         </div>
     </div>
 
     {% if page_obj %}
-        {% for lote in page_obj %}
+        {% for lote in historial_list %}
             <div class="card shadow-sm border-0 mb-4 overflow-hidden">
                 <div class="card-header {% if tipo == 'ENTRADA' %}bg-success{% else %}bg-danger{% endif %} text-white py-3">
                     <div class="row align-items-center">
@@ -46,7 +54,7 @@
                             </h5>
                         </div>
                         <div class="col-md-6 text-md-end text-white-50 small">
-                            Lote ID: {{ lote.info.fecha_movimiento|date:"His" }}-{{ lote.info.proveedor__rif|default:"0" }}
+                            Lote ID: {{ lote.info.codigo_lote }}
                         </div>
                     </div>
                 </div>
@@ -121,20 +129,7 @@
                                         <span class="badge bg-light text-dark border font-monospace">{{ item.unidad_empaque }}</span>
                                     </td>
                                     <td class="text-end pe-4">
-                                        {% if user.perfilusuario.rol|lower != 'consulta' %}
-                                        <div class="d-flex justify-content-end gap-2">
-                                            <a href="{% url 'movimientos.editar' item.id_movimiento %}" 
-                                               class="btn btn-outline-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm hover-elevate border-2" 
-                                               style="width: 38px; height: 38px; transition: all 0.2s;" title="Editar">
-                                                <i class="bi bi-pencil-fill fs-6"></i>
-                                            </a>
-                                            <a href="{% url 'movimientos.eliminar' item.id_movimiento %}" 
-                                               class="btn btn-outline-danger rounded-circle d-flex align-items-center justify-content-center shadow-sm hover-elevate border-2" 
-                                               style="width: 38px; height: 38px; transition: all 0.2s;" title="Eliminar">
-                                                <i class="bi bi-trash3-fill fs-6"></i>
-                                            </a>
-                                        </div>
-                                        {% endif %}
+                                        <span class="text-muted small">Parte de lote</span>
                                     </td>
                                 </tr>
                                 {% endfor %}

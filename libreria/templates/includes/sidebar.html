@@ -6,7 +6,7 @@
     <ul class="nav flex-column">
 
 
-        {% if user.perfilusuario.rol|lower in 'admin,inventario,consulta,soporte' %}
+        {% if user.perfilusuario.rol|lower in 'admin,inventario,consulta,soporte,supervisor' %}
         <!-- PRODUCTOS -->
         {% if user.perfilusuario.rol|lower != 'consulta' %}
         <li class="nav-item mb-2">
@@ -45,7 +45,7 @@
         </li>
 
         <!-- PEDIDOS / COMPRAS -->
-        {% if user.perfilusuario.rol|lower in 'admin,consulta,soporte' %}
+        {% if user.perfilusuario.rol|lower in 'admin,consulta,soporte,supervisor' %}
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-cart-plus me-2"></i> Pedidos / Compras</span>
@@ -75,7 +75,7 @@
         <!-- ENTRADAS MASIVAS -->
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
-                <span><i class="bi bi-download me-2"></i> Entradas Masivas</span>
+                <span><i class="bi bi-download me-2"></i> Entradas</span>
             </a>
             <ul class="submenu list-unstyled ms-4">
                 {% if user.perfilusuario.rol|lower != 'consulta' %}
@@ -88,7 +88,7 @@
         <!-- SALIDAS MASIVAS -->
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
-                <span><i class="bi bi-box-arrow-up-right me-2"></i> Salidas Masivas</span>
+                <span><i class="bi bi-box-arrow-up-right me-2"></i> Salidas</span>
             </a>
             <ul class="submenu list-unstyled ms-4">
                 {% if user.perfilusuario.rol|lower != 'consulta' %}
@@ -99,7 +99,7 @@
         </li>
 
         <!-- USUARIOS -->
-        {% if user.perfilusuario.rol|lower in 'admin,soporte' %}
+        {% if user.perfilusuario.rol|lower in 'admin,soporte,supervisor' %}
         <li class="nav-item mb-2">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle" href="#">
                 <span><i class="bi bi-person-circle me-2"> </i> Usuarios</span>

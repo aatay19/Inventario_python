@@ -133,7 +133,7 @@
           <td>{{ producto.total_empaques|floatformat:2 }}</td>
           <td>
             {% for prov in producto.proveedores.all %}
-              <a href="{% url 'proveedores.index' %}?q={{ prov.nombre }}" class="btn btn-outline-info btn-sm mb-1" title="Ver Proveedor"><i class="fas fa-truck"></i> {{ prov.nombre }}</a>
+              <a href="{% url 'proveedores.index' %}?q={{ prov.razonsocial }}" class="btn btn-outline-info btn-sm mb-1" title="Ver Proveedor"><i class="fas fa-truck"></i> {{ prov.razonsocial }}</a>
             {% empty %}
               <span class="text-muted">-</span>
             {% endfor %}
