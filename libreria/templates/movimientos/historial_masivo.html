@@ -10,7 +10,7 @@
                 {% if tipo == 'ENTRADA' %}
                     <a href="{% url 'movimientos.entrada' %}" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Nueva Entrada</a>
                 {% else %}
-                    <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="bi bi-dash-lg me-2"></i>Nueva Salida Masiva</a>
+                    <a href="{% url 'movimientos.salida' %}" class="btn btn-danger"><i class="bi bi-dash-lg me-2"></i>Nueva Salida</a>
                 {% endif %}
             {% endif %}
         </div>
@@ -73,7 +73,7 @@
                         <div class="col-xl-6 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <a href="{% url 'movimientos.lote_editar' lote.info.codigo_lote %}" 
-                               class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Edición Masiva">
+                               class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Edición de Lote">
                                 <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
                             </a>
                             {% endif %}

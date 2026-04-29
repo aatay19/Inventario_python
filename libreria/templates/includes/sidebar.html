@@ -104,8 +104,8 @@
             </ul>
         </li>
 
-        <!-- USUARIOS -->
-        {% if user.perfilusuario.rol|lower in 'admin,soporte,supervisor' %}
+        <!-- USUARIOS / BACKUP (Solo Soporte) -->
+        {% if user.perfilusuario.rol|lower in 'soporte' %}
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle px-3 py-2" href="#">
                 <span><i class="bi bi-person-circle me-3 opacity-75"></i> Usuarios</span>

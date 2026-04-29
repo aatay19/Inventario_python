@@ -8,9 +8,11 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0 fw-bold">Movimientos de Inventario</h2>
+        {% if user.perfilusuario.rol|lower != 'consulta' %}
         <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTipoMovimiento">
             <i class="fas fa-plus me-2"></i>Registrar Movimiento
         </button>
+        {% endif %}
     </div>
 
     <!-- Modal para Seleccionar Tipo de Movimiento -->
@@ -130,7 +132,9 @@
                             <th>Total Unidades</th>
                             <th>Proveedor</th>
                             <th>Fecha</th>
+                            {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <th>Acciones</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -165,10 +169,12 @@
                                 {% endif %}
                             </td>
                             <td>{{ movimiento.fecha_movimiento|date:"d/m/Y H:i" }}</td>
+                            {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <td class="text-nowrap">
                                 <a href="{% url 'movimientos.editar'  movimiento.id_movimiento %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
                                 <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.');"><i class="fas fa-trash-alt"></i></a>
                             </td>
+                            {% endif %}
                         </tr>
                         {% empty %}
                         <tr>

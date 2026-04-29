@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
 from django import forms
-from .auth import es_inventario_acceso
+from .auth import es_inventario_acceso, es_pleno_acceso
 from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra
 from ..forms import MovimientosInventarioForm, HistorialProveedoresNotasForm
 
@@ -106,7 +106,7 @@ def movimientos_inventario_index(request):
     return render(request, 'movimientos/index.html', context)
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_inventario_crear(request):
     formulario = MovimientosInventarioForm(request.POST or None)
     if formulario.is_valid():
@@ -116,7 +116,7 @@ def movimientos_inventario_crear(request):
     return render(request, 'movimientos/crear.html', {'formulario': formulario})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_inventario_editar(request, id_movimiento):
     movimiento = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
     if request.method == 'POST':
@@ -139,7 +139,7 @@ def movimientos_inventario_editar(request, id_movimiento):
     return render(request, 'movimientos/editar.html', {'formulario': formulario, 'movimiento': movimiento})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_inventario_eliminar(request, id_movimiento):
     movimiento = MovimientosInventario.objects.select_related('producto').get(id_movimiento=id_movimiento)
     if request.method == 'POST':
@@ -156,7 +156,7 @@ def movimientos_inventario_eliminar(request, id_movimiento):
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_salida_form(request):
     from ..models import UnidadEmpaqueChoices
     qs = Inventario.objects.all().order_by('nombre_producto')
@@ -187,7 +187,7 @@ def movimientos_salida_form(request):
     })
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_salida_confirmar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -216,7 +216,7 @@ def movimientos_salida_confirmar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_salida_procesar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -268,7 +268,7 @@ def movimientos_salida_procesar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_entrada_form(request):
     from ..models import UnidadEmpaqueChoices
     unidades_choices = UnidadEmpaqueChoices.choices
@@ -300,7 +300,7 @@ def movimientos_entrada_form(request):
     })
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_entrada_confirmar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -334,7 +334,7 @@ def movimientos_entrada_confirmar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_entrada_procesar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -526,7 +526,7 @@ def historial_proveedores_notas_index(request):
     return render(request, 'HistorialProveedoresNotas/index.html', context)
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def historial_proveedores_notas_crear(request):
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None)
     if formulario_nota.is_valid():
@@ -536,7 +536,7 @@ def historial_proveedores_notas_crear(request):
     return render(request, 'HistorialProveedoresNotas/crear.html', {'formulario_nota': formulario_nota})
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def historial_proveedores_notas_editar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     formulario_nota = HistorialProveedoresNotasForm(request.POST or None, instance=nota)
@@ -549,7 +549,7 @@ def historial_proveedores_notas_editar(request,id_historialproveedor):
     })
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def historial_proveedores_notas_eliminar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     nota.delete()
@@ -583,7 +583,7 @@ def exportar_lote_pdf(request):
         pdf.add_page()
         pdf.set_font("Helvetica", "B", 16)
         
-        titulo_doc = "Comprobante de Pedido / Entrada" if tipo == 'ENTRADA' else "Comprobante de Salida Masiva"
+        titulo_doc = "COMPROBANTE ENTRADA" if tipo == 'ENTRADA' else "Comprobante de Salida"
         pdf.cell(0, 10, titulo_doc, ln=True, align="C")
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 10, f"Fecha: {qs[0].fecha_movimiento.strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align="C")
@@ -625,7 +625,7 @@ def exportar_lote_pdf(request):
         return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_lote_eliminar(request):
     if request.method == 'POST':
         lote_id = request.POST.get('lote_id')
@@ -665,7 +665,7 @@ def movimientos_lote_eliminar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_lote_editar(request, lote_id):
     movimientos = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
     if not movimientos.exists():

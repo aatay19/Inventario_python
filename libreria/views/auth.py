@@ -10,7 +10,7 @@ def custom_logout(request):
 
 def es_admin(user):
     if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'soporte']
+    return user.perfilusuario.rol.lower() in ['soporte']
 
 def es_inventario_acceso(user):
     if not hasattr(user, 'perfilusuario'): return False
@@ -22,7 +22,7 @@ def es_pleno_acceso(user):
 
 def es_gestion_pedidos(user):
     if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'consulta', 'soporte']
+    return user.perfilusuario.rol.lower() in ['admin', 'soporte']
 
 def es_soporte(user):
     if not hasattr(user, 'perfilusuario'): return False

@@ -8,10 +8,10 @@
             <nav aria-label="breadcrumb">
               <ol class="breadcrumb mb-1">
                 <li class="breadcrumb-item"><a href="{% url 'movimientos.index' %}">Movimientos</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Salida Masiva</li>
+                <li class="breadcrumb-item active" aria-current="page">Salida de Inventario</li>
               </ol>
             </nav>
-            <h2 class="fw-bold mb-0">Registrar <span class="text-danger">Salida Masiva</span> de Inventario</h2>
+            <h2 class="fw-bold mb-0">Registrar <span class="text-danger">Salida</span> de Inventario</h2>
         </div>
     </div>
 
@@ -24,9 +24,9 @@
                 <label class="fw-bold mb-2"><i class="fas fa-search me-1"></i> Buscar Producto para la Salida</label>
                 <div class="position-relative">
                     <div class="input-group input-group-lg">
-                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-barcode text-muted"></i></span>
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
                         <input type="text" id="buscador-producto" class="form-control border-start-0" 
-                               placeholder="Escriba el nombre o escanee el código..." autocomplete="off">
+                               placeholder="Escriba el nombre o el código..." autocomplete="off">
                     </div>
                     <!-- Resultados de búsqueda -->
                     <div id="resultados-busqueda" class="list-group shadow position-absolute w-100 mt-1" 

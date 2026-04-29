@@ -68,7 +68,7 @@ def compras_confirmar(request):
                     'cant_por_empaque': cants_por_empaque[i],
                 })
         if not items_resumen:
-            messages.warning(request, "Debe seleccionar al menos un producto para el pedido.")
+            messages.warning(request, "Debe seleccionar al menos un producto para el registro.")
             return redirect('compras.nuevo', proveedor_id=proveedor_id)
         return render(request, 'compras/confirmar_pedido.html', {
             'proveedor': proveedor,
@@ -92,14 +92,13 @@ def compras_procesar(request):
         maximos = request.POST.getlist('maximo[]')
         pedido_id = request.POST.get('pedido_id')
         ahora = timezone.now()
-        lote_id = f"ORD-{ahora.strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+        lote_id = f"E-{ahora.strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
         ordenes_creadas = 0
         try:
             with transaction.atomic():
                 if pedido_id:
                     pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
                     pedido.detalles.all().delete()
-                    # No actualizamos fecha_pedido para mantener la original
                     pedido.save()
                 else:
                     pedido = PedidoCompra.objects.create(
@@ -110,16 +109,12 @@ def compras_procesar(request):
                     )
                 for i in range(len(producto_ids)):
                     producto = Inventario.objects.get(id_producto=producto_ids[i])
-                    
-                    # Actualizar niveles de stock si se proporcionan (solo si el producto está seleccionado o para todos si se desea)
-                    # En este flujo, el frontend envía todos, así que actualizamos todos.
                     try:
                         if i < len(minimos): producto.stock_minimo = int(minimos[i])
                         if i < len(maximos): producto.stock_maximo = int(maximos[i])
                         producto.save()
                     except:
                         pass
-
                     cant_pedir = int(totales[i])
                     if cant_pedir > 0:
                         DetallePedidoCompra.objects.create(
@@ -131,11 +126,11 @@ def compras_procesar(request):
                             cantidad_por_empaque=int(cants_por_empaque[i])
                         )
                         ordenes_creadas += 1
-            messages.success(request, f'Pedido procesado exitosamente. Se registraron {ordenes_creadas} productos en la orden.')
+            messages.success(request, f'Entrada procesada exitosamente. Se registraron {ordenes_creadas} productos.')
             request.session['ultimo_pedido_id'] = pedido.id_pedido
             return redirect('movimientos.historial_pedidos')
         except Exception as e:
-            messages.error(request, f'Error al procesar el pedido: {str(e)}')
+            messages.error(request, f'Error al procesar la entrada: {str(e)}')
             return redirect('compras.nuevo', proveedor_id=proveedor_id)
     return redirect('compras.index')
 
@@ -168,7 +163,7 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 18)
-    pdf.cell(0, 15, "ORDEN DE PEDIDO", ln=True, align="C")
+    pdf.cell(0, 15, "COMPROBANTE ENTRADA", ln=True, align="C")
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, f"Código: {pedido.codigo_lote}", ln=True, align="C")
     pdf.ln(5)
@@ -199,9 +194,9 @@ def exportar_pedido_unico_pdf(request, pedido_id):
         pdf.set_font("Helvetica", "", 10)
     pdf.ln(15)
     pdf.set_font("Helvetica", "I", 9)
-    pdf.cell(0, 10, "Nota: Este documento es una orden informativa de pedido interna.", ln=True, align="C")
+    pdf.cell(0, 10, "Nota: Este documento es un comprobante de entrada de productos.", ln=True, align="C")
     response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="pedido_{pedido.codigo_lote}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="comprobante_entrada_{pedido.codigo_lote}.pdf"'
     return response
 
 @login_required
@@ -212,7 +207,7 @@ def exportar_pedido_pdf(request):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "Reporte de Sugerencia de Pedido (Stock Bajo)", ln=True, align="C")
+    pdf.cell(0, 10, "Reporte de Sugerencia de Inventario (Stock Bajo)", ln=True, align="C")
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 10, f"Generado el: {fecha_emision}", ln=True, align="C")
     pdf.ln(5)
@@ -226,7 +221,7 @@ def exportar_pedido_pdf(request):
         pdf.cell(70, 10, "Producto", 1, 0, "C", True)
         pdf.cell(30, 10, "Stock Act.", 1, 0, "C", True)
         pdf.cell(30, 10, "Stock Min.", 1, 0, "C", True)
-        pdf.cell(60, 10, "Pedido Sugerido", 1, 1, "C", True)
+        pdf.cell(60, 10, "Ingreso Sugerido", 1, 1, "C", True)
         pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(0, 0, 0)
         for p in productos:
@@ -235,9 +230,9 @@ def exportar_pedido_pdf(request):
             pdf.cell(70, 10, p.nombre_producto[:35], 1, 0, "L")
             pdf.cell(30, 10, str(p.cantidad), 1, 0, "C")
             pdf.cell(30, 10, str(p.stock_minimo), 1, 0, "C")
-            pdf.cell(60, 10, f"Pedir {sugerido} unid. aprox.", 1, 1, "R")
+            pdf.cell(60, 10, f"Ingresar {sugerido} unid. aprox.", 1, 1, "R")
     response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="pedido_sugerido.pdf"'
+    response['Content-Disposition'] = 'attachment; filename="reporte_sugerencia_ingreso.pdf"'
     return response
 
 @login_required
@@ -254,7 +249,7 @@ def movimientos_historial_pedidos(request):
     ultimo_pedido_id = request.session.pop('ultimo_pedido_id', None)
     return render(request, 'compras/historial_pedidos.html', {
         'page_obj': page_obj,
-        'titulo': 'Historial de Pedidos de Compra (Informativo)',
+        'titulo': 'Historial de Entradas de Productos',
         'q': q,
         'modal_pdf_id': ultimo_pedido_id
     })
@@ -267,9 +262,9 @@ def compras_eliminar_pedido(request):
         try:
             pedido = PedidoCompra.objects.get(id_pedido=pedido_id)
             pedido.delete()
-            messages.success(request, 'Pedido eliminado exitosamente.')
+            messages.success(request, 'Registro eliminado exitosamente.')
         except Exception as e:
-            messages.error(request, f'Error al eliminar el pedido: {str(e)}')
+            messages.error(request, f'Error al eliminar el registro: {str(e)}')
     return redirect('movimientos.historial_pedidos')
 
 @login_required
@@ -279,7 +274,7 @@ def compras_eliminar_todo_historial(request):
         try:
             cantidad = PedidoCompra.objects.count()
             PedidoCompra.objects.all().delete()
-            messages.success(request, f'Se han eliminado correctamente {cantidad} registros del historial de pedidos.')
+            messages.success(request, f'Se han eliminado correctamente {cantidad} registros del historial.')
         except Exception as e:
             messages.error(request, f'Error al limpiar el historial: {str(e)}')
     return redirect('movimientos.historial_pedidos')
