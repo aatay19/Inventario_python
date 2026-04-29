@@ -13,7 +13,7 @@ from .auth import es_admin, es_gestion_pedidos, es_pleno_acceso, es_inventario_a
 from ..models import Proveedor, Inventario, PedidoCompra, DetallePedidoCompra
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_seleccionar_proveedor(request):
     q = request.GET.get('q', '').strip()
     qs = Proveedor.objects.all()
@@ -25,7 +25,7 @@ def compras_seleccionar_proveedor(request):
     })
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_form_pedido(request, proveedor_id):
     proveedor = get_object_or_404(Proveedor, id=proveedor_id)
     productos = Inventario.objects.filter(proveedores__id=proveedor_id).order_by('nombre_producto')
@@ -39,7 +39,7 @@ def compras_form_pedido(request, proveedor_id):
     })
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_confirmar(request):
     if request.method == 'POST':
         proveedor_id = request.POST.get('proveedor_id')
@@ -78,7 +78,7 @@ def compras_confirmar(request):
     return redirect('compras.index')
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_procesar(request):
     if request.method == 'POST':
         proveedor_id = request.POST.get('proveedor_id')
@@ -135,7 +135,7 @@ def compras_procesar(request):
     return redirect('compras.index')
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_editar_pedido(request, pedido_id):
     pedido = get_object_or_404(PedidoCompra, id_pedido=pedido_id)
     proveedor = pedido.proveedor
@@ -255,7 +255,7 @@ def movimientos_historial_pedidos(request):
     })
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_eliminar_pedido(request):
     if request.method == 'POST':
         pedido_id = request.POST.get('pedido_id')

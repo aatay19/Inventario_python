@@ -83,6 +83,10 @@ def inventario_index(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    proveedor_obj = None
+    if proveedor_id:
+        proveedor_obj = Proveedor.objects.filter(id=proveedor_id).first()
+
     context = {
         'page_obj': page_obj,
         'q': q,
@@ -91,6 +95,7 @@ def inventario_index(request):
         'low_stock_count': low_stock_count,
         'low': low,
         'proveedor_id': proveedor_id,
+        'proveedor_obj': proveedor_obj,
     }
     return render(request, 'inventario/index.html', context)
 
