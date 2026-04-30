@@ -7,7 +7,7 @@ class EventoForm(forms.ModelForm):
     class Meta:
         model = Evento
         fields = [
-            'titulo', 'nombre_reserva', 'zona', 'metodo_pago', 'total_pagar', 
+            'titulo', 'nombre_reserva', 'zona', 'metodo_pago', 'nota_forma_pago', 'total_pagar', 
             'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'
         ]
         widgets = {
@@ -18,6 +18,7 @@ class EventoForm(forms.ModelForm):
             'nombre_reserva': forms.TextInput(attrs={'class': 'form-control'}),
             'zona': forms.Select(attrs={'class': 'form-select'}),
             'metodo_pago': forms.Select(attrs={'class': 'form-select'}),
+            'nota_forma_pago': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nota sobre la forma de pago...'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
         }

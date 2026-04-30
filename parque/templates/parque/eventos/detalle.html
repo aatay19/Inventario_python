@@ -82,6 +82,9 @@
                             <div class="col-sm-4">
                                 <span class="text-muted small d-block">Método de Pago:</span>
                                 <strong>{{ evento.get_metodo_pago_display|default:"No especificado" }}</strong>
+                                {% if evento.nota_forma_pago %}
+                                <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago }}</div>
+                                {% endif %}
                             </div>
                             <div class="col-sm-4">
                                 <span class="text-muted small d-block">Horario:</span>

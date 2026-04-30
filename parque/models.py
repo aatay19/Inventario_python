@@ -78,6 +78,7 @@ class Evento(models.Model):
     nombre_reserva = models.CharField(max_length=100, verbose_name="Nombre de la Reserva", null=True, blank=True)
     zona = models.CharField(max_length=100, choices=ZONA_CHOICES, verbose_name="Zona/Área", null=True, blank=True)
     metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES, verbose_name="Método de Pago", null=True, blank=True)
+    nota_forma_pago = models.CharField(max_length=255, verbose_name="Nota de Forma Pagos", null=True, blank=True)
     
     total_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total a Pagar")
     

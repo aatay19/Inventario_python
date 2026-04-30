@@ -244,6 +244,8 @@ def generar_pdf_evento(request, pk):
         pdf.cell(190, 7, txt=f"Zona: {evento.get_zona_display()}", ln=True)
     if evento.metodo_pago:
         pdf.cell(190, 7, txt=f"Metodo de Pago: {evento.get_metodo_pago_display()}", ln=True)
+    if evento.nota_forma_pago:
+        pdf.cell(190, 7, txt=f"Nota de Pago: {evento.nota_forma_pago}", ln=True)
     
     pdf.cell(190, 7, txt=f"Fecha: {evento.fecha_inicio.strftime('%d/%m/%Y')}", ln=True)
     pdf.cell(190, 7, txt=f"Estado: {evento.get_estado_display()}", ln=True)
