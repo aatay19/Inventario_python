@@ -248,7 +248,7 @@ def movimientos_salida_procesar(request):
                             tipo_movimiento='SALIDA',
                             cantidad=cant_salida,
                             unidad_empaque=unidades_empaque[i],
-                            cantidad_empaques=int(cants_empaques[i]),
+                            cantidad_empaques=int(float(cants_empaques[i])) if cants_empaques[i] else 0,
                             proveedor=proveedor,
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
@@ -369,7 +369,7 @@ def movimientos_entrada_procesar(request):
                             tipo_movimiento='ENTRADA',
                             cantidad=cant_entrada,
                             unidad_empaque=unidades_empaque[i],
-                            cantidad_empaques=int(cants_empaques[i]),
+                            cantidad_empaques=int(float(cants_empaques[i])) if cants_empaques[i] else 0,
                             proveedor=proveedor,
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id

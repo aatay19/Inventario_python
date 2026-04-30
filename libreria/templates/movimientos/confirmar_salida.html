@@ -61,8 +61,8 @@
                                 <tr>
                                     <input type="hidden" name="producto_id[]" value="{{ item.producto.id_producto }}">
                                     <input type="hidden" name="unidad_empaque[]" value="{{ item.unidad }}">
-                                    <input type="hidden" name="cant_empaques[]" value="{{ item.cant_empaques }}">
-                                    <input type="hidden" name="total_unidades[]" value="{{ item.total }}">
+                                    <input type="hidden" name="cant_empaques[]" value="{{ item.cant_empaques|stringformat:'s' }}">
+                                    <input type="hidden" name="total_unidades[]" value="{{ item.total|stringformat:'s' }}">
                                     
                                     <td>
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
