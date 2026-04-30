@@ -248,7 +248,7 @@ def movimientos_salida_procesar(request):
                             tipo_movimiento='SALIDA',
                             cantidad=cant_salida,
                             unidad_empaque=unidades_empaque[i],
-                            cantidad_empaques=int(float(cants_empaques[i])) if cants_empaques[i] else 0,
+                            cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
                             proveedor=proveedor,
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
@@ -369,7 +369,7 @@ def movimientos_entrada_procesar(request):
                             tipo_movimiento='ENTRADA',
                             cantidad=cant_entrada,
                             unidad_empaque=unidades_empaque[i],
-                            cantidad_empaques=int(float(cants_empaques[i])) if cants_empaques[i] else 0,
+                            cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
                             proveedor=proveedor,
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
@@ -711,7 +711,7 @@ def movimientos_lote_editar(request, lote_id):
                         nueva_cant_empaques = nueva_cantidad
                         if nueva_cant_por_empaque and str(nueva_cant_por_empaque).isdigit() and int(nueva_cant_por_empaque) > 0:
                             nueva_cant_por_empaque_int = int(nueva_cant_por_empaque)
-                            nueva_cant_empaques = int(nueva_cantidad / float(nueva_cant_por_empaque_int))
+                            nueva_cant_empaques = round(nueva_cantidad / float(nueva_cant_por_empaque_int), 2)
 
                         if nueva_cantidad != mov.cantidad or nueva_unidad != mov.unidad_empaque or nueva_cant_empaques != mov.cantidad_empaques:
                             producto = mov.producto
@@ -748,7 +748,7 @@ def movimientos_lote_editar(request, lote_id):
                         nueva_cant_prod = int(nueva_cant_prod)
                         nueva_cant_empaques_prod = nueva_cant_prod
                         if nueva_cant_por_empaque_prod and str(nueva_cant_por_empaque_prod).isdigit() and int(nueva_cant_por_empaque_prod) > 0:
-                            nueva_cant_empaques_prod = int(nueva_cant_prod / float(nueva_cant_por_empaque_prod))
+                            nueva_cant_empaques_prod = round(nueva_cant_prod / float(nueva_cant_por_empaque_prod), 2)
                             
                         if nueva_cant_prod > 0:
                             prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)

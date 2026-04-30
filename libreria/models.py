@@ -58,7 +58,7 @@ class HistorialProveedoresNotas(models.Model):
     # Nuevos campos para registro de stock/empaques
     producto = models.ForeignKey('Inventario', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Producto (Opcional)")
     unidad_empaque = models.CharField(max_length=20, choices=UnidadEmpaqueChoices.choices, blank=True, null=True, verbose_name="Tipo de Empaque")
-    cantidad_empaques = models.IntegerField(default=0, blank=True, null=True, verbose_name="Cantidad de Empaques")
+    cantidad_empaques = models.FloatField(default=0.0, blank=True, null=True, verbose_name="Cantidad de Empaques")
     total_unidades = models.IntegerField(default=0, blank=True, null=True, verbose_name="Total Unidades (Calc.)")
     
     detalle_nota = models.TextField(verbose_name=("Detalle de Nota"))
@@ -133,7 +133,7 @@ class MovimientosInventario(models.Model):
         blank=True, 
         null=True
     )
-    cantidad_empaques = models.IntegerField(verbose_name="Cantidad de Empaques", default=0, blank=True, null=True, help_text="Cantidad de bultos, cajas o paquetes.")
+    cantidad_empaques = models.FloatField(verbose_name="Cantidad de Empaques", default=0.0, blank=True, null=True, help_text="Cantidad de bultos, cajas o paquetes.")
     fecha_movimiento = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Movimiento")
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor")
     codigo_lote = models.CharField(max_length=50, null=True, blank=True, verbose_name="Código de Lote")
@@ -202,7 +202,7 @@ class DetallePedidoCompra(models.Model):
     producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
     cantidad = models.IntegerField(verbose_name="Cantidad Solicitada")
     unidad_empaque = models.CharField(max_length=20, choices=UnidadEmpaqueChoices.choices, verbose_name="Tipo de Empaque")
-    cantidad_empaques = models.IntegerField(verbose_name="Cantidad de Empaques")
+    cantidad_empaques = models.FloatField(verbose_name="Cantidad de Empaques")
     cantidad_por_empaque = models.IntegerField(verbose_name="Cantidad por Empaque", default=1)
     
     def __str__(self):
