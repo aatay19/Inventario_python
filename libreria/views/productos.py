@@ -269,8 +269,8 @@ def buscar_productos_ajax(request):
     else:
         qs = Inventario.objects.all()
     
-    # Limitamos a 10 resultados según solicitud del usuario
-    productos = qs.order_by('nombre_producto')[:10]
+    # Devolvemos todos los resultados que coincidan
+    productos = qs.order_by('nombre_producto')
     
     results = [
         {

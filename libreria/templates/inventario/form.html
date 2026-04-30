@@ -28,7 +28,10 @@
      </div>
    {% endfor %}
 
-<input name="" id="" class="btn btn-success" type="submit" value="Guardar Producto">  
+<div class="d-flex justify-content-between mt-4">
+    <a href="{% url 'inventario.index' %}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i>Volver</a>
+    <input name="" id="" class="btn btn-success" type="submit" value="Guardar Producto">  
+</div>
 </form>
 
 <!-- JS de Select2 y Lógica de Filtro -->
@@ -81,11 +84,22 @@ $(document).ready(function() {
 
     // Actualizar total_empaques automáticamente
     const $cantidad = $('#id_cantidad');
+    const $cantPorEmpaque = $('#id_cantidad_por_empaque');
     const $totalEmpaques = $('#id_total_empaques');
 
-    $cantidad.on('input', function() {
-        $totalEmpaques.val($(this).val());
-    });
+    function recalcularEmpaques() {
+        const cant = parseFloat($cantidad.val()) || 0;
+        const xEmp = parseFloat($cantPorEmpaque.val()) || 1;
+        if (xEmp > 0) {
+            const total = cant / xEmp;
+            $totalEmpaques.val(total.toFixed(2));
+        } else {
+            $totalEmpaques.val('0.00');
+        }
+    }
+
+    $cantidad.on('input', recalcularEmpaques);
+    $cantPorEmpaque.on('input', recalcularEmpaques);
 });
 </script>
 

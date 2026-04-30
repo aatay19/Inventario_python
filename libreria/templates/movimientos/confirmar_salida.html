@@ -51,8 +51,9 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Producto</th>
-                                    <th class="text-center">Cant. Solicitada</th>
-                                    <th>Unidad</th>
+                                    <th class="text-center">Cant. Unidades</th>
+                                    <th class="text-center">Unid. x Empaque</th>
+                                    <th class="text-center">Total Empaques</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -70,8 +71,11 @@
                                     <td class="text-center fw-bold text-danger fs-5">
                                         {{ item.total }}
                                     </td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border">{{ item.unidad }}</span>
+                                    <td class="text-center">
+                                        {{ item.cant_por_empaque }}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border">{{ item.cant_empaques }} {{ item.unidad }}</span>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -92,7 +96,24 @@
     </form>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+$(document).ready(function() {
+    $('#proveedor_id').select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        dropdownAutoWidth: true,
+        // Al forzar un poco de margen inferior, aseguramos que se abra hacia abajo
+    }).on('select2:open', function (e) {
+        // Añadir espacio temporal al body si no hay suficiente para que se abra hacia abajo
+        $('body').css('padding-bottom', '300px');
+    }).on('select2:close', function (e) {
+        $('body').css('padding-bottom', '0');
+    });
+});
+
 document.addEventListener('submit', function(e) {
     const btn = e.target.querySelector('button[type="submit"]');
     if (btn) {
@@ -101,5 +122,19 @@ document.addEventListener('submit', function(e) {
     }
 });
 </script>
+
+<style>
+/* Opcional: forzar Select2 hacia abajo */
+.select2-container--bootstrap-5 .select2-dropdown {
+    top: 100% !important;
+    bottom: auto !important;
+}
+.select2-container--bootstrap-5.select2-container--open .select2-selection {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: .375rem !important;
+    border-top-right-radius: .375rem !important;
+}
+</style>
 
 {% endblock %}

@@ -16,5 +16,8 @@
     <div class="col-12 help-text">{{campo.errors}}</div>
   {% endfor %}
 
-<input name="" id="" class="btn btn-success" type="submit" value="Guardar Proveedor">  
+<div class="d-flex justify-content-between mt-4">
+    <a href="{% url 'proveedores.index' %}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i>Volver</a>
+    <input name="" id="" class="btn btn-success" type="submit" value="Guardar Proveedor">  
+</div>
 </form>

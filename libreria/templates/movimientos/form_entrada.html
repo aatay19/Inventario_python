@@ -72,9 +72,11 @@
                 <table class="table table-bordered table-hover align-middle mb-0" id="tabla-entrada">
                     <thead class="table-light text-center">
                         <tr class="small">
-                            <th style="width: 35%;">Producto / SKU</th>
+                            <th style="width: 25%;">Producto / SKU</th>
+                            <th style="width: 15%;">Cant. Unidades</th>
                             <th style="width: 15%;">Tipo Empaque</th>
-                            <th style="width: 25%;">Cant. Ingresada</th>
+                            <th style="width: 15%;">Unid. x Empaque</th>
+                            <th style="width: 15%;">Total Empaques</th>
                             <th style="width: 5%;"></th>
                         </tr>
                     </thead>
@@ -150,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const matches = productos.filter(p => 
             p.nombre.toLowerCase().includes(query) || 
             p.codigo.toLowerCase().includes(query)
-        ).slice(0, 10);
+        );
 
         if (matches.length > 0) {
             resultados.innerHTML = matches.map(p => {
@@ -167,6 +169,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="text-end">
                             ${badge}
+                            <span class="badge bg-primary rounded-pill ms-2">Stock: ${p.stock || 0}</span>
+                            <span class="badge bg-secondary rounded-pill ms-1" title="Empaques Totales"><i class="bi bi-box me-1"></i>${p.total_empaques ? (p.total_empaques % 1 === 0 ? p.total_empaques : parseFloat(p.total_empaques).toFixed(2)) : 0}</span>
                             <i class="bi bi-plus-circle text-primary fs-5 ms-2"></i>
                         </div>
                     </button>
@@ -205,15 +209,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="text-muted small">${p.codigo}</div>
             </td>
             <td>
+                <input type="number" name="total_unidades[]" class="form-control text-center fw-bold inp-total-unidades" 
+                       value="0" min="0" oninput="calcularTotalRow(${id})">
+            </td>
+            <td>
                 <select name="unidad_empaque[]" class="form-select" id="sel-${id}">
                     ${p.unidades_html}
                 </select>
             </td>
             <td>
-                <input type="number" name="cant_empaques[]" class="form-control text-center fw-bold inp-empaques" 
-                       value="0" min="0" oninput="calcularTotalRow(${id})">
-                <input type="hidden" name="cant_por_empaque[]" value="1">
-                <input type="hidden" name="total_unidades[]" class="inp-total" value="0">
+                <input type="number" name="cant_por_empaque[]" class="form-control text-center inp-cant-por-empaque" 
+                       value="${p.cant_por_empaque || 1}" min="1" oninput="calcularTotalRow(${id})">
+            </td>
+            <td>
+                <input type="number" name="cant_empaques[]" class="form-control text-center bg-light inp-total-empaques" 
+                       value="0" readonly>
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-outline-danger btn-sm rounded-circle" onclick="removerProducto(${id})">
@@ -241,9 +251,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.calcularTotalRow = function(id) {
         const row = document.getElementById(`fila-${id}`);
-        const empaques = parseInt(row.querySelector('.inp-empaques').value) || 0;
-        const totalInput = row.querySelector('.inp-total');
-        totalInput.value = empaques;
+        const totalUnidades = parseFloat(row.querySelector('.inp-total-unidades').value) || 0;
+        const cantPorEmpaque = parseFloat(row.querySelector('.inp-cant-por-empaque').value) || 1;
+        const totalEmpaquesInput = row.querySelector('.inp-total-empaques');
+        
+        if (cantPorEmpaque > 0) {
+            const totalEmpaques = totalUnidades / cantPorEmpaque;
+            totalEmpaquesInput.value = totalEmpaques % 1 === 0 ? totalEmpaques : totalEmpaques.toFixed(2);
+        } else {
+            totalEmpaquesInput.value = 0;
+        }
     };
 
     function actualizarEstadoGlobal() {

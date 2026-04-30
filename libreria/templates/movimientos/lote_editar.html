@@ -40,8 +40,10 @@
                     <thead class="table-light text-uppercase small text-muted">
                         <tr>
                             <th class="ps-4">Producto</th>
-                            <th class="text-center" style="width: 200px;">Nueva Cantidad</th>
-                            <th style="width: 200px;">Unidad de Empaque</th>
+                            <th class="text-center" style="width: 150px;">Nueva Cantidad</th>
+                            <th class="text-center" style="width: 120px;">Unid. x Empaque</th>
+                            <th class="text-center" style="width: 120px;">Total Empaques</th>
+                            <th style="width: 150px;">Unidad de Empaque</th>
                             <th class="text-center border-start text-danger" style="width: 120px;">Eliminar</th>
                         </tr>
                     </thead>
@@ -59,6 +61,20 @@
                                        value="{{ mov.cantidad }}" 
                                        min="0" 
                                        required>
+                            </td>
+                            <td class="text-center px-4">
+                                <input type="number" 
+                                       name="cant_por_empaque_{{ mov.id_movimiento }}" 
+                                       class="form-control text-center factor-input" 
+                                       value="{% if mov.cantidad_empaques and mov.cantidad_empaques > 0 %}{% widthratio mov.cantidad mov.cantidad_empaques 1 %}{% else %}{{ mov.producto.cantidad_por_empaque }}{% endif %}" 
+                                       min="1" 
+                                       required>
+                            </td>
+                            <td class="text-center px-4">
+                                <input type="number" 
+                                       class="form-control text-center bg-light total-empaques-input" 
+                                       value="{{ mov.cantidad_empaques }}" 
+                                       readonly>
                             </td>
                             <td>
                                 <select name="unidad_{{ mov.id_movimiento }}" class="form-select">
@@ -96,11 +112,19 @@
                                 <option value="">-- Buscar producto por nombre o código --</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label small fw-bold">Cantidad:</label>
-                            <input type="number" name="nueva_cantidad_prod[]" class="form-control" min="1" placeholder="Ej: 10">
+                            <input type="number" name="nueva_cantidad_prod[]" class="form-control cant-prod-input" min="1" placeholder="Ej: 10">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Unid. x Empaque:</label>
+                            <input type="number" name="nueva_cant_por_empaque_prod[]" class="form-control factor-prod-input" min="1" value="1">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Total Empaques:</label>
+                            <input type="number" class="form-control bg-light total-prod-input" readonly value="0">
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label small fw-bold">Unidad de Empaque:</label>
                             <select name="nueva_unidad_prod[]" class="form-select">
                                 {% for v, l in unidades_choices %}
@@ -124,11 +148,19 @@
                             <option value="">-- Buscar producto por nombre o código --</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small fw-bold">Cantidad:</label>
-                        <input type="number" name="nueva_cantidad_prod[]" class="form-control" min="1" placeholder="Ej: 10">
+                        <input type="number" name="nueva_cantidad_prod[]" class="form-control cant-prod-input" min="1" placeholder="Ej: 10">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Unid. x Empaque:</label>
+                        <input type="number" name="nueva_cant_por_empaque_prod[]" class="form-control factor-prod-input" min="1" value="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Total Empaques:</label>
+                        <input type="number" class="form-control bg-light total-prod-input" readonly value="0">
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label small fw-bold">Unidad de Empaque:</label>
                         <select name="nueva_unidad_prod[]" class="form-select">
                             {% for v, l in unidades_choices %}
@@ -205,6 +237,29 @@
         $(document).on('click', '.btn-remove-row', function(e) {
             e.preventDefault();
             $(this).closest('.nuevo-producto-row').remove();
+        });
+
+        // Cálculo dinámico de empaques
+        function calcEmpaques(cant, factor) {
+            cant = parseFloat(cant) || 0;
+            factor = parseFloat(factor) || 1;
+            if (factor <= 0) factor = 1;
+            let result = cant / factor;
+            return result % 1 === 0 ? result : result.toFixed(2);
+        }
+
+        $(document).on('input', '.cantidad-input, .factor-input', function() {
+            var row = $(this).closest('tr');
+            var cant = row.find('.cantidad-input').val();
+            var factor = row.find('.factor-input').val();
+            row.find('.total-empaques-input').val(calcEmpaques(cant, factor));
+        });
+
+        $(document).on('input', '.cant-prod-input, .factor-prod-input', function() {
+            var row = $(this).closest('.nuevo-producto-row');
+            var cant = row.find('.cant-prod-input').val();
+            var factor = row.find('.factor-prod-input').val();
+            row.find('.total-prod-input').val(calcEmpaques(cant, factor));
         });
     });
 </script>

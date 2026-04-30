@@ -77,7 +77,7 @@ WSGI_APPLICATION = "inventario.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": 'inventario_final',
+        "NAME": 'inventario_panel',
         "USER": 'root',
         "PASSWORD": 'A30205683.',
         "PORT": '3306',

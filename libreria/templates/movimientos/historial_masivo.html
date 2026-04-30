@@ -106,10 +106,10 @@
                             <thead class="table-light">
                                 <tr class="small text-muted text-uppercase">
                                     <th class="ps-4">Producto</th>
-                                    <th class="text-center">Total Unid.</th>
-                                    <th class="text-center">Cant. Pedido</th>
-                                    <th>Unidad</th>
-                                    <th class="text-end pe-4">{% if user.perfilusuario.rol|lower != 'consulta' %}Acciones{% endif %}</th>
+                                    <th class="text-center">{% if tipo == 'ENTRADA' %}Total Unid. Entrantes{% else %}Total Unid. Salientes{% endif %}</th>
+                                    <th class="text-center">Unidad</th>
+                                    <th class="text-center">Unid. x Empaque</th>
+                                    <th class="text-center pe-4">Cant. Empaque</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -123,13 +123,17 @@
                                         {{ item.cantidad }}
                                     </td>
                                     <td class="text-center">
-                                        {{ item.cantidad_empaques }}
-                                    </td>
-                                    <td>
                                         <span class="badge bg-light text-dark border font-monospace">{{ item.unidad_empaque }}</span>
                                     </td>
-                                    <td class="text-end pe-4">
-                                        <span class="text-muted small">Parte de lote</span>
+                                    <td class="text-center">
+                                        {% if item.cantidad_empaques and item.cantidad_empaques > 0 %}
+                                            {% widthratio item.cantidad item.cantidad_empaques 1 %}
+                                        {% else %}
+                                            {{ item.producto.cantidad_por_empaque }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center pe-4">
+                                        {{ item.cantidad_empaques }}
                                     </td>
                                 </tr>
                                 {% endfor %}

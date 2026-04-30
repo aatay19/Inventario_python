@@ -48,9 +48,11 @@
                         <tr class="small">
                             <th style="width: 25%;">Producto</th>
                             <th style="width: 10%;">Stock</th>
-                            <th style="width: 15%;">Unid. Empaque</th>
-                            <th style="width: 15%;">Cant. a Sacar</th>
-                            <th style="width: 10%;">Acción</th>
+                            <th style="width: 15%;">Cant. Unidades</th>
+                            <th style="width: 15%;">Tipo Empaque</th>
+                            <th style="width: 15%;">Unid. x Empaque</th>
+                            <th style="width: 15%;">Total Empaques</th>
+                            <th style="width: 5%;">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="cuerpo-tabla">
@@ -113,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const matches = productos.filter(p => 
             p.nombre.toLowerCase().includes(query) || 
             p.codigo.toLowerCase().includes(query)
-        ).slice(0, 10); // Limitar a 10 resultados
+        ); // Mostrar todos los resultados que coincidan
 
         if (matches.length > 0) {
             resultados.innerHTML = matches.map(p => {
@@ -131,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="text-end">
                             ${rotBadge}
                             <span class="badge ${p.stock <= 0 ? 'bg-danger' : 'bg-primary'} rounded-pill ms-2">Stock: ${p.stock}</span>
+                            <span class="badge bg-secondary rounded-pill ms-1" title="Empaques Totales"><i class="fas fa-box me-1"></i>${p.total_empaques % 1 === 0 ? p.total_empaques : parseFloat(p.total_empaques).toFixed(2)}</span>
                         </div>
                     </button>
                 `;
@@ -163,7 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
         tr.innerHTML = `
             <input type="hidden" name="producto_id[]" value="${id}">
             <input type="hidden" name="items_seleccionados[]" value="${id}">
-            <input type="hidden" name="cant_empaques[]" id="hidden-cant-${id}" value="0">
             
             <td class="fw-bold">
                 ${p.nombre} ${rowRotBadge}
@@ -173,14 +175,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span class="badge ${p.stock <= 0 ? 'bg-danger' : 'bg-secondary'}">${p.stock}</span>
             </td>
             <td>
+                <input type="number" name="total_unidades[]" value="0" min="1" max="${p.stock}" 
+                       class="form-control form-control-sm text-center fw-bold border-danger input-cant" 
+                       oninput="actualizarCant(${id}, ${p.stock}, this.value)">
+            </td>
+            <td>
                 <select name="unidad_empaque[]" class="form-select form-select-sm" id="select-unid-${id}">
                     ${p.unidades_html}
                 </select>
             </td>
             <td>
-                <input type="number" name="total_unidades[]" value="0" min="1" max="${p.stock}" 
-                       class="form-control form-control-sm text-center fw-bold border-danger input-cant" 
-                       oninput="actualizarCant(${id}, ${p.stock}, this.value)">
+                <input type="number" name="cant_por_empaque[]" value="${p.cant_por_empaque || 1}" min="1" 
+                       class="form-control form-control-sm text-center input-factor" 
+                       oninput="actualizarCant(${id}, ${p.stock}, document.getElementById('fila-${id}').querySelector('.input-cant').value)">
+            </td>
+            <td>
+                <input type="number" name="cant_empaques[]" id="hidden-cant-${id}" value="0" 
+                       class="form-control form-control-sm text-center bg-light input-empaques" readonly>
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-outline-danger btn-sm" onclick="removerProducto(${id})">
@@ -213,14 +224,24 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     window.actualizarCant = function(id, stock, val) {
-        const v = parseInt(val) || 0;
-        document.getElementById(`hidden-cant-${id}`).value = v;
-        const input = document.getElementById(`fila-${id}`).querySelector('.input-cant');
+        const row = document.getElementById(`fila-${id}`);
+        const v = parseFloat(val) || 0;
+        const factor = parseFloat(row.querySelector('.input-factor').value) || 1;
+        const empaquesInput = document.getElementById(`hidden-cant-${id}`);
+        const inputUnits = row.querySelector('.input-cant');
         
-        if (v > stock) {
-            input.classList.add('is-invalid');
+        // Calcular empaques
+        if (factor > 0) {
+            const totalE = v / factor;
+            empaquesInput.value = totalE % 1 === 0 ? totalE : totalE.toFixed(2);
         } else {
-            input.classList.remove('is-invalid');
+            empaquesInput.value = 0;
+        }
+
+        if (v > stock) {
+            inputUnits.classList.add('is-invalid');
+        } else {
+            inputUnits.classList.remove('is-invalid');
         }
     };
 

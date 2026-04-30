@@ -179,7 +179,9 @@ def movimientos_salida_form(request):
             'stock': p.cantidad,
             'rotacion': rotacion_map.get(p.id_producto, 0),
             'unidades_html': unidades_html,
-            'id_unidad_default': p.unidad_empaque
+            'id_unidad_default': p.unidad_empaque,
+            'cant_por_empaque': p.cantidad_por_empaque,
+            'total_empaques': p.total_empaques
         })
     return render(request, 'movimientos/form_salida.html', {
         'productos_json': productos_json,
@@ -194,6 +196,7 @@ def movimientos_salida_confirmar(request):
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
         items_resumen = []
         for i in range(len(producto_ids)):
             cant = int(totales[i])
@@ -202,6 +205,7 @@ def movimientos_salida_confirmar(request):
                 items_resumen.append({
                     'producto': producto,
                     'unidad': unidades_empaque[i],
+                    'cant_por_empaque': cants_por_empaque[i] if cants_por_empaque and i < len(cants_por_empaque) else producto.cantidad_por_empaque,
                     'cant_empaques': cants_empaques[i],
                     'total': cant,
                 })
@@ -288,9 +292,12 @@ def movimientos_entrada_form(request):
             'id': p.id_producto,
             'nombre': p.nombre_producto,
             'codigo': p.codigo_producto,
+            'stock': p.cantidad,
             'rotacion': rotacion_map.get(p.id_producto, 0),
             'unidades_html': unidades_html,
-            'id_unidad_default': p.unidad_empaque
+            'id_unidad_default': p.unidad_empaque,
+            'cant_por_empaque': p.cantidad_por_empaque,
+            'total_empaques': p.total_empaques
         })
     proveedores = Proveedor.objects.all().order_by('razonsocial')
     return render(request, 'movimientos/form_entrada.html', {
@@ -307,6 +314,7 @@ def movimientos_entrada_confirmar(request):
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
         proveedor_id = request.POST.get('proveedor_id')
         items_resumen = []
         for i in range(len(producto_ids)):
@@ -316,6 +324,7 @@ def movimientos_entrada_confirmar(request):
                 items_resumen.append({
                     'producto': producto,
                     'unidad': unidades_empaque[i],
+                    'cant_por_empaque': cants_por_empaque[i] if cants_por_empaque and i < len(cants_por_empaque) else producto.cantidad_por_empaque,
                     'cant_empaques': cants_empaques[i],
                     'total': cant,
                 })
@@ -598,17 +607,19 @@ def exportar_lote_pdf(request):
         
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_fill_color(240, 240, 240)
-        pdf.cell(80, 10, "Producto", 1, 0, "C", True)
-        pdf.cell(40, 10, "Cant. Movida", 1, 0, "C", True)
-        pdf.cell(30, 10, "Empaques", 1, 0, "C", True)
-        pdf.cell(40, 10, "Unidad", 1, 1, "C", True)
+        pdf.cell(70, 10, "Producto", 1, 0, "C", True)
+        pdf.cell(30, 10, "Total Unid.", 1, 0, "C", True)
+        pdf.cell(30, 10, "Unidad", 1, 0, "C", True)
+        pdf.cell(30, 10, "U. x Emp.", 1, 0, "C", True)
+        pdf.cell(30, 10, "Cant. Emp.", 1, 1, "C", True)
         
         pdf.set_font("Helvetica", "", 10)
         for item in qs:
-            pdf.cell(80, 8, item.producto.nombre_producto[:40], 1, 0, "L")
-            pdf.cell(40, 8, str(item.cantidad), 1, 0, "C")
-            pdf.cell(30, 8, str(item.cantidad_empaques), 1, 0, "C")
-            pdf.cell(40, 8, str(item.unidad_empaque), 1, 1, "C")
+            pdf.cell(70, 8, item.producto.nombre_producto[:35], 1, 0, "L")
+            pdf.cell(30, 8, str(item.cantidad), 1, 0, "C")
+            pdf.cell(30, 8, str(item.unidad_empaque), 1, 0, "C")
+            pdf.cell(30, 8, str(item.producto.cantidad_por_empaque), 1, 0, "C")
+            pdf.cell(30, 8, str(item.cantidad_empaques), 1, 1, "C")
         
         pdf.ln(10)
         pdf.set_font("Helvetica", "I", 9)
@@ -682,8 +693,9 @@ def movimientos_lote_editar(request, lote_id):
                 for mov in movimientos:
                     nueva_cantidad = request.POST.get(f'cantidad_{mov.id_movimiento}')
                     nueva_unidad = request.POST.get(f'unidad_{mov.id_movimiento}')
+                    nueva_cant_por_empaque = request.POST.get(f'cant_por_empaque_{mov.id_movimiento}')
                     
-                    if nueva_cantidad and nueva_cantidad.isdigit():
+                    if nueva_cantidad and str(nueva_cantidad).isdigit():
                         nueva_cantidad = int(nueva_cantidad)
                         if nueva_cantidad == 0:
                             producto = mov.producto
@@ -696,7 +708,12 @@ def movimientos_lote_editar(request, lote_id):
                             eliminados += 1
                             continue
 
-                        if nueva_cantidad != mov.cantidad or nueva_unidad != mov.unidad_empaque:
+                        nueva_cant_empaques = nueva_cantidad
+                        if nueva_cant_por_empaque and str(nueva_cant_por_empaque).isdigit() and int(nueva_cant_por_empaque) > 0:
+                            nueva_cant_por_empaque_int = int(nueva_cant_por_empaque)
+                            nueva_cant_empaques = int(nueva_cantidad / float(nueva_cant_por_empaque_int))
+
+                        if nueva_cantidad != mov.cantidad or nueva_unidad != mov.unidad_empaque or nueva_cant_empaques != mov.cantidad_empaques:
                             producto = mov.producto
                             if tipo == 'SALIDA' and nueva_cantidad > mov.cantidad:
                                 diff = nueva_cantidad - mov.cantidad
@@ -712,7 +729,7 @@ def movimientos_lote_editar(request, lote_id):
                                 producto.cantidad -= nueva_cantidad
                             producto.save()
                             mov.cantidad = nueva_cantidad
-                            mov.cantidad_empaques = nueva_cantidad
+                            mov.cantidad_empaques = nueva_cant_empaques
                             mov.unidad_empaque = nueva_unidad
                             mov.save()
                             cambios += 1
@@ -720,13 +737,19 @@ def movimientos_lote_editar(request, lote_id):
                 nuevos_prods_ids = request.POST.getlist('nuevo_producto_id[]')
                 nuevas_cantidades = request.POST.getlist('nueva_cantidad_prod[]')
                 nuevas_unidades = request.POST.getlist('nueva_unidad_prod[]')
+                nuevas_cants_por_empaque = request.POST.getlist('nueva_cant_por_empaque_prod[]')
                 nuevos_agregados = 0
                 for i in range(len(nuevos_prods_ids)):
                     nuevo_prod_id = nuevos_prods_ids[i]
                     nueva_cant_prod = nuevas_cantidades[i] if i < len(nuevas_cantidades) else ''
                     nueva_unidad_prod = nuevas_unidades[i] if i < len(nuevas_unidades) else ''
+                    nueva_cant_por_empaque_prod = nuevas_cants_por_empaque[i] if i < len(nuevas_cants_por_empaque) else ''
                     if nuevo_prod_id and nueva_cant_prod and str(nueva_cant_prod).isdigit():
                         nueva_cant_prod = int(nueva_cant_prod)
+                        nueva_cant_empaques_prod = nueva_cant_prod
+                        if nueva_cant_por_empaque_prod and str(nueva_cant_por_empaque_prod).isdigit() and int(nueva_cant_por_empaque_prod) > 0:
+                            nueva_cant_empaques_prod = int(nueva_cant_prod / float(nueva_cant_por_empaque_prod))
+                            
                         if nueva_cant_prod > 0:
                             prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)
                             info = movimientos.first()
@@ -742,7 +765,7 @@ def movimientos_lote_editar(request, lote_id):
                                 tipo_movimiento=tipo,
                                 cantidad=nueva_cant_prod,
                                 unidad_empaque=nueva_unidad_prod,
-                                cantidad_empaques=nueva_cant_prod,
+                                cantidad_empaques=nueva_cant_empaques_prod,
                                 proveedor=info.proveedor,
                                 fecha_movimiento=info.fecha_movimiento,
                                 codigo_lote=lote_id

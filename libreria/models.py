@@ -107,8 +107,10 @@ class Inventario(models.Model):
 
     @property
     def total_empaques(self):
-        # Requerimiento: No se multiplica/divide. La cantidad ya representa los empaques/unidades.
-        return self.cantidad
+        # Requerimiento: Resultado de la división de cantidad / cant x empaque
+        if self.cantidad_por_empaque and self.cantidad_por_empaque > 0:
+            return self.cantidad / self.cantidad_por_empaque
+        return 0
 
     def __str__(self):
         fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + self.descripcion + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)

@@ -104,7 +104,9 @@
                                     <th scope="col">Fecha</th>
                                     <th scope="col">Producto</th>
                                     <th scope="col">Tipo</th>
-                                    <th scope="col">Cantidad</th>
+                                    <th scope="col">Total Unidades</th>
+                                    <th scope="col">Unid. x Empaque</th>
+                                    <th scope="col">Empaques</th>
                                     <th scope="col">Proveedor</th>
                                 </tr>
                             </thead>
@@ -120,7 +122,9 @@
                                             <span class="badge bg-danger">SALIDA</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ mov.cantidad }}</td>
+                                    <td class="fw-bold">{{ mov.cantidad }}</td>
+                                    <td>{{ mov.producto.cantidad_por_empaque }}</td>
+                                    <td>{{ mov.cantidad_empaques }} <span class="text-muted small">{{ mov.unidad_empaque|default:""|title }}</span></td>
                                     <td>{{ mov.proveedor.razonsocial|default:"-" }}</td>
                                 </tr>
                                 {% empty %}

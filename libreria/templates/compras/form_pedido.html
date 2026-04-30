@@ -51,13 +51,15 @@
                     <thead class="table-dark text-center">
                         <tr class="small">
                             <th style="width: 4%;"><input type="checkbox" id="select-all"></th>
-                            <th style="width: 25%;">Producto</th>
-                            <th style="width: 10%;">Stock Actual</th>
-                            <th style="width: 15%;">Unid. Empaque</th>
-                            <th style="width: 10%;">Mínimo</th>
-                            <th style="width: 10%;">Máximo</th>
-                            <th style="width: 10%;">Cant. Pedido</th>
-                            <th style="width: 16%;">Nota del Movimiento</th>
+                            <th style="width: 20%;">Producto</th>
+                            <th style="width: 8%;">Stock Actual</th>
+                            <th style="width: 10%;">Cant. Unidades</th>
+                            <th style="width: 12%;">Tipo Empaque</th>
+                            <th style="width: 10%;">Unid. x Empaque</th>
+                            <th style="width: 10%;">Total Empaques</th>
+                            <th style="width: 8%;">Mínimo</th>
+                            <th style="width: 8%;">Máximo</th>
+                            <th style="width: 10%;">Nota</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -81,6 +83,10 @@
                                 </span>
                             </td>
                             <td>
+                                <input type="number" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}" 
+                                       class="form-control form-control-sm text-center fw-bold border-primary input-calc input-item" min="0" {% if not detalle %}disabled{% endif %}>
+                            </td>
+                            <td>
                                 <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not detalle %}disabled{% endif %}>
                                     {% for val, label in unidades_choices %}
                                         <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque == val %}selected{% endif %}{% else %}{% if p.unidad_empaque == val %}selected{% endif %}{% endif %}>{{ label }}</option>
@@ -88,18 +94,21 @@
                                 </select>
                             </td>
                             <td>
+                                <input type="number" name="cant_por_empaque[]" value="{% if detalle %}{{ detalle.cantidad_por_empaque }}{% else %}{{ p.cantidad_por_empaque }}{% endif %}" 
+                                       class="form-control form-control-sm text-center input-factor input-item" min="1" {% if not detalle %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" 
+                                       class="form-control form-control-sm text-center bg-light input-empaques-display input-item" readonly {% if not detalle %}disabled{% endif %}>
+                            </td>
+                            <td>
                                 <input type="number" name="minimo[]" value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
                                 <input type="number" name="maximo[]" value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
-                            <input type="hidden" name="cant_por_empaque[]" value="1">
                             <td>
-                                <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" class="form-control form-control-sm text-center input-calc border-primary input-item" min="0" {% if not detalle %}disabled{% endif %}>
-                                <input type="hidden" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}">
-                            </td>
-                            <td>
-                                <input type="text" name="detalle[]" value="Pedido generado vía módulo compras" class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif %}>
+                                <input type="text" name="detalle[]" value="{% if detalle %}{{ detalle.detalle_nota|default:'Pedido generado vía módulo compras' }}{% else %}Pedido generado vía módulo compras{% endif %}" class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                         </tr>
                         {% endwith %}
@@ -213,6 +222,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     actualizarVista(); // Render inicial
     
+    // Recalcular empaques en carga inicial (útil para cuando se regresa con 'Volver a Editar' / history.back())
+    document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+        calcularSubtotal(cb.closest('tr'));
+    });
+    
     // Listener para cambios en la tabla (cálculos y checkboxes)
     table.addEventListener('change', function(e) {
         if (e.target.classList.contains('item-checkbox')) {
@@ -222,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     table.addEventListener('input', function(e) {
-        if (e.target.classList.contains('input-calc')) {
+        if (e.target.classList.contains('input-calc') || e.target.classList.contains('input-factor')) {
             const row = e.target.closest('tr');
             calcularSubtotal(row);
         }
@@ -252,11 +266,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function calcularSubtotal(row) {
-        const numEmpaques = parseFloat(row.querySelector('input[name="cant_empaques[]"]').value) || 0;
-        const totalInput = row.querySelector('input[name="total_unidades[]"]');
+        const totalUnits = parseFloat(row.querySelector('input[name="total_unidades[]"]').value) || 0;
+        const factor = parseFloat(row.querySelector('input[name="cant_por_empaque[]"]').value) || 1;
+        const empaquesInput = row.querySelector('input[name="cant_empaques[]"]');
         
-        // El requerimiento es que no se multipliquen. Total unidades = num empaques.
-        totalInput.value = numEmpaques;
+        if (factor > 0) {
+            const totalE = totalUnits / factor;
+            empaquesInput.value = totalE % 1 === 0 ? totalE : totalE.toFixed(2);
+        } else {
+            empaquesInput.value = 0;
+        }
     }
 
     // Funcionalidad Seleccionar Todo

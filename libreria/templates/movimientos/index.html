@@ -27,7 +27,7 @@
                     <p class="text-muted text-center mb-4">¿Qué tipo de transacción desea registrar hoy?</p>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <a href="{% url 'compras.index' %}" class="btn btn-outline-success w-100 py-3 text-center">
+                            <a href="{% url 'movimientos.entrada' %}" class="btn btn-outline-success w-100 py-3 text-center">
                                 <i class="fas fa-arrow-down fa-2x mb-2 d-block"></i>
                                 <span class="fw-bold">ENTRADA</span>
                                 <small class="d-block text-muted mt-1">(Desde Proveedor)</small>
@@ -128,6 +128,7 @@
                         <tr>
                             <th>Producto</th>
                             <th>Tipo</th>
+                            <th>Unid. x Empaque</th>
                             <th>Empaques</th>
                             <th>Total Unidades</th>
                             <th>Proveedor</th>
@@ -150,6 +151,7 @@
                                     <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
                                 {% endif %}
                             </td>
+                            <td>{{ movimiento.producto.cantidad_por_empaque }}</td>
                             <td>
                                 {% if movimiento.cantidad_empaques > 0 %}
                                     <strong>{{ movimiento.cantidad_empaques }}</strong> 

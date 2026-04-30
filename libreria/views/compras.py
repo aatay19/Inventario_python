@@ -179,19 +179,21 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_fill_color(0, 123, 255)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(80, 10, " Producto", 1, 0, "L", True)
-    pdf.cell(35, 10, " Empaques", 1, 0, "C", True)
-    pdf.cell(35, 10, " Tipo", 1, 0, "C", True)
-    pdf.cell(40, 10, " Total Unid.", 1, 1, "C", True)
+    pdf.cell(70, 10, " Producto", 1, 0, "L", True)
+    pdf.cell(30, 10, " Total Unid.", 1, 0, "C", True)
+    pdf.cell(30, 10, " Tipo", 1, 0, "C", True)
+    pdf.cell(30, 10, " U. x Emp.", 1, 0, "C", True)
+    pdf.cell(30, 10, " Empaques", 1, 1, "C", True)
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", "", 10)
     for det in pedido.detalles.all():
-        pdf.cell(80, 10, f" {det.producto.nombre_producto[:35]}", 1, 0, "L")
-        pdf.cell(35, 10, str(det.cantidad_empaques), 1, 0, "C")
-        pdf.cell(35, 10, str(det.unidad_empaque), 1, 0, "C")
+        pdf.cell(70, 10, f" {det.producto.nombre_producto[:30]}", 1, 0, "L")
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(40, 10, str(det.cantidad), 1, 1, "C")
+        pdf.cell(30, 10, str(det.cantidad), 1, 0, "C")
         pdf.set_font("Helvetica", "", 10)
+        pdf.cell(30, 10, str(det.unidad_empaque), 1, 0, "C")
+        pdf.cell(30, 10, str(det.cantidad_por_empaque), 1, 0, "C")
+        pdf.cell(30, 10, str(det.cantidad_empaques), 1, 1, "C")
     pdf.ln(15)
     pdf.set_font("Helvetica", "I", 9)
     pdf.cell(0, 10, "Nota: Este documento es un comprobante de entrada de productos.", ln=True, align="C")
@@ -249,7 +251,7 @@ def movimientos_historial_pedidos(request):
     ultimo_pedido_id = request.session.pop('ultimo_pedido_id', None)
     return render(request, 'compras/historial_pedidos.html', {
         'page_obj': page_obj,
-        'titulo': 'Historial de Entradas de Productos',
+        'titulo': 'Historial de Pedidos',
         'q': q,
         'modal_pdf_id': ultimo_pedido_id
     })

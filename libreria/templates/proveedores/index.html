@@ -63,7 +63,29 @@
             <a href="{% url 'inventario.index' %}?proveedor_id={{ proveedor.id }}" class="btn btn-outline-info btn-sm" title="Ver Productos"><i class="fas fa-box-open"></i></a>
             {% if user.perfilusuario.rol|lower != 'consulta' %}
             <a href="{% url 'proveedores.editar' proveedor.id %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
-            <a href="{% url 'proveedores.eliminar' proveedor.id %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar este proveedor?');"><i class="fas fa-trash-alt"></i></a>
+            <button type="button" class="btn btn-outline-danger btn-sm" title="Eliminar" data-bs-toggle="modal" data-bs-target="#deleteModal{{ proveedor.id }}">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+            
+            <!-- Modal Eliminar Proveedor -->
+            <div class="modal fade" id="deleteModal{{ proveedor.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ proveedor.id }}" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered text-wrap">
+                <div class="modal-content">
+                  <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteModalLabel{{ proveedor.id }}"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body text-start">
+                    <p class="mb-2">¿Estás seguro de que deseas eliminar el proveedor <strong>{{ proveedor.razonsocial }}</strong>?</p>
+                    <p class="text-muted small mb-0"><i class="fas fa-info-circle me-1"></i>Esta acción no se puede deshacer y desvinculará este proveedor de sus productos.</p>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="{% url 'proveedores.eliminar' proveedor.id %}" class="btn btn-danger">Eliminar Proveedor</a>
+                  </div>
+                </div>
+              </div>
+            </div>
             {% endif %}
           </td>
         </tr>
