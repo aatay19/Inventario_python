@@ -123,7 +123,13 @@
                                         {% endif %}
                                     </td>
                                     <td class="fw-bold">{{ mov.cantidad }}</td>
-                                    <td>{{ mov.producto.cantidad_por_empaque }}</td>
+                                    <td>
+                                        {% if mov.cantidad_empaques and mov.cantidad_empaques > 0 %}
+                                            {% widthratio mov.cantidad mov.cantidad_empaques 1 %}
+                                        {% else %}
+                                            {{ mov.producto.cantidad_por_empaque }}
+                                        {% endif %}
+                                    </td>
                                     <td>{{ mov.cantidad_empaques }} <span class="text-muted small">{{ mov.unidad_empaque|default:""|title }}</span></td>
                                     <td>{{ mov.proveedor.razonsocial|default:"-" }}</td>
                                 </tr>

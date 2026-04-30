@@ -151,7 +151,13 @@
                                     <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
                                 {% endif %}
                             </td>
-                            <td>{{ movimiento.producto.cantidad_por_empaque }}</td>
+                            <td>
+                                {% if movimiento.cantidad_empaques and movimiento.cantidad_empaques > 0 %}
+                                    {% widthratio movimiento.cantidad movimiento.cantidad_empaques 1 %}
+                                {% else %}
+                                    {{ movimiento.producto.cantidad_por_empaque }}
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if movimiento.cantidad_empaques > 0 %}
                                     <strong>{{ movimiento.cantidad_empaques }}</strong> 
