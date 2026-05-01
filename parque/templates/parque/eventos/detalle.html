@@ -79,18 +79,29 @@
 
                     <div class="p-3 border-start border-primary border-4 bg-light mb-4">
                         <div class="row">
-                            <div class="col-sm-4">
-                                <span class="text-muted small d-block">Método de Pago:</span>
-                                <strong>{{ evento.get_metodo_pago_display|default:"No especificado" }}</strong>
+                            <div class="col-sm-6 mb-3">
+                                <h6 class="fw-bold">Abono 1 (Reserva)</h6>
+                                <span class="text-muted small d-block">Fecha: <strong>{{ evento.fecha_abono1|date:"d/m/Y"|default:"-" }}</strong></span>
+                                <span class="text-muted small d-block">Monto: <strong>${{ evento.monto_abono1|default:"0.00" }}</strong></span>
+                                <span class="text-muted small d-block">Método: <strong>{{ evento.get_metodo_pago_display|default:"No especificado" }}</strong></span>
                                 {% if evento.nota_forma_pago %}
                                 <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago }}</div>
                                 {% endif %}
                             </div>
-                            <div class="col-sm-4">
+                            <div class="col-sm-6 mb-3">
+                                <h6 class="fw-bold">Abono 2 (Día del Evento)</h6>
+                                <span class="text-muted small d-block">Fecha: <strong>{{ evento.fecha_abono2|date:"d/m/Y"|default:"-" }}</strong></span>
+                                <span class="text-muted small d-block">Monto: <strong>${{ evento.monto_abono2|default:"0.00" }}</strong></span>
+                                <span class="text-muted small d-block">Método: <strong>{{ evento.get_metodo_pago2_display|default:"No especificado" }}</strong></span>
+                                {% if evento.nota_forma_pago2 %}
+                                <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago2 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-sm-6">
                                 <span class="text-muted small d-block">Horario:</span>
                                 <strong>Inicio: {{ evento.hora_inicio|time:"H:i" }} | Duración: {{ evento.duracion_horas }}h</strong>
                             </div>
-                            <div class="col-sm-4 text-sm-end">
+                            <div class="col-sm-6">
                                 <span class="text-muted small d-block">Finalización Estimada:</span>
                                 <strong>{{ evento.fecha_fin|date:"d/m/Y H:i"|default:"Indefinida" }}</strong>
                             </div>

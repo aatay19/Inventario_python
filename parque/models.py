@@ -77,8 +77,18 @@ class Evento(models.Model):
     titulo = models.CharField(max_length=150, verbose_name="Título del Evento")
     nombre_reserva = models.CharField(max_length=100, verbose_name="Nombre de la Reserva", null=True, blank=True)
     zona = models.CharField(max_length=100, choices=ZONA_CHOICES, verbose_name="Zona/Área", null=True, blank=True)
-    metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES, verbose_name="Método de Pago", null=True, blank=True)
-    nota_forma_pago = models.CharField(max_length=255, verbose_name="Nota de Forma Pagos", null=True, blank=True)
+    
+    # Abono 1
+    fecha_abono1 = models.DateField(verbose_name="Fecha de Abono 1", null=True, blank=True)
+    monto_abono1 = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto Abono 1", null=True, blank=True)
+    metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES, verbose_name="Método de Pago (Abono 1)", null=True, blank=True)
+    nota_forma_pago = models.CharField(max_length=255, verbose_name="Nota de Forma Pagos (Abono 1)", null=True, blank=True)
+
+    # Abono 2
+    fecha_abono2 = models.DateField(verbose_name="Fecha de Abono 2", null=True, blank=True)
+    monto_abono2 = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto Abono 2", null=True, blank=True)
+    metodo_pago2 = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES, verbose_name="Método de Pago (Abono 2)", null=True, blank=True)
+    nota_forma_pago2 = models.CharField(max_length=255, verbose_name="Nota de Forma Pagos (Abono 2)", null=True, blank=True)
     
     total_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total a Pagar")
     

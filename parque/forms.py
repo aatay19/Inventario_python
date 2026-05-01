@@ -7,18 +7,26 @@ class EventoForm(forms.ModelForm):
     class Meta:
         model = Evento
         fields = [
-            'titulo', 'nombre_reserva', 'zona', 'metodo_pago', 'nota_forma_pago', 'total_pagar', 
+            'titulo', 'nombre_reserva', 'zona', 'total_pagar',
+            'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago',
+            'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2',
             'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'
         ]
         widgets = {
-            'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'hora_inicio': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
             'duracion_horas': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'titulo': forms.TextInput(attrs={'class': 'form-control'}),
             'nombre_reserva': forms.TextInput(attrs={'class': 'form-control'}),
             'zona': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_abono1': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
+            'monto_abono1': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'metodo_pago': forms.Select(attrs={'class': 'form-select'}),
-            'nota_forma_pago': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nota sobre la forma de pago...'}),
+            'nota_forma_pago': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nota abono 1...'}),
+            'fecha_abono2': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
+            'monto_abono2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'metodo_pago2': forms.Select(attrs={'class': 'form-select'}),
+            'nota_forma_pago2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nota abono 2...'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
         }

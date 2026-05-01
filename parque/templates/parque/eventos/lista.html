@@ -69,7 +69,14 @@
                             <td class="text-center">
                                 <span class="badge bg-secondary opacity-75 rounded-pill">{{ evento.get_zona_display|default:"N/A" }}</span>
                             </td>
-                            <td class="text-center"><strong class="text-success">${{ evento.total_pagar }}</strong></td>
+                            <td class="text-center">
+                                <strong class="text-success">${{ evento.total_pagar }}</strong>
+                                {% if evento.monto_abono2 or evento.metodo_pago2 %}
+                                    <i class="bi bi-cash-stack text-success ms-1" title="Segundo abono realizado"></i>
+                                {% else %}
+                                    <i class="bi bi-cash-stack text-muted opacity-25 ms-1" title="Segundo abono pendiente"></i>
+                                {% endif %}
+                            </td>
                             <td class="text-center text-muted small">{{ evento.fecha_inicio|date:"d/m/Y" }}</td>
                             <td class="text-center text-muted small">
                                 <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ evento.hora_inicio|time:"h:i A"|default:"--" }}</span>

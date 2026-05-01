@@ -242,13 +242,49 @@ def generar_pdf_evento(request, pk):
         pdf.cell(190, 7, txt=f"Cliente: {evento.nombre_reserva}", ln=True)
     if evento.zona:
         pdf.cell(190, 7, txt=f"Zona: {evento.get_zona_display()}", ln=True)
-    if evento.metodo_pago:
-        pdf.cell(190, 7, txt=f"Metodo de Pago: {evento.get_metodo_pago_display()}", ln=True)
-    if evento.nota_forma_pago:
-        pdf.cell(190, 7, txt=f"Nota de Pago: {evento.nota_forma_pago}", ln=True)
-    
-    pdf.cell(190, 7, txt=f"Fecha: {evento.fecha_inicio.strftime('%d/%m/%Y')}", ln=True)
     pdf.cell(190, 7, txt=f"Estado: {evento.get_estado_display()}", ln=True)
+    pdf.cell(190, 7, txt=f"Fecha: {evento.fecha_inicio.strftime('%d/%m/%Y')}", ln=True)
+    
+    # Información de Pagos (Abonos)
+    pdf.ln(5)
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(190, 8, txt="Información de Pagos / Abonos", ln=True)
+    pdf.set_font("Helvetica", size=10)
+
+    # Abono 1
+    if evento.monto_abono1 or evento.metodo_pago:
+        pdf.set_font("Helvetica", 'B', 10)
+        pdf.cell(190, 7, txt="Abono 1 (Reserva):", ln=True)
+        pdf.set_font("Helvetica", size=10)
+        if evento.fecha_abono1:
+            pdf.cell(95, 7, txt=f"  Fecha: {evento.fecha_abono1.strftime('%d/%m/%Y')}", ln=False)
+        if evento.monto_abono1:
+            pdf.cell(95, 7, txt=f"  Monto: ${evento.monto_abono1}", ln=True)
+        else:
+            pdf.ln(7)
+        if evento.metodo_pago:
+            pdf.cell(190, 7, txt=f"  Metodo de Pago: {evento.get_metodo_pago_display()}", ln=True)
+        if evento.nota_forma_pago:
+            pdf.cell(190, 7, txt=f"  Nota: {evento.nota_forma_pago}", ln=True)
+        pdf.ln(2)
+
+    # Abono 2
+    if evento.monto_abono2 or evento.metodo_pago2:
+        pdf.set_font("Helvetica", 'B', 10)
+        pdf.cell(190, 7, txt="Abono 2 (Día del Evento):", ln=True)
+        pdf.set_font("Helvetica", size=10)
+        if evento.fecha_abono2:
+            pdf.cell(95, 7, txt=f"  Fecha: {evento.fecha_abono2.strftime('%d/%m/%Y')}", ln=False)
+        if evento.monto_abono2:
+            pdf.cell(95, 7, txt=f"  Monto: ${evento.monto_abono2}", ln=True)
+        else:
+            pdf.ln(7)
+        if evento.metodo_pago2:
+            pdf.cell(190, 7, txt=f"  Metodo de Pago: {evento.get_metodo_pago2_display()}", ln=True)
+        if evento.nota_forma_pago2:
+            pdf.cell(190, 7, txt=f"  Nota: {evento.nota_forma_pago2}", ln=True)
+        pdf.ln(2)
+    
     pdf.ln(5)
     
     # Tabla de Detalles
