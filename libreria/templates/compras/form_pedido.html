@@ -53,10 +53,10 @@
                             <th style="width: 4%;"><input type="checkbox" id="select-all"></th>
                             <th style="width: 20%;">Producto</th>
                             <th style="width: 8%;">Stock Actual</th>
-                            <th style="width: 10%;">Cant. Unidades</th>
+                            <th style="width: 10%;">Total Empaques</th>
                             <th style="width: 12%;">Tipo Empaque</th>
                             <th style="width: 10%;">Unid. x Empaque</th>
-                            <th style="width: 10%;">Total Empaques</th>
+                            <th style="width: 10%;">Cant. Unidades</th>
                             <th style="width: 8%;">Mínimo</th>
                             <th style="width: 8%;">Máximo</th>
                             <th style="width: 10%;">Nota</th>
@@ -83,8 +83,8 @@
                                 </span>
                             </td>
                             <td>
-                                <input type="number" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}" 
-                                       class="form-control form-control-sm text-center fw-bold border-primary input-calc input-item" min="0" {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" 
+                                       class="form-control form-control-sm text-center border-primary input-calc input-item" min="0" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
                                 <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not detalle %}disabled{% endif %}>
@@ -98,8 +98,8 @@
                                        class="form-control form-control-sm text-center input-factor input-item" min="1" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" 
-                                       class="form-control form-control-sm text-center bg-light input-empaques-display input-item" readonly {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}" 
+                                       class="form-control form-control-sm text-center fw-bold bg-light input-item" readonly {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
                                 <input type="number" name="minimo[]" value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
@@ -266,15 +266,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function calcularSubtotal(row) {
-        const totalUnits = parseFloat(row.querySelector('input[name="total_unidades[]"]').value) || 0;
+        const totalEmpaques = parseFloat(row.querySelector('input[name="cant_empaques[]"]').value) || 0;
         const factor = parseFloat(row.querySelector('input[name="cant_por_empaque[]"]').value) || 1;
-        const empaquesInput = row.querySelector('input[name="cant_empaques[]"]');
+        const unidadesInput = row.querySelector('input[name="total_unidades[]"]');
         
         if (factor > 0) {
-            const totalE = totalUnits / factor;
-            empaquesInput.value = totalE % 1 === 0 ? totalE : totalE.toFixed(2);
+            const totalU = totalEmpaques * factor;
+            unidadesInput.value = totalU % 1 === 0 ? totalU : totalU.toFixed(2);
         } else {
-            empaquesInput.value = 0;
+            unidadesInput.value = 0;
         }
     }
 
@@ -299,6 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     min: row.querySelector('input[name="minimo[]"]').value,
                     max: row.querySelector('input[name="maximo[]"]').value,
                     unidad: row.querySelector('select[name="unidad_empaque[]"]').value,
+                    cant_por_empaque: row.querySelector('input[name="cant_por_empaque[]"]').value,
                     cant: row.querySelector('input[name="cant_empaques[]"]').value,
                     detalle: row.querySelector('input[name="detalle[]"]').value
                 };
@@ -320,6 +321,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.querySelector('input[name="minimo[]"]').value = data.min;
                 row.querySelector('input[name="maximo[]"]').value = data.max;
                 row.querySelector('select[name="unidad_empaque[]"]').value = data.unidad;
+                if (data.cant_por_empaque) {
+                    row.querySelector('input[name="cant_por_empaque[]"]').value = data.cant_por_empaque;
+                }
                 row.querySelector('input[name="cant_empaques[]"]').value = data.cant;
                 row.querySelector('input[name="detalle[]"]').value = data.detalle;
                 

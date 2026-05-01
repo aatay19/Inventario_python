@@ -45,41 +45,52 @@ def movimientos_inventario_index(request):
 
     resumen_filtro = None
     if q:
-        resumen_por_producto = qs.values('producto__nombre_producto') \
+        resumen_por_producto = qs.values('producto__nombre_producto', 'producto__unidad_empaque') \
                                  .annotate(
-                                     entradas=Sum('cantidad', default=0, filter=Q(tipo_movimiento='ENTRADA')),
-                                     salidas=Sum('cantidad', default=0, filter=Q(tipo_movimiento='SALIDA'))
+                                     entradas=Sum('cantidad_empaques', default=0.0, filter=Q(tipo_movimiento='ENTRADA')),
+                                     salidas=Sum('cantidad_empaques', default=0.0, filter=Q(tipo_movimiento='SALIDA'))
                                  ).order_by('producto__nombre_producto')
         
         entradas_str_parts = []
         salidas_str_parts = []
-        total_entradas_general = 0
-        total_salidas_general = 0
+        total_entradas_general = 0.0
+        total_salidas_general = 0.0
 
         for item in resumen_por_producto:
+            unidad = item.get('producto__unidad_empaque') or 'Empaque'
             if item['entradas'] and item['entradas'] > 0:
-                entradas_str_parts.append(f"{item['entradas']} ({item['producto__nombre_producto']})")
+                val = f"{item['entradas']:.2f}".rstrip('0').rstrip('.')
+                entradas_str_parts.append(f"{val} {unidad} ({item['producto__nombre_producto']})")
                 total_entradas_general += item['entradas']
             if item['salidas'] and item['salidas'] > 0:
-                salidas_str_parts.append(f"{item['salidas']} ({item['producto__nombre_producto']})")
+                val = f"{item['salidas']:.2f}".rstrip('0').rstrip('.')
+                salidas_str_parts.append(f"{val} {unidad} ({item['producto__nombre_producto']})")
                 total_salidas_general += item['salidas']
 
         ids_productos = qs.values_list('producto_id', flat=True).distinct()
-        productos_stock = Inventario.objects.filter(id_producto__in=ids_productos).values('nombre_producto', 'cantidad').order_by('nombre_producto')
+        productos_stock = Inventario.objects.filter(id_producto__in=ids_productos).values('nombre_producto', 'cantidad', 'cantidad_por_empaque', 'unidad_empaque').order_by('nombre_producto')
         
         stock_desglose = []
-        total_stock_general = 0
+        total_stock_general = 0.0
         for p in productos_stock:
-            stock_desglose.append(f"{p['cantidad']} ({p['nombre_producto']})")
-            total_stock_general += p['cantidad']
+            factor = p.get('cantidad_por_empaque') or 1
+            cant = p['cantidad'] / factor
+            val = f"{cant:.2f}".rstrip('0').rstrip('.')
+            unidad = p.get('unidad_empaque') or 'Empaque'
+            stock_desglose.append(f"{val} {unidad} ({p['nombre_producto']})")
+            total_stock_general += cant
+
+        total_entradas_str = f"{total_entradas_general:.2f}".rstrip('0').rstrip('.') or '0'
+        total_salidas_str = f"{total_salidas_general:.2f}".rstrip('0').rstrip('.') or '0'
+        total_stock_str = f"{total_stock_general:.2f}".rstrip('0').rstrip('.') or '0'
 
         resumen_filtro = {
             'entradas_desglose': entradas_str_parts,
             'salidas_desglose': salidas_str_parts,
             'stock_desglose': stock_desglose,
-            'total_entradas_general': total_entradas_general,
-            'total_salidas_general': total_salidas_general,
-            'stock_actual': total_stock_general
+            'total_entradas_general': total_entradas_str,
+            'total_salidas_general': total_salidas_str,
+            'stock_actual': total_stock_str
         }
 
     if q:

@@ -94,10 +94,9 @@
                             <thead class="table-light">
                                 <tr class="small text-muted text-uppercase">
                                     <th class="ps-4">Producto</th>
-                                    <th class="text-center">Total Unid. Solicitadas</th>
-                                    <th class="text-center">Unidad</th>
+                                    <th class="text-center">Tipo Empaque</th>
                                     <th class="text-center">Unid. x Empaque</th>
-                                    <th class="text-center">Cant. Empaque</th>
+                                    <th class="text-center">Cant. Empaques</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -107,16 +106,13 @@
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
                                         <div class="x-small text-muted">{{ item.producto.codigo_producto }}</div>
                                     </td>
-                                    <td class="text-center fw-bold text-success">
-                                        {{ item.cantidad }}
-                                    </td>
                                     <td class="text-center">
                                         <span class="badge bg-light text-dark border font-monospace">{{ item.unidad_empaque }}</span>
                                     </td>
                                     <td class="text-center">
                                         {{ item.cantidad_por_empaque }}
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center fw-bold text-success">
                                         {{ item.cantidad_empaques }}
                                     </td>
                                 </tr>

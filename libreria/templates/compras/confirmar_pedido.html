@@ -58,9 +58,8 @@
                                 <tr class="small">
                                     <th>Producto</th>
                                     <th class="text-center">Nuevos Niveles (Min/Max)</th>
-                                    <th class="text-center">Cant. Unidades</th>
-                                    <th class="text-center">Unid. x Empaque</th>
                                     <th class="text-center">Total Empaques</th>
+                                    <th class="text-center">Unid. x Empaque</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -81,14 +80,11 @@
                                     <td class="text-center">
                                         <span class="badge bg-secondary">{{ item.min }}</span> / <span class="badge bg-secondary">{{ item.max }}</span>
                                     </td>
-                                    <td class="text-center fw-bold text-success fs-5">
-                                        {{ item.total }}
-                                    </td>
-                                    <td class="text-center">
-                                        {{ item.cant_por_empaque }}
-                                    </td>
                                     <td class="text-center">
                                         <span class="badge bg-light text-dark border">{{ item.cant_empaques }} {{ item.unidad }}</span>
+                                    </td>
+                                    <td class="text-center fw-bold text-success fs-5">
+                                        {{ item.cant_por_empaque }}
                                     </td>
                                 </tr>
                                 {% endfor %}
