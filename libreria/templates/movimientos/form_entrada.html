@@ -150,8 +150,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const matches = productos.filter(p => 
-            p.nombre.toLowerCase().includes(query) || 
-            p.codigo.toLowerCase().includes(query)
+            (p.nombre && p.nombre.toLowerCase().includes(query)) || 
+            (p.codigo && p.codigo.toLowerCase().includes(query))
         );
 
         if (matches.length > 0) {

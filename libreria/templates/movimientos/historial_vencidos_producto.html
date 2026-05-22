@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Historial Vencidos - {{ producto.nombre_producto }}{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'inventario.deposito_vencido' %}">Depósito Vencido</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Historial: {{ producto.nombre_producto }}</li>
+              </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Historial de <span class="text-warning">Mermas / Vencidos</span></h2>
+            <h5 class="text-muted">{{ producto.nombre_producto }} <small class="text-secondary">({{ producto.codigo_producto }})</small></h5>
+        </div>
+        <div>
+            <span class="badge bg-warning text-dark fs-5 px-3 py-2 shadow-sm">
+                Stock Vencido: {{ producto.cantidad_vencido }}
+            </span>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white py-3">
+            <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2"></i>Cronología de Movimientos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha y Hora</th>
+                            <th>Tipo de Operación</th>
+                            <th class="text-center">Empaques</th>
+                            <th class="text-center">Total Unidades</th>
+                            <th>Origen / Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in page_obj %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ movimiento.fecha_movimiento|date:"d/m/Y" }}</div>
+                                <small class="text-muted">{{ movimiento.fecha_movimiento|date:"H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if movimiento.tipo_movimiento == 'TRASLADO_VENCIDO' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-1">
+                                        <i class="fas fa-exchange-alt me-1"></i>Traslado de Inventario
+                                    </span>
+                                {% elif movimiento.tipo_movimiento == 'CARGA_VENCIDO' %}
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info px-2 py-1">
+                                        <i class="fas fa-plus-circle me-1"></i>Carga Directa (Piso)
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if movimiento.cantidad_empaques > 0 %}
+                                    <strong>{{ movimiento.cantidad_empaques }}</strong> 
+                                    <small class="text-muted">{{ movimiento.get_unidad_empaque_display }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold fs-5 text-dark">
+                                {{ movimiento.cantidad }}
+                            </td>
+                            <td>
+                                {% if movimiento.proveedor %}
+                                    <span class="text-muted small"><i class="fas fa-truck me-1"></i> {{ movimiento.proveedor.razonsocial|default:movimiento.proveedor.nombre }}</span>
+                                {% else %}
+                                    <span class="text-muted small">Sin proveedor registrado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="fas fa-info-circle fs-2 mb-3 d-block"></i>
+                                No hay movimientos registrados para este producto en el depósito de vencidos.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Paginación" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-white py-3 border-top text-end">
+            <a href="{% url 'inventario.deposito_vencido' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver al Depósito
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

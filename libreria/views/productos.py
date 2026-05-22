@@ -279,3 +279,43 @@ def buscar_productos_ajax(request):
         } for p in productos
     ]
     return JsonResponse({'results': results})
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def inventario_deposito_vencido(request):
+    qs = Inventario.objects.filter(cantidad_vencido__gt=0)
+    q = request.GET.get('q', '').strip()
+    categoria = request.GET.get('categoria', '').strip()
+    order = request.GET.get('order', 'name_asc')
+    page_size = 10
+
+    if q:
+        qs = qs.filter(
+            Q(nombre_producto__icontains=q) |
+            Q(codigo_producto__icontains=q)
+        )
+
+    if categoria:
+        qs = qs.filter(categoria=categoria)
+
+    if order == 'name_desc':
+        qs = qs.order_by('-nombre_producto')
+    elif order == 'cantidad_desc':
+        qs = qs.order_by('-cantidad_vencido')
+    elif order == 'cantidad_asc':
+        qs = qs.order_by('cantidad_vencido')
+    else:
+        qs = qs.order_by('nombre_producto')
+
+    paginator = Paginator(qs, page_size)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'q': q,
+        'categoria': categoria,
+        'order': order,
+        'titulo': 'Depósito de Productos Vencidos'
+    }
+    return render(request, 'inventario/deposito_vencido.html', context)

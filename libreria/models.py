@@ -79,8 +79,6 @@ class Inventario(models.Model):
     codigo_producto = models.CharField(
         max_length=20,
         unique=True,
-        null=True,      # inicialmente True para migración segura
-        blank=True,
         verbose_name="Código del Producto",
         help_text="Código interno único (p. ej. SKU)."
     )
@@ -103,6 +101,7 @@ class Inventario(models.Model):
     costo_anterior = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Costo Anterior", null=True, blank=True)
     stock_minimo = models.IntegerField(verbose_name="Stock Minimo")
     stock_maximo = models.IntegerField(verbose_name="Stock Maximo")
+    cantidad_vencido = models.IntegerField(default=0, verbose_name="Cantidad Vencida")
     proveedores = models.ManyToManyField(Proveedor, blank=True, verbose_name="Proveedores")
 
     @property
@@ -120,11 +119,13 @@ class MovimientosInventario(models.Model):
     TIPO_MOVIMIENTO_CHOICES = [
         ('ENTRADA', 'Entrada'),
         ('SALIDA', 'Salida'),
+        ('TRASLADO_VENCIDO', 'Traslado a Vencido'),
+        ('CARGA_VENCIDO', 'Carga Directa a Vencido'),
     ]
 
     id_movimiento = models.AutoField(primary_key=True)
     producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
-    tipo_movimiento = models.CharField(max_length=10, choices=TIPO_MOVIMIENTO_CHOICES, verbose_name="Tipo de Movimiento")
+    tipo_movimiento = models.CharField(max_length=20, choices=TIPO_MOVIMIENTO_CHOICES, verbose_name="Tipo de Movimiento")
     cantidad = models.IntegerField(verbose_name="Cantidad")
     unidad_empaque = models.CharField(
         max_length=20,

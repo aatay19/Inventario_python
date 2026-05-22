@@ -7,10 +7,10 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from fpdf import FPDF
 from .auth import es_admin, es_gestion_pedidos, es_pleno_acceso, es_inventario_acceso, es_soporte
-from ..models import Proveedor, Inventario, PedidoCompra, DetallePedidoCompra
+from ..models import Proveedor, Inventario, PedidoCompra, DetallePedidoCompra, UnidadEmpaqueChoices
 
 @login_required
 @user_passes_test(es_gestion_pedidos, login_url='index')
@@ -58,6 +58,7 @@ def compras_confirmar(request):
             p_id = producto_ids[i]
             if p_id in items_seleccionados:
                 producto = Inventario.objects.get(id_producto=p_id)
+                es_nuevo = not producto.proveedores.filter(id=proveedor.id).exists()
                 items_resumen.append({
                     'producto': producto,
                     'min': minimos[i],
@@ -66,6 +67,7 @@ def compras_confirmar(request):
                     'cant_empaques': cants_empaques[i],
                     'total': totales[i],
                     'cant_por_empaque': cants_por_empaque[i],
+                    'es_nuevo_vinculo': es_nuevo,
                 })
         if not items_resumen:
             messages.warning(request, "Debe seleccionar al menos un producto para el registro.")
@@ -107,8 +109,13 @@ def compras_procesar(request):
                         estado='PENDIENTE',
                         codigo_lote=lote_id
                     )
+                nuevas_relaciones = 0
                 for i in range(len(producto_ids)):
                     producto = Inventario.objects.get(id_producto=producto_ids[i])
+                    # Auto-crear relación producto-proveedor si no existe
+                    if not producto.proveedores.filter(id=proveedor.id).exists():
+                        producto.proveedores.add(proveedor)
+                        nuevas_relaciones += 1
                     try:
                         if i < len(minimos): producto.stock_minimo = int(minimos[i])
                         if i < len(maximos): producto.stock_maximo = int(maximos[i])
@@ -126,7 +133,10 @@ def compras_procesar(request):
                             cantidad_por_empaque=int(cants_por_empaque[i])
                         )
                         ordenes_creadas += 1
-            messages.success(request, f'Entrada procesada exitosamente. Se registraron {ordenes_creadas} productos.')
+            msg = f'Entrada procesada exitosamente. Se registraron {ordenes_creadas} productos.'
+            if nuevas_relaciones > 0:
+                msg += f' Se vincularon {nuevas_relaciones} producto(s) nuevo(s) a este proveedor.'
+            messages.success(request, msg)
             request.session['ultimo_pedido_id'] = pedido.id_pedido
             return redirect('movimientos.historial_pedidos')
         except Exception as e:
@@ -278,3 +288,39 @@ def compras_eliminar_todo_historial(request):
         except Exception as e:
             messages.error(request, f'Error al limpiar el historial: {str(e)}')
     return redirect('movimientos.historial_pedidos')
+
+@login_required
+@user_passes_test(es_gestion_pedidos, login_url='index')
+def buscar_productos_no_asociados(request, proveedor_id):
+    """AJAX: Buscar productos que NO están asociados al proveedor dado."""
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+    
+    # Productos que NO pertenecen a este proveedor
+    qs = Inventario.objects.exclude(proveedores__id=proveedor_id)
+    # Excluir productos que ya están en el DOM (enviados como IDs ya presentes)
+    excluir_ids = request.GET.get('excluir', '')
+    if excluir_ids:
+        ids_list = [int(x) for x in excluir_ids.split(',') if x.strip().isdigit()]
+        qs = qs.exclude(id_producto__in=ids_list)
+    
+    qs = qs.filter(
+        Q(nombre_producto__icontains=q) | Q(codigo_producto__icontains=q)
+    ).order_by('nombre_producto')[:20]
+    
+    results = []
+    for p in qs:
+        provs = list(p.proveedores.values_list('razonsocial', flat=True))
+        results.append({
+            'id': p.id_producto,
+            'nombre': p.nombre_producto,
+            'codigo': p.codigo_producto or 'S/C',
+            'stock': p.cantidad,
+            'unidad_empaque': p.unidad_empaque,
+            'cantidad_por_empaque': p.cantidad_por_empaque,
+            'stock_minimo': p.stock_minimo,
+            'stock_maximo': p.stock_maximo,
+            'proveedores_actuales': provs,
+        })
+    return JsonResponse({'results': results})

@@ -64,7 +64,7 @@
                             </thead>
                             <tbody>
                                 {% for item in items %}
-                                <tr>
+                                <tr {% if item.es_nuevo_vinculo %}class="table-warning"{% endif %}>
                                     <input type="hidden" name="producto_id[]" value="{{ item.producto.id_producto }}">
                                     <input type="hidden" name="minimo[]" value="{{ item.min }}">
                                     <input type="hidden" name="maximo[]" value="{{ item.max }}">
@@ -76,6 +76,9 @@
                                     <td>
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
                                         <small class="text-muted">{{ item.producto.codigo_producto }}</small>
+                                        {% if item.es_nuevo_vinculo %}
+                                        <div><span class="badge bg-warning text-dark mt-1" style="font-size:0.7rem;"><i class="bi bi-link-45deg me-1"></i>Se vinculará a este proveedor</span></div>
+                                        {% endif %}
                                     </td>
                                     <td class="text-center">
                                         <span class="badge bg-secondary">{{ item.min }}</span> / <span class="badge bg-secondary">{{ item.max }}</span>
@@ -111,6 +114,12 @@ document.addEventListener('submit', function(e) {
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Procesando...';
+    }
+    
+    // Limpiar el estado guardado para que no reaparezca en futuros pedidos al mismo proveedor
+    const proveedorId = document.querySelector('input[name="proveedor_id"]').value;
+    if (proveedorId) {
+        sessionStorage.removeItem(`pedido_data_prov_${proveedorId}`);
     }
 });
 </script>

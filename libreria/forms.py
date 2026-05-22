@@ -49,7 +49,7 @@ class InventarioForm(forms.ModelForm):
         # 9. TOTAL DE EMPAQUES, 10. COSTO ACTUAL, 11. COSTO ANTERIOR
         field_order = [
             'codigo_producto', 'nombre_producto', 'categoria', 
-            'cantidad', 'unidad_empaque', 'cantidad_por_empaque', 'total_empaques', 
+            'cantidad', 'cantidad_vencido', 'unidad_empaque', 'cantidad_por_empaque', 'total_empaques', 
             'costo_actual', 'costo_anterior', 'stock_minimo', 'stock_maximo', 'proveedores'
         ]
         widgets = {
@@ -67,6 +67,7 @@ class InventarioForm(forms.ModelForm):
             'costo_anterior': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'stock_minimo': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'stock_maximo': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'cantidad_vencido': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'proveedores': forms.SelectMultiple(attrs={'class': 'form-select select2', 'multiple': 'multiple'}),
         }
 
@@ -87,19 +88,23 @@ class InventarioForm(forms.ModelForm):
 
     def clean_codigo_producto(self):
         codigo = self.cleaned_data.get('codigo_producto')
-        if codigo:
-            codigo = codigo.strip()
-            # permitir letras, números, espacios y guiones
-            if not re.match(r'^[A-Za-z0-9\s\-]+$', codigo):
-                raise forms.ValidationError("El código sólo puede contener letras, números, espacios y guiones (-).")
-            # normalizar a mayúsculas para consistencia (opcional)
-            codigo = codigo.upper()
-            # comprobar unicidad ignorando el propio registro al editar
-            qs = Inventario.objects.filter(codigo_producto__iexact=codigo)
-            if self.instance and getattr(self.instance, "pk", None):
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError("Este código ya está en uso por otro producto.")
+        if not codigo:
+            raise forms.ValidationError("El código del producto es obligatorio.")
+        
+        codigo = codigo.strip().upper()
+        
+        # permitir letras, números, espacios y guiones
+        if not re.match(r'^[A-Za-z0-9\s\-]+$', codigo):
+            raise forms.ValidationError("El código sólo puede contener letras, números, espacios y guiones (-).")
+        
+        # comprobar unicidad ignorando el propio registro al editar
+        qs = Inventario.objects.filter(codigo_producto__iexact=codigo)
+        if self.instance and getattr(self.instance, "pk", None):
+            qs = qs.exclude(pk=self.instance.pk)
+        
+        if qs.exists():
+            raise forms.ValidationError("Este código ya está en uso por otro producto.")
+            
         return codigo
 
 
@@ -220,12 +225,13 @@ class MovimientosInventarioForm(forms.ModelForm):
         
         cantidad = cleaned_data.get("cantidad")
 
-        # Validación 1: Si es una SALIDA, verificar que haya stock suficiente.
-        if tipo_movimiento == 'SALIDA' and producto and cantidad is not None:
+        # Validación 1: Si es una SALIDA o TRASLADO_VENCIDO, verificar que haya stock suficiente.
+        if tipo_movimiento in ['SALIDA', 'TRASLADO_VENCIDO'] and producto and cantidad is not None:
             if cantidad > producto.cantidad:
+                tipo_str = 'salida' if tipo_movimiento == 'SALIDA' else 'traslado'
                 raise forms.ValidationError(
-                    f"No se puede registrar la salida. Stock insuficiente para '{producto.nombre_producto}'. "
-                    f"Disponibles: {producto.cantidad}, se intentó sacar: {cantidad}."
+                    f"No se puede registrar la {tipo_str}. Stock insuficiente para '{producto.nombre_producto}'. "
+                    f"Disponibles: {producto.cantidad}, se intentó mover: {cantidad}."
                 )
 
         # Validación 2: Si es una ENTRADA, el proveedor es obligatorio.
@@ -253,6 +259,11 @@ class MovimientosInventarioForm(forms.ModelForm):
                 elif movimiento.tipo_movimiento == 'SALIDA':
                     # La validación ya ocurrió en clean(), aquí solo operamos
                     producto.cantidad -= cantidad_nueva
+                elif movimiento.tipo_movimiento == 'TRASLADO_VENCIDO':
+                    producto.cantidad -= cantidad_nueva
+                    producto.cantidad_vencido += cantidad_nueva
+                elif movimiento.tipo_movimiento == 'CARGA_VENCIDO':
+                    producto.cantidad_vencido += cantidad_nueva
             else:
                 # Es una edición de un movimiento existente
                 # Recuperamos los datos originales de la BD porque self.instance ya tiene los cambios en memoria
@@ -263,20 +274,32 @@ class MovimientosInventarioForm(forms.ModelForm):
                 # 1. Revertir el efecto del movimiento original
                 if tipo_original == 'ENTRADA':
                     producto.cantidad -= cantidad_original
-                else: # SALIDA
+                elif tipo_original == 'SALIDA':
                     producto.cantidad += cantidad_original
+                elif tipo_original == 'TRASLADO_VENCIDO':
+                    producto.cantidad += cantidad_original
+                    producto.cantidad_vencido -= cantidad_original
+                elif tipo_original == 'CARGA_VENCIDO':
+                    producto.cantidad_vencido -= cantidad_original
 
                 # 2. Aplicar el efecto del nuevo movimiento
                 if movimiento.tipo_movimiento == 'ENTRADA':
                     producto.cantidad += cantidad_nueva
                     if movimiento.proveedor:
                         producto.proveedores.add(movimiento.proveedor)
-                else: # SALIDA
+                elif movimiento.tipo_movimiento == 'SALIDA':
                     if producto.cantidad < cantidad_nueva:
                         # Esta validación es una segunda capa de seguridad por si acaso.
                         # El método clean() ya debería haberlo prevenido.
                         raise forms.ValidationError(f"Stock insuficiente para actualizar la salida de '{producto.nombre_producto}'.")
                     producto.cantidad -= cantidad_nueva
+                elif movimiento.tipo_movimiento == 'TRASLADO_VENCIDO':
+                    if producto.cantidad < cantidad_nueva:
+                        raise forms.ValidationError(f"Stock insuficiente para actualizar el traslado de '{producto.nombre_producto}'.")
+                    producto.cantidad -= cantidad_nueva
+                    producto.cantidad_vencido += cantidad_nueva
+                elif movimiento.tipo_movimiento == 'CARGA_VENCIDO':
+                    producto.cantidad_vencido += cantidad_nueva
             
             if commit:
                 producto.save()

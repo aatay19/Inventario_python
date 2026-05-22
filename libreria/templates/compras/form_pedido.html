@@ -37,7 +37,10 @@
                             <input type="text" id="filtro-productos" class="form-control border-0" placeholder="Buscar productos en esta lista...">
                         </div>
                     </div>
-                    <div class="col-md-3 text-end">
+                    <div class="col-md-3 text-end d-flex align-items-center justify-content-end gap-2">
+                        <button type="button" class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#modalAgregarOtro" title="Agregar producto de otro proveedor">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar Otro
+                        </button>
                         <div class="form-check form-switch d-inline-block">
                             <input class="form-check-input" type="checkbox" id="ver-seleccionados">
                             <label class="form-check-label small text-white" for="ver-seleccionados">Ver seleccionados</label>
@@ -143,7 +146,7 @@
                         <strong>Ajuste dinámico:</strong> Seleccione los productos para habilitar su edición. Al guardar, se actualizarán los niveles Mínimo y Máximo (traídos del registro original) de los productos seleccionados.
                     </div>
                     <div class="col-md-4 text-end">
-                        <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary me-2">Cancelar</a>
+                        <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary me-2" id="btn-cancelar">Cancelar</a>
                         <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not productos_con_detalles %}disabled{% endif %}>
                             Siguiente <i class="fas fa-arrow-right ms-2"></i>
                         </button>
@@ -152,6 +155,42 @@
             </div>
         </div>
     </form>
+
+    <!-- Modal: Agregar producto de otro proveedor -->
+    <div class="modal fade" id="modalAgregarOtro" tabindex="-1" aria-labelledby="modalAgregarOtroLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold" id="modalAgregarOtroLabel">
+                        <i class="bi bi-box-seam me-2"></i>Agregar Producto de Otro Proveedor
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Nota:</strong> Los productos que agregues aquí se vincularán automáticamente con <strong>{{ proveedor.razonsocial }}</strong> al confirmar el pedido.
+                    </div>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="buscar-otro-producto" class="form-control" placeholder="Buscar por nombre o código (mín. 2 caracteres)..." autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-limpiar-busqueda" title="Limpiar">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div id="resultados-busqueda">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-search fs-1"></i>
+                            <p class="mt-2">Escribe para buscar productos no asociados a este proveedor</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
@@ -160,17 +199,30 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const table = document.getElementById('tabla-pedido');
+    const tbody = table.querySelector('tbody');
     const form = document.getElementById('form-pedido');
     const filtroInput = document.getElementById('filtro-productos');
     const toggleSeleccionados = document.getElementById('ver-seleccionados');
+    const proveedorId = document.querySelector('input[name="proveedor_id"]').value;
+    
+    // Unidades de empaque disponibles (desde Django)
+    const unidadesChoices = [
+        {% for val, label in unidades_choices %}
+        { val: '{{ val }}', label: '{{ label }}' },
+        {% endfor %}
+    ];
     
     // Variables de paginación
     let paginaActual = 1;
     let itemsPorPagina = 50;
-    const allRows = Array.from(document.querySelectorAll('.row-producto'));
-    let filteredRows = [...allRows];
+    
+    function getAllRows() {
+        return Array.from(document.querySelectorAll('.row-producto'));
+    }
+    let filteredRows = [];
 
     function actualizarVista() {
+        const allRows = getAllRows();
         const query = filtroInput.value.toLowerCase().trim();
         const soloSeleccionados = toggleSeleccionados.checked;
 
@@ -186,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // 2. Paginación
         const totalItems = filteredRows.length;
         if (itemsPorPagina === 0) {
-            // Ver todos
             allRows.forEach(r => r.style.display = 'none');
             filteredRows.forEach(r => r.style.display = '');
             document.getElementById('paginacion-container').classList.add('d-none');
@@ -254,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
             row.classList.remove('table-info');
             inputs.forEach(input => input.disabled = true);
             
-            // Requerimiento 2: Resetear a valores registrados
+            // Resetear a valores registrados
             row.querySelector('input[name="minimo[]"]').value = row.dataset.origMin;
             row.querySelector('input[name="maximo[]"]').value = row.dataset.origMax;
             row.querySelector('select[name="unidad_empaque[]"]').value = row.dataset.origUnidad;
@@ -262,6 +313,13 @@ document.addEventListener('DOMContentLoaded', function() {
             row.querySelector('input[name="cant_empaques[]"]').value = 0;
             
             calcularSubtotal(row);
+            
+            // Si es un producto externo y se deselecciona, removerlo
+            if (row.classList.contains('row-externo')) {
+                row.remove();
+                actualizarVista();
+                return;
+            }
         }
     }
 
@@ -288,11 +346,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // --- Lógica de Persistencia (Corregir datos) ---
-    const storageKey = `pedido_data_prov_${document.querySelector('input[name="proveedor_id"]').value}`;
+    const storageKey = `pedido_data_prov_${proveedorId}`;
     
     function guardarEstado() {
         const data = {};
-        allRows.forEach(row => {
+        getAllRows().forEach(row => {
             const cb = row.querySelector('.item-checkbox');
             if (cb.checked) {
                 data[row.dataset.id] = {
@@ -301,7 +359,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     unidad: row.querySelector('select[name="unidad_empaque[]"]').value,
                     cant_por_empaque: row.querySelector('input[name="cant_por_empaque[]"]').value,
                     cant: row.querySelector('input[name="cant_empaques[]"]').value,
-                    detalle: row.querySelector('input[name="detalle[]"]').value
+                    detalle: row.querySelector('input[name="detalle[]"]').value,
+                    es_externo: row.classList.contains('row-externo'),
+                    nombre: row.querySelector('td.fw-bold')?.childNodes[0]?.textContent?.trim() || '',
+                    codigo: row.querySelector('.text-muted.x-small')?.textContent?.trim() || '',
+                    stock: row.querySelector('.badge')?.textContent?.trim() || '0',
                 };
             }
         });
@@ -311,9 +373,26 @@ document.addEventListener('DOMContentLoaded', function() {
     function restaurarEstado() {
         const saved = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
         Object.keys(saved).forEach(id => {
-            const row = document.getElementById(`row-${id}`);
+            const data = saved[id];
+            let row = document.getElementById(`row-${id}`);
+            
+            // Si es un producto externo que fue agregado dinámicamente, recrear la fila
+            if (!row && data.es_externo) {
+                const prod = {
+                    id: parseInt(id),
+                    nombre: data.nombre,
+                    codigo: data.codigo,
+                    stock: parseInt(data.stock) || 0,
+                    unidad_empaque: data.unidad,
+                    cantidad_por_empaque: parseInt(data.cant_por_empaque) || 1,
+                    stock_minimo: parseInt(data.min) || 0,
+                    stock_maximo: parseInt(data.max) || 0,
+                };
+                agregarFilaExterna(prod, false); // false = no auto-guardar aún
+                row = document.getElementById(`row-${id}`);
+            }
+            
             if (row) {
-                const data = saved[id];
                 const cb = row.querySelector('.item-checkbox');
                 cb.checked = true;
                 toggleRowSelection(row, true);
@@ -342,8 +421,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // IMPORTANTE: Antes de enviar, habilitar temporalmente todo para que Django reciba los arrays completos
     // y los indices coincidan en el backend. Quitamos validaciones de filas no seleccionadas para evitar bloqueos.
     form.addEventListener('submit', function() {
-        // Limpiar storage al confirmar (el backend se encargará del resto)
-        // Nota: Solo se limpia si el envío es exitoso.
         const rows = form.querySelectorAll('.row-producto');
         rows.forEach(row => {
             const isSelected = row.querySelector('.item-checkbox').checked;
@@ -360,6 +437,186 @@ document.addEventListener('DOMContentLoaded', function() {
             inputs.forEach(input => input.disabled = false);
         });
     });
+
+    // Limpiar storage si se cancela explícitamente
+    document.getElementById('btn-cancelar').addEventListener('click', function() {
+        sessionStorage.removeItem(storageKey);
+    });
+
+    // ====================================
+    // AGREGAR PRODUCTO DE OTRO PROVEEDOR
+    // ====================================
+    const buscarOtroInput = document.getElementById('buscar-otro-producto');
+    const resultadosDiv = document.getElementById('resultados-busqueda');
+    const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
+    let searchTimeout = null;
+
+    buscarOtroInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            resultadosDiv.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-search fs-1"></i>
+                    <p class="mt-2">Escribe al menos 2 caracteres para buscar</p>
+                </div>`;
+            return;
+        }
+        resultadosDiv.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Buscando productos...</p>
+            </div>`;
+        
+        searchTimeout = setTimeout(() => {
+            // Obtener IDs de productos ya en la tabla
+            const idsExistentes = getAllRows().map(r => r.dataset.id).join(',');
+            
+            fetch(`/compras/buscar_otros/${proveedorId}/?q=${encodeURIComponent(q)}&excluir=${idsExistentes}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.results.length === 0) {
+                        resultadosDiv.innerHTML = `
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-emoji-frown fs-1"></i>
+                                <p class="mt-2">No se encontraron productos que no estén ya asociados</p>
+                            </div>`;
+                        return;
+                    }
+                    let html = '<div class="list-group">';
+                    data.results.forEach(p => {
+                        const provsText = p.proveedores_actuales.length > 0 
+                            ? p.proveedores_actuales.join(', ') 
+                            : 'Sin proveedor asignado';
+                        html += `
+                            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center producto-resultado" 
+                                 data-producto='${JSON.stringify(p).replace(/'/g, "&#39;")}'>
+                                <div>
+                                    <div class="fw-bold">${p.nombre}</div>
+                                    <small class="text-muted">${p.codigo} | Stock: ${p.stock}</small>
+                                    <div class="text-muted" style="font-size:0.7rem;"><i class="bi bi-truck me-1"></i>${provsText}</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-success btn-agregar-externo" title="Agregar al pedido">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>`;
+                    });
+                    html += '</div>';
+                    resultadosDiv.innerHTML = html;
+
+                    // Click listeners para agregar
+                    resultadosDiv.querySelectorAll('.btn-agregar-externo').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const item = this.closest('.producto-resultado');
+                            const prod = JSON.parse(item.dataset.producto);
+                            agregarFilaExterna(prod, true);
+                            // Feedback visual
+                            item.classList.add('list-group-item-success');
+                            item.innerHTML = `<div class="text-success fw-bold"><i class="bi bi-check-circle me-2"></i>${prod.nombre} - Agregado al pedido</div>`;
+                            setTimeout(() => item.remove(), 1500);
+                        });
+                    });
+                })
+                .catch(err => {
+                    resultadosDiv.innerHTML = `
+                        <div class="text-center text-danger py-4">
+                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                            <p class="mt-2">Error al buscar productos</p>
+                        </div>`;
+                });
+        }, 350);
+    });
+
+    btnLimpiar.addEventListener('click', function() {
+        buscarOtroInput.value = '';
+        resultadosDiv.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-search fs-1"></i>
+                <p class="mt-2">Escribe para buscar productos no asociados a este proveedor</p>
+            </div>`;
+    });
+
+    // Reset modal al cerrarlo
+    document.getElementById('modalAgregarOtro').addEventListener('hidden.bs.modal', function() {
+        buscarOtroInput.value = '';
+        resultadosDiv.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-search fs-1"></i>
+                <p class="mt-2">Escribe para buscar productos no asociados a este proveedor</p>
+            </div>`;
+    });
+
+    function agregarFilaExterna(prod, autoGuardar) {
+        // Verificar que no exista ya
+        if (document.getElementById(`row-${prod.id}`)) return;
+        
+        // Construir opciones de unidad de empaque
+        let opcionesUnidad = '';
+        unidadesChoices.forEach(u => {
+            const sel = u.val === prod.unidad_empaque ? 'selected' : '';
+            opcionesUnidad += `<option value="${u.val}" ${sel}>${u.label}</option>`;
+        });
+
+        const newRow = document.createElement('tr');
+        newRow.className = 'row-producto row-externo table-warning';
+        newRow.id = `row-${prod.id}`;
+        newRow.dataset.id = prod.id;
+        newRow.dataset.origMin = prod.stock_minimo;
+        newRow.dataset.origMax = prod.stock_maximo;
+        newRow.dataset.origUnidad = prod.unidad_empaque;
+        newRow.dataset.origCantEmpaque = prod.cantidad_por_empaque;
+
+        newRow.innerHTML = `
+            <td class="text-center">
+                <input type="checkbox" name="items_seleccionados[]" value="${prod.id}" class="form-check-input item-checkbox" checked>
+            </td>
+            <input type="hidden" name="producto_id[]" value="${prod.id}">
+            <td class="fw-bold text-wrap small">
+                ${prod.nombre}
+                <div class="text-muted x-small" style="font-size: 0.70rem;">${prod.codigo}</div>
+                <span class="badge bg-warning text-dark mt-1" style="font-size:0.65rem;"><i class="bi bi-link-45deg me-1"></i>Nuevo vínculo</span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${prod.stock <= prod.stock_minimo ? 'bg-danger' : 'bg-secondary'}">
+                    ${prod.stock}
+                </span>
+            </td>
+            <td>
+                <input type="number" name="cant_empaques[]" value="0" 
+                       class="form-control form-control-sm text-center border-warning input-calc input-item" min="0">
+            </td>
+            <td>
+                <select name="unidad_empaque[]" class="form-select form-select-sm input-item">
+                    ${opcionesUnidad}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="cant_por_empaque[]" value="${prod.cantidad_por_empaque}" 
+                       class="form-control form-control-sm text-center input-factor input-item" min="1">
+            </td>
+            <td>
+                <input type="number" name="total_unidades[]" value="0" 
+                       class="form-control form-control-sm text-center fw-bold bg-light input-item" readonly>
+            </td>
+            <td>
+                <input type="number" name="minimo[]" value="${prod.stock_minimo}" class="form-control form-control-sm text-center input-item">
+            </td>
+            <td>
+                <input type="number" name="maximo[]" value="${prod.stock_maximo}" class="form-control form-control-sm text-center input-item">
+            </td>
+            <td>
+                <input type="text" name="detalle[]" value="Pedido generado vía módulo compras" class="form-control form-control-sm input-item">
+            </td>
+        `;
+
+        // Insertar al inicio de la tabla para que sea visible
+        tbody.insertBefore(newRow, tbody.firstChild);
+        
+        // Actualizar vista y guardar estado
+        actualizarVista();
+        if (autoGuardar) guardarEstado();
+    }
 });
 </script>
 <style>
@@ -367,11 +624,21 @@ document.addEventListener('DOMContentLoaded', function() {
     .table-dark { --bs-table-bg: #2d3436; }
     .row-locked { background-color: #f8f9fa; opacity: 0.8; }
     .row-locked .input-item { background-color: #e9ecef; cursor: not-allowed; }
+    .row-externo { border-left: 4px solid #ffc107 !important; }
+    .row-externo.table-warning { background-color: #fff8e1 !important; }
+    .row-externo.table-info { background-color: #e8f5e9 !important; border-left-color: #28a745 !important; }
     
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
       opacity: 1;
     }
+
+    .producto-resultado {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .producto-resultado:hover {
+        background-color: #f0f9ff !important;
+    }
 </style>
 {% endblock %}
-

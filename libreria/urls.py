@@ -26,6 +26,7 @@ urlpatterns = [
     path('compras/pedido/editar/<int:pedido_id>', views.compras_editar_pedido, name='compras.editar'),
     path('compras/eliminar_pedido/', views.compras_eliminar_pedido, name='compras.eliminar_pedido'),
     path('compras/historial/eliminar_todo/', views.compras_eliminar_todo_historial, name='compras.eliminar_todo_historial'),
+    path('compras/buscar_otros/<int:proveedor_id>/', views.buscar_productos_no_asociados, name='compras.buscar_otros'),
 
     # HistorialProveedoresNotas urls
     path('HistorialProveedoresNotas/', views.historial_proveedores_notas_index, name='HistorialProveedoresNotas.index'),
@@ -44,6 +45,7 @@ urlpatterns = [
     path('inventario/exportar/excel', views.exportar_inventario_excel, name='inventario.exportar_excel'),
     path('inventario/exportar/pdf', views.exportar_inventario_pdf, name='inventario.exportar_pdf'),
     path('inventario/importar', views.inventario_importar, name='inventario.importar'),
+    path('inventario/deposito-vencido', views.inventario_deposito_vencido, name='inventario.deposito_vencido'),
 
     # MovimientosInventario urls
     path('movimientos/', views.movimientos_inventario_index, name='movimientos.index'),
@@ -56,6 +58,13 @@ urlpatterns = [
     path('movimientos/entrada', views.movimientos_entrada_form, name='movimientos.entrada'),
     path('movimientos/entrada/confirmar', views.movimientos_entrada_confirmar, name='movimientos.entrada_confirmar'),
     path('movimientos/entrada/procesar', views.movimientos_entrada_procesar, name='movimientos.entrada_procesar'),
+    path('movimientos/traslado-vencido', views.movimientos_traslado_vencido_form, name='movimientos.traslado_vencido'),
+    path('movimientos/traslado-vencido/confirmar', views.movimientos_traslado_vencido_confirmar, name='movimientos.traslado_vencido_confirmar'),
+    path('movimientos/traslado-vencido/procesar', views.movimientos_traslado_vencido_procesar, name='movimientos.traslado_vencido_procesar'),
+    path('movimientos/carga-vencido', views.movimientos_carga_vencido_form, name='movimientos.carga_vencido'),
+    path('movimientos/carga-vencido/confirmar', views.movimientos_carga_vencido_confirmar, name='movimientos.carga_vencido_confirmar'),
+    path('movimientos/carga-vencido/procesar', views.movimientos_carga_vencido_procesar, name='movimientos.carga_vencido_procesar'),
+    path('movimientos/historial/vencidos/producto/<int:producto_id>/', views.movimientos_historial_vencidos_producto, name='movimientos.historial_vencidos_producto'),
     path('movimientos/historial/pedidos', views.movimientos_historial_pedidos, name='movimientos.historial_pedidos'),
     path('movimientos/historial/salidas', views.movimientos_historial_salidas, name='movimientos.historial_salidas'),
     path('movimientos/historial/entradas', views.movimientos_historial_entradas, name='movimientos.historial_entradas'),

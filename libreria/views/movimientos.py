@@ -185,8 +185,8 @@ def movimientos_salida_form(request):
     for p in qs:
         productos_json.append({
             'id': p.id_producto,
-            'nombre': p.nombre_producto,
-            'codigo': p.codigo_producto,
+            'nombre': str(p.nombre_producto or ""),
+            'codigo': str(p.codigo_producto or ""),
             'stock': p.cantidad,
             'rotacion': rotacion_map.get(p.id_producto, 0),
             'unidades_html': unidades_html,
@@ -284,6 +284,206 @@ def movimientos_salida_procesar(request):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_traslado_vencido_form(request):
+    from ..models import UnidadEmpaqueChoices
+    qs = Inventario.objects.all().order_by('nombre_producto')
+    unidades_choices = UnidadEmpaqueChoices.choices
+    unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
+    
+    productos_json = []
+    for p in qs:
+        productos_json.append({
+            'id': p.id_producto,
+            'nombre': str(p.nombre_producto or ""),
+            'codigo': str(p.codigo_producto or ""),
+            'stock': p.cantidad,
+            'unidades_html': unidades_html,
+            'id_unidad_default': p.unidad_empaque,
+            'cant_por_empaque': p.cantidad_por_empaque,
+            'total_empaques': p.total_empaques
+        })
+    return render(request, 'movimientos/form_traslado_vencido.html', {
+        'productos_json': productos_json,
+        'unidades_choices': unidades_choices,
+    })
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_traslado_vencido_confirmar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
+        items_resumen = []
+        for i in range(len(producto_ids)):
+            cant = int(totales[i])
+            if cant > 0:
+                producto = Inventario.objects.get(id_producto=producto_ids[i])
+                items_resumen.append({
+                    'producto': producto,
+                    'unidad': unidades_empaque[i],
+                    'cant_por_empaque': cants_por_empaque[i] if cants_por_empaque and i < len(cants_por_empaque) else producto.cantidad_por_empaque,
+                    'cant_empaques': cants_empaques[i],
+                    'total': cant,
+                })
+        if not items_resumen:
+            messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
+            return redirect('movimientos.traslado_vencido')
+        return render(request, 'movimientos/confirmar_traslado_vencido.html', {
+            'items': items_resumen,
+        })
+    return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_traslado_vencido_procesar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        
+        ahora = timezone.now()
+        lote_id = f"TV-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
+        traslados_creados = 0
+        try:
+            with transaction.atomic():
+                for i in range(len(producto_ids)):
+                    producto = Inventario.objects.get(id_producto=producto_ids[i])
+                    cant_traslado = int(totales[i])
+                    if cant_traslado > 0:
+                        if producto.cantidad < cant_traslado:
+                            raise forms.ValidationError(f"Stock insuficiente para {producto.nombre_producto}. Disponible: {producto.cantidad}")
+                        
+                        MovimientosInventario.objects.create(
+                            producto=producto,
+                            tipo_movimiento='TRASLADO_VENCIDO',
+                            cantidad=cant_traslado,
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id
+                        )
+                        producto.cantidad -= cant_traslado
+                        producto.cantidad_vencido += cant_traslado
+                        producto.save()
+                        traslados_creados += 1
+            messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al depósito de vencidos.')
+            return redirect('inventario.deposito_vencido')
+        except forms.ValidationError as e:
+            messages.error(request, str(e))
+            return redirect('movimientos.traslado_vencido')
+        except Exception as e:
+            messages.error(request, f'Error al procesar el traslado: {str(e)}')
+            return redirect('movimientos.traslado_vencido')
+    return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_carga_vencido_form(request):
+    from ..models import UnidadEmpaqueChoices
+    qs = Inventario.objects.all().order_by('nombre_producto')
+    unidades_choices = UnidadEmpaqueChoices.choices
+    unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
+    
+    productos_json = []
+    for p in qs:
+        productos_json.append({
+            'id': p.id_producto,
+            'nombre': str(p.nombre_producto or ""),
+            'codigo': str(p.codigo_producto or ""),
+            'stock_vencido': p.cantidad_vencido,
+            'unidades_html': unidades_html,
+            'id_unidad_default': p.unidad_empaque,
+            'cant_por_empaque': p.cantidad_por_empaque,
+        })
+    return render(request, 'movimientos/form_carga_vencido.html', {
+        'productos_json': productos_json,
+        'unidades_choices': unidades_choices,
+    })
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_carga_vencido_confirmar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
+        items_resumen = []
+        for i in range(len(producto_ids)):
+            cant = int(totales[i])
+            if cant > 0:
+                producto = Inventario.objects.get(id_producto=producto_ids[i])
+                items_resumen.append({
+                    'producto': producto,
+                    'unidad': unidades_empaque[i],
+                    'cant_por_empaque': cants_por_empaque[i] if cants_por_empaque and i < len(cants_por_empaque) else producto.cantidad_por_empaque,
+                    'cant_empaques': cants_empaques[i],
+                    'total': cant,
+                })
+        if not items_resumen:
+            messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
+            return redirect('movimientos.carga_vencido')
+        return render(request, 'movimientos/confirmar_carga_vencido.html', {
+            'items': items_resumen,
+        })
+    return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_carga_vencido_procesar(request):
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        
+        # Intentar obtener o crear el proveedor ficticio
+        proveedor_ficticio, _ = Proveedor.objects.get_or_create(
+            rif='J-00000000-0',
+            defaults={
+                'razonsocial': 'PISO DE VENTA (CARGA DIRECTA)',
+                'direccion': 'N/A',
+                'telefono': '0000'
+            }
+        )
+
+        ahora = timezone.now()
+        lote_id = f"CV-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
+        cargas_creadas = 0
+        try:
+            with transaction.atomic():
+                for i in range(len(producto_ids)):
+                    producto = Inventario.objects.get(id_producto=producto_ids[i])
+                    cant_carga = int(totales[i])
+                    if cant_carga > 0:
+                        MovimientosInventario.objects.create(
+                            producto=producto,
+                            tipo_movimiento='CARGA_VENCIDO',
+                            cantidad=cant_carga,
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id,
+                            proveedor=proveedor_ficticio
+                        )
+                        # SOLO suma al vencido, NO descuenta del principal
+                        producto.cantidad_vencido += cant_carga
+                        producto.save()
+                        cargas_creadas += 1
+            messages.success(request, f'Se cargaron exitosamente {cargas_creadas} productos directamente al depósito de vencidos.')
+            return redirect('inventario.deposito_vencido')
+        except Exception as e:
+            messages.error(request, f'Error al procesar la carga: {str(e)}')
+            return redirect('movimientos.carga_vencido')
+    return redirect('movimientos.index')
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_entrada_form(request):
     from ..models import UnidadEmpaqueChoices
     unidades_choices = UnidadEmpaqueChoices.choices
@@ -301,8 +501,8 @@ def movimientos_entrada_form(request):
     for p in qs:
         productos_json.append({
             'id': p.id_producto,
-            'nombre': p.nombre_producto,
-            'codigo': p.codigo_producto,
+            'nombre': str(p.nombre_producto or ""),
+            'codigo': str(p.codigo_producto or ""),
             'stock': p.cantidad,
             'rotacion': rotacion_map.get(p.id_producto, 0),
             'unidades_html': unidades_html,
@@ -409,6 +609,25 @@ def movimientos_entrada_procesar(request):
             messages.error(request, f'Error al procesar las entradas: {str(e)}')
             return redirect('movimientos.entrada')
     return redirect('movimientos.index')
+
+@login_required
+def movimientos_historial_vencidos_producto(request, producto_id):
+    from django.core.paginator import Paginator
+    from django.shortcuts import get_object_or_404
+    producto = get_object_or_404(Inventario, id_producto=producto_id)
+    movimientos_list = MovimientosInventario.objects.filter(
+        producto=producto,
+        tipo_movimiento__in=['TRASLADO_VENCIDO', 'CARGA_VENCIDO']
+    ).order_by('-fecha_movimiento')
+    
+    paginator = Paginator(movimientos_list, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'movimientos/historial_vencidos_producto.html', {
+        'producto': producto,
+        'page_obj': page_obj,
+    })
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')

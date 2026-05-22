@@ -104,6 +104,21 @@
             </ul>
         </li>
 
+        <!-- MERMAS / VENCIDOS -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle px-3 py-2" href="#">
+                <span><i class="bi bi-trash me-3 opacity-75"></i> Mermas / Vencidos</span>
+                <i class="bi bi-chevron-right small arrow-icon"></i>
+            </a>
+            <ul class="submenu list-unstyled ms-3 mt-1 rounded">
+                <li><a class="nav-link small py-2" href="{% url 'inventario.deposito_vencido' %}">➤ Depósito Vencido</a></li>
+                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                <li><a class="nav-link small py-2" href="{% url 'movimientos.traslado_vencido' %}">➤ Traslado a Vencidos</a></li>
+                <li><a class="nav-link small py-2" href="{% url 'movimientos.carga_vencido' %}">➤ Carga Directa a Vencidos</a></li>
+                {% endif %}
+            </ul>
+        </li>
+
         <!-- USUARIOS / BACKUP (Solo Soporte) -->
         {% if user.perfilusuario.rol|lower in 'soporte' %}
         <li class="nav-item mb-1">
