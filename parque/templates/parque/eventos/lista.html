@@ -97,8 +97,11 @@
                                     <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-sm btn-white border" title="Ver Detalles">
                                         <i class="bi bi-eye text-primary"></i>
                                     </a>
-                                    <a href="{% url 'parque:generar_pdf_evento' evento.pk %}" class="btn btn-sm btn-white border" title="Descargar PDF">
+                                    <a href="{% url 'parque:generar_pdf_evento' evento.pk %}" class="btn btn-sm btn-white border" title="Descargar PDF Evento Completo">
                                         <i class="bi bi-file-earmark-pdf text-danger"></i>
+                                    </a>
+                                    <a href="{% url 'parque:generar_pdf_abono1' evento.pk %}" class="btn btn-sm btn-white border" title="Imprimir Recibo Abono 1">
+                                        <i class="bi bi-printer text-success"></i>
                                     </a>
                                     <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-sm btn-white border" title="Editar">
                                         <i class="bi bi-pencil text-secondary"></i>

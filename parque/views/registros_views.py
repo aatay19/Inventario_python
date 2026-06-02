@@ -325,6 +325,56 @@ def generar_pdf_evento(request, pk):
     return response
 
 @login_required
+def generar_pdf_abono1(request, pk):
+    evento = get_object_or_404(Evento, pk=pk)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Título
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(190, 10, txt="RECIBO DE ABONO 1 (RESERVA)", ln=True, align='C')
+    pdf.ln(10)
+    
+    # Información General
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(190, 8, txt=f"Detalles del Evento", ln=True)
+    pdf.set_font("Helvetica", size=11)
+    pdf.cell(190, 7, txt=f"Evento: {evento.titulo}", ln=True)
+    if evento.nombre_reserva:
+        pdf.cell(190, 7, txt=f"Cliente: {evento.nombre_reserva}", ln=True)
+    if evento.zona:
+        pdf.cell(190, 7, txt=f"Zona: {evento.get_zona_display()}", ln=True)
+    pdf.cell(190, 7, txt=f"Fecha del Evento: {evento.fecha_inicio.strftime('%d/%m/%Y')}", ln=True)
+    
+    pdf.ln(5)
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(190, 8, txt="Información del Abono", ln=True)
+    pdf.set_font("Helvetica", size=11)
+    
+    if evento.fecha_abono1:
+        pdf.cell(190, 7, txt=f"Fecha de Abono: {evento.fecha_abono1.strftime('%d/%m/%Y')}", ln=True)
+    if evento.monto_abono1:
+        pdf.cell(190, 7, txt=f"Monto: ${evento.monto_abono1}", ln=True)
+    if evento.metodo_pago:
+        pdf.cell(190, 7, txt=f"Metodo de Pago: {evento.get_metodo_pago_display()}", ln=True)
+    if evento.nota_forma_pago:
+        pdf.cell(190, 7, txt=f"Nota: {evento.nota_forma_pago}", ln=True)
+    
+    # Generar respuesta
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="recibo_abono1_{evento.id}.pdf"'
+    
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, str):
+        response.write(pdf_output.encode('latin-1'))
+    else:
+        response.write(pdf_output)
+        
+    return response
+
+@login_required
 def lista_productos(request):
     from django.core.paginator import Paginator
     productos = ProductoParque.objects.all().order_by('nombre')

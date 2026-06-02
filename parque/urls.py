@@ -14,6 +14,7 @@ urlpatterns = [
     path('eventos/finalizar/<int:pk>/', views.finalizar_evento, name='finalizar_evento'),
     path('eventos/detalle/<int:pk>/', views.detalle_evento, name='detalle_evento'),
     path('eventos/pdf/<int:pk>/', views.generar_pdf_evento, name='generar_pdf_evento'),
+    path('eventos/pdf_abono1/<int:pk>/', views.generar_pdf_abono1, name='generar_pdf_abono1'),
 
     # Productos CRUD
     path('productos/', views.lista_productos, name='lista_productos'),
