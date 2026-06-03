@@ -122,6 +122,16 @@ def inventario_editar(request, id_producto):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+def inventario_ver(request, id_producto):
+    producto = get_object_or_404(Inventario, id_producto=id_producto)
+    formulario_inventario = InventarioForm(instance=producto)
+    for field in formulario_inventario.fields.values():
+        field.disabled = True
+    return render(request, 'inventario/ver.html', {'formulario_inventario': formulario_inventario, 'solo_lectura': True})
+
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_eliminar(request, id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()

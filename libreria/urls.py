@@ -40,6 +40,7 @@ urlpatterns = [
     path('inventario/', views.inventario_index, name='inventario.index'),
     path('inventario/crear', views.inventario_crear, name='inventario.crear'),
     path('inventario/editar<int:id_producto>', views.inventario_editar, name='inventario.editar'),
+    path('inventario/ver<int:id_producto>', views.inventario_ver, name='inventario.ver'),
     path('inventario/eliminar<int:id_producto>', views.inventario_eliminar, name='inventario.eliminar'),
     path('inventario/editar<int:id_producto>', views.inventario_editar, name='inventario.editar'),
     path('inventario/exportar/excel', views.exportar_inventario_excel, name='inventario.exportar_excel'),

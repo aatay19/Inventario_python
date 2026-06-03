@@ -613,6 +613,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Insertar al inicio de la tabla para que sea visible
         tbody.insertBefore(newRow, tbody.firstChild);
         
+        // Eliminar mensaje de "no tiene productos" si existe
+        const emptyMsg = tbody.querySelector('td[colspan="10"]');
+        if (emptyMsg) {
+            emptyMsg.closest('tr').remove();
+        }
+
+        // Habilitar el botón de siguiente
+        document.getElementById('btn-procesar').disabled = false;
+        
         // Actualizar vista y guardar estado
         actualizarVista();
         if (autoGuardar) guardarEstado();

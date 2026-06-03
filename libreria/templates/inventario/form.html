@@ -29,8 +29,10 @@
    {% endfor %}
 
 <div class="d-flex justify-content-between mt-4">
-    <a href="{% url 'inventario.index' %}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i>Volver</a>
-    <input name="" id="" class="btn btn-success" type="submit" value="Guardar Producto">  
+    <a href="javascript:history.back()" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i>Volver</a>
+    {% if not solo_lectura %}
+        <input name="" id="" class="btn btn-success" type="submit" value="Guardar Producto">  
+    {% endif %}
 </div>
 </form>
 
