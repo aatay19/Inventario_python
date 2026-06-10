@@ -71,8 +71,8 @@
         <option value="name_desc" {% if order == 'name_desc' %}selected{% endif %}>Nombre ↓</option>
         <option value="cantidad_desc" {% if order == 'cantidad_desc' %}selected{% endif %}>Cantidad ↓</option>
         <option value="cantidad_asc" {% if order == 'cantidad_asc' %}selected{% endif %}>Cantidad ↑</option>
-        <option value="rotacion_desc" {% if order == 'rotacion_desc' %}selected{% endif %}>Mayor Rotación (30d)</option>
-        <option value="rotacion_asc" {% if order == 'rotacion_asc' %}selected{% endif %}>Menor Rotación (30d)</option>
+        <option value="rotacion_desc" {% if order == 'rotacion_desc' %}selected{% endif %}>Mayor Rotación (6d)</option>
+        <option value="rotacion_asc" {% if order == 'rotacion_asc' %}selected{% endif %}>Menor Rotación (6d)</option>
         <option value="entradas_desc" {% if order == 'entradas_desc' %}selected{% endif %}>Mayor Ingreso (Histórico)</option>
         <option value="entradas_asc" {% if order == 'entradas_asc' %}selected{% endif %}>Menor Ingreso (Histórico)</option>
         <option value="salidas_desc" {% if order == 'salidas_desc' %}selected{% endif %}>Mayor Salida (Histórico)</option>
@@ -102,7 +102,7 @@
           <th>Stock Vencido</th>
           <th class="text-center">Hist. Entradas</th>
           <th class="text-center">Hist. Salidas</th>
-          <th class="text-center">Rotación (30d)</th>
+          <th class="text-center">Rotación (6d)</th>
           <th>Unidad Empaque</th>
           <th>Cant. x Empaque</th>
           <th>Total Empaques</th>
@@ -139,16 +139,16 @@
             <span class="text-danger fw-bold"><i class="fas fa-arrow-up small"></i> {{ producto.total_salidas_hist|default:0 }}</span>
           </td>
           <td class="text-center">
-            {% if producto.rotacion_30d >= 50 %}
+            {% if producto.rotacion_6d >= 50 %}
               <span class="badge rounded-pill bg-danger border border-white shadow-sm" title="Alta Rotación">
-                <i class="fas fa-fire me-1"></i> {{ producto.rotacion_30d|default:0 }}
+                <i class="fas fa-fire me-1"></i> {{ producto.rotacion_6d|default:0 }}
               </span>
-            {% elif producto.rotacion_30d <= 5 and producto.cantidad > 0 %}
+            {% elif producto.rotacion_6d <= 5 and producto.cantidad > 0 %}
               <span class="badge rounded-pill bg-primary bg-opacity-75" title="Baja Rotación">
-                <i class="fas fa-snowflake me-1"></i> {{ producto.rotacion_30d|default:0 }}
+                <i class="fas fa-snowflake me-1"></i> {{ producto.rotacion_6d|default:0 }}
               </span>
             {% else %}
-              <span class="badge rounded-pill bg-light text-dark border">{{ producto.rotacion_30d|default:0 }}</span>
+              <span class="badge rounded-pill bg-light text-dark border">{{ producto.rotacion_6d|default:0 }}</span>
             {% endif %}
           </td>
           <td>{{ producto.get_unidad_empaque_display }}</td>

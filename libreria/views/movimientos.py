@@ -173,12 +173,12 @@ def movimientos_salida_form(request):
     qs = Inventario.objects.all().order_by('nombre_producto')
     unidades_choices = UnidadEmpaqueChoices.choices
     unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
-    hace_30_dias = timezone.now() - timedelta(days=30)
+    hace_6_dias = timezone.now() - timedelta(days=6)
     rotacion_map = {
         item['producto_id']: item['total']
         for item in MovimientosInventario.objects.filter(
             tipo_movimiento='SALIDA',
-            fecha_movimiento__gte=hace_30_dias
+            fecha_movimiento__gte=hace_6_dias
         ).values('producto_id').annotate(total=Sum('cantidad'))
     }
     productos_json = []
@@ -488,12 +488,12 @@ def movimientos_entrada_form(request):
     from ..models import UnidadEmpaqueChoices
     unidades_choices = UnidadEmpaqueChoices.choices
     unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
-    hace_30_dias = timezone.now() - timedelta(days=30)
+    hace_6_dias = timezone.now() - timedelta(days=6)
     rotacion_map = {
         item['producto_id']: item['total']
         for item in MovimientosInventario.objects.filter(
             tipo_movimiento='SALIDA',
-            fecha_movimiento__gte=hace_30_dias
+            fecha_movimiento__gte=hace_6_dias
         ).values('producto_id').annotate(total=Sum('cantidad'))
     }
     qs = Inventario.objects.all().order_by('nombre_producto')

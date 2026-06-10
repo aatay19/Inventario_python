@@ -47,11 +47,11 @@ def index(request):
         cantidad__lte=F('stock_minimo')
     ).values('nombre_producto', 'cantidad', 'stock_minimo')
 
-    hace_30_dias = timezone.now() - timedelta(days=30)
+    hace_6_dias = timezone.now() - timedelta(days=6)
     
     mayor_rotacion = MovimientosInventario.objects.filter(
         tipo_movimiento='SALIDA',
-        fecha_movimiento__gte=hace_30_dias
+        fecha_movimiento__gte=hace_6_dias
     ).values('producto__nombre_producto').annotate(
         total=Sum('cantidad')
     ).order_by('-total')[:5]
@@ -60,7 +60,7 @@ def index(request):
         total_salidas=Sum(
             'movimientosinventario__cantidad',
             filter=Q(movimientosinventario__tipo_movimiento='SALIDA') & 
-                   Q(movimientosinventario__fecha_movimiento__gte=hace_30_dias)
+                   Q(movimientosinventario__fecha_movimiento__gte=hace_6_dias)
         )
     ).filter(cantidad__gt=0).order_by('total_salidas', '-cantidad')[:5]
 

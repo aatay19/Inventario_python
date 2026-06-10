@@ -40,12 +40,12 @@ def inventario_index(request):
     if low and low.lower() in ('1', 'true', 'on'):
         qs = qs.filter(cantidad__lte=F('stock_minimo'))
 
-    hace_30_dias = timezone.now() - timedelta(days=30)
+    hace_6_dias = timezone.now() - timedelta(days=6)
     qs = qs.annotate(
-        rotacion_30d=Sum(
+        rotacion_6d=Sum(
             'movimientosinventario__cantidad',
             filter=Q(movimientosinventario__tipo_movimiento='SALIDA') & 
-                   Q(movimientosinventario__fecha_movimiento__gte=hace_30_dias)
+                   Q(movimientosinventario__fecha_movimiento__gte=hace_6_dias)
         ),
         total_entradas_hist=Sum(
             'movimientosinventario__cantidad',
@@ -64,9 +64,9 @@ def inventario_index(request):
     elif order == 'cantidad_asc':
         qs = qs.order_by('cantidad')
     elif order == 'rotacion_desc':
-        qs = qs.order_by('-rotacion_30d', '-nombre_producto')
+        qs = qs.order_by('-rotacion_6d', '-nombre_producto')
     elif order == 'rotacion_asc':
-        qs = qs.order_by('rotacion_30d', 'nombre_producto')
+        qs = qs.order_by('rotacion_6d', 'nombre_producto')
     elif order == 'entradas_desc':
         qs = qs.order_by('-total_entradas_hist', '-nombre_producto')
     elif order == 'entradas_asc':
