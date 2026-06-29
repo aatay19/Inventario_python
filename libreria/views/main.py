@@ -17,6 +17,9 @@ def index(request):
             request.session['consulta_redirected'] = True
             return redirect('movimientos.index')
 
+    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol == 'almacenista':
+        return redirect('movimientos.entrada')
+
     total_proveedores = Proveedor.objects.count()
     total_productos = Inventario.objects.count()
 

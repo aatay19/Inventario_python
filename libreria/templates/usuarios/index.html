@@ -54,6 +54,8 @@
                                     <span class="badge bg-info text-dark">Inventario</span>
                                 {% elif usuario.rol == 'parque' %}
                                     <span class="badge bg-success">Parque</span>
+                                {% elif usuario.rol == 'almacenista' %}
+                                    <span class="badge bg-warning text-dark">Almacenista</span>
                                 {% else %}
                                     <span class="badge bg-secondary">Consulta</span>
                                 {% endif %}

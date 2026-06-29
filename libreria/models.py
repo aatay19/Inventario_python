@@ -150,6 +150,7 @@ class PerfilUsuario(models.Model):
         ('consulta', 'Consulta'),
         ('soporte', 'Soporte'),
         ('parque', 'Parque'),
+        ('almacenista', 'Almacenista'),
     ]
  
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")

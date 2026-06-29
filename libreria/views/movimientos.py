@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
 from django import forms
-from .auth import es_inventario_acceso, es_pleno_acceso
+from .auth import es_inventario_acceso, es_pleno_acceso, es_almacenista_o_superior
 from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra
 from ..forms import MovimientosInventarioForm, HistorialProveedoresNotasForm
 
@@ -167,7 +167,7 @@ def movimientos_inventario_eliminar(request, id_movimiento):
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_almacenista_o_superior, login_url='index')
 def movimientos_salida_form(request):
     from ..models import UnidadEmpaqueChoices
     qs = Inventario.objects.all().order_by('nombre_producto')
@@ -200,7 +200,7 @@ def movimientos_salida_form(request):
     })
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_almacenista_o_superior, login_url='index')
 def movimientos_salida_confirmar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -231,7 +231,7 @@ def movimientos_salida_confirmar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_almacenista_o_superior, login_url='index')
 def movimientos_salida_procesar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -483,7 +483,7 @@ def movimientos_carga_vencido_procesar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_almacenista_o_superior, login_url='index')
 def movimientos_entrada_form(request):
     from ..models import UnidadEmpaqueChoices
     unidades_choices = UnidadEmpaqueChoices.choices
@@ -518,7 +518,7 @@ def movimientos_entrada_form(request):
     })
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_almacenista_o_superior, login_url='index')
 def movimientos_entrada_confirmar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -554,7 +554,7 @@ def movimientos_entrada_confirmar(request):
     return redirect('movimientos.index')
 
 @login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
+@user_passes_test(es_almacenista_o_superior, login_url='index')
 def movimientos_entrada_procesar(request):
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
