@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Historial de Vencidos{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'movimientos.index' %}">Movimientos</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Historial de Vencidos</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">
+                <i class="bi bi-clock-history me-2 text-warning"></i>Historial de Vencidos
+            </h2>
+        </div>
+        <div class="d-flex gap-2">
+            {% if user.perfilusuario.rol|lower != 'consulta' %}
+            <a href="{% url 'movimientos.traslado_vencido' %}" class="btn btn-warning">
+                <i class="fas fa-exchange-alt me-2"></i>Nuevo Traslado
+            </a>
+            <a href="{% url 'movimientos.carga_vencido' %}" class="btn btn-info text-white">
+                <i class="fas fa-plus-circle me-2"></i>Carga Directa
+            </a>
+            {% endif %}
+            <a href="{% url 'inventario.deposito_vencido' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-archive me-2"></i>Ver Depósito
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Buscar Producto</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="q" value="{{ q }}" class="form-control border-start-0"
+                               placeholder="Nombre o código del producto...">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Tipo de Operación</label>
+                    <select name="tipo" class="form-select">
+                        <option value="" {% if not tipo_filtro %}selected{% endif %}>Todos los tipos</option>
+                        <option value="TRASLADO_VENCIDO" {% if tipo_filtro == 'TRASLADO_VENCIDO' %}selected{% endif %}>
+                            Traslado a Vencidos
+                        </option>
+                        <option value="CARGA_VENCIDO" {% if tipo_filtro == 'CARGA_VENCIDO' %}selected{% endif %}>
+                            Carga Directa a Vencidos
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                    <a href="{% url 'movimientos.historial_vencidos' %}" class="btn btn-outline-secondary" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if historial_list %}
+        {% for lote in historial_list %}
+            {% with tipo_mov=lote.info.tipo_movimiento %}
+            <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+                <!-- Cabecera del lote -->
+                <div class="card-header text-white py-3
+                    {% if tipo_mov == 'TRASLADO_VENCIDO' %}bg-warning{% else %}bg-info{% endif %}">
+                    <div class="row align-items-center">
+                        <div class="col-md-7">
+                            <h5 class="mb-0 fw-bold {% if tipo_mov == 'CARGA_VENCIDO' %}text-white{% endif %}">
+                                {% if tipo_mov == 'TRASLADO_VENCIDO' %}
+                                    <i class="fas fa-exchange-alt me-2"></i>Traslado a Vencidos
+                                {% else %}
+                                    <i class="fas fa-plus-circle me-2"></i>Carga Directa a Vencidos
+                                {% endif %}
+                                &mdash; {{ lote.info.fecha_movimiento|date:"d/m/Y H:i:s" }}
+                            </h5>
+                        </div>
+                        <div class="col-md-5 text-md-end small
+                            {% if tipo_mov == 'TRASLADO_VENCIDO' %}text-dark opacity-75{% else %}text-white-50{% endif %}">
+                            Lote: <code class="{% if tipo_mov == 'TRASLADO_VENCIDO' %}text-dark{% else %}text-white{% endif %}">
+                                {{ lote.info.codigo_lote }}
+                            </code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen -->
+                <div class="card-body bg-light border-bottom">
+                    <div class="row align-items-center">
+                        <div class="col-xl-4 col-md-12 mb-2 mb-xl-0">
+                            <span class="text-muted small d-block">Tipo de operación:</span>
+                            {% if tipo_mov == 'TRASLADO_VENCIDO' %}
+                                <span class="badge bg-warning text-dark fs-6">
+                                    <i class="fas fa-exchange-alt me-1"></i>Traslado desde Inventario
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info text-white fs-6">
+                                    <i class="fas fa-plus-circle me-1"></i>Carga Directa
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="col-xl-4 col-md-12 mb-2 mb-xl-0">
+                            <span class="text-muted small d-block">Resumen:</span>
+                            <span class="badge bg-white text-dark border me-1">
+                                {{ lote.info.total_items }} Producto{% if lote.info.total_items != 1 %}s{% endif %}
+                            </span>
+                            <span class="badge bg-white text-dark border">
+                                {{ lote.info.total_unidades }} Unidades Totales
+                            </span>
+                        </div>
+                        <div class="col-xl-4 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
+                            <!-- Botón PDF -->
+                            <a href="{% url 'movimientos.exportar_vencido_pdf' %}?lote={{ lote.info.codigo_lote }}&tipo={{ tipo_mov }}"
+                               class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap"
+                               target="_blank" title="Descargar Comprobante PDF">
+                                <i class="fas fa-file-pdf me-1"></i> PDF
+                            </a>
+
+                            <!-- Botón Detalles (collapse) -->
+                            <button class="btn btn-outline-secondary rounded-pill px-3 text-nowrap"
+                                    type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#detalle-{{ forloop.counter }}"
+                                    aria-expanded="true" title="Ver Detalles">
+                                <i class="bi bi-list-ul me-1"></i> Detalles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de detalles (colapsable, abierta por defecto) -->
+                <div class="collapse show" id="detalle-{{ forloop.counter }}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr class="small text-muted text-uppercase">
+                                    <th class="ps-4">Producto</th>
+                                    <th class="text-center">Cant. Unidades</th>
+                                    <th class="text-center">Unidad Empaque</th>
+                                    <th class="text-center">U. x Empaque</th>
+                                    <th class="text-center pe-4">Total Empaques</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in lote.detalles %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
+                                        <div class="small text-muted font-monospace">{{ item.producto.codigo_producto }}</div>
+                                    </td>
+                                    <td class="text-center fw-bold text-warning fs-6">
+                                        {{ item.cantidad }}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border font-monospace">
+                                            {{ item.unidad_empaque|default:"-" }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        {{ item.producto.cantidad_por_empaque }}
+                                    </td>
+                                    <td class="text-center pe-4">
+                                        {% if item.cantidad_empaques and item.cantidad_empaques > 0 %}
+                                            <span class="badge bg-secondary">{{ item.cantidad_empaques }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+        {% endfor %}
+
+        <!-- Paginación -->
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Paginación" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}">
+                            Anterior
+                        </a>
+                    </li>
+                {% endif %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}">
+                            Siguiente
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-trash-alt fa-4x text-muted mb-4 d-block opacity-25"></i>
+            <p class="text-muted fs-5 mb-1">No se encontraron registros de vencidos.</p>
+            <p class="text-muted small">Usa los filtros de arriba o registra un nuevo traslado o carga directa.</p>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .card-header.bg-warning h5 { color: #333; }
+    .card { transition: box-shadow 0.2s; }
+    .card:hover { box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.1) !important; }
+</style>
+{% endblock %}

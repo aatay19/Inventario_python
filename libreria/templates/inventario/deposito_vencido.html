@@ -113,7 +113,7 @@
             {% endif %}
           {% endfor %}
 
-          {% if page_obj.has_next %}
+      {% if page_obj.has_next %}
             <li class="page-item">
               <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if categoria %}categoria={{ categoria }}&{% endif %}order={{ order }}&page={{ page_obj.next_page_number }}">Siguiente</a>
             </li>
@@ -124,5 +124,44 @@
     </div>
   </div>
 </div>
+
+{% if pdf_lote %}
+<!-- Modal de descarga de PDF -->
+<div class="modal fade" id="modalPdfVencido" tabindex="-1" aria-labelledby="modalPdfVencidoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header {% if pdf_tipo == 'TRASLADO_VENCIDO' %}bg-warning{% else %}bg-info text-white{% endif %}">
+        <h5 class="modal-title fw-bold" id="modalPdfVencidoLabel">
+          <i class="fas fa-file-pdf me-2"></i>
+          {% if pdf_tipo == 'TRASLADO_VENCIDO' %}Comprobante de Traslado{% else %}Comprobante de Carga Directa{% endif %}
+        </h5>
+        <button type="button" class="btn-close {% if pdf_tipo == 'CARGA_VENCIDO' %}btn-close-white{% endif %}" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+        <p class="fw-bold fs-5 mb-1">¡Operación registrada exitosamente!</p>
+        <p class="text-muted mb-3">
+          El comprobante PDF ha sido generado y está listo para descargar.<br>
+          <small class="text-muted">Lote: <code>{{ pdf_lote }}</code></small>
+        </p>
+        <a href="{% url 'movimientos.exportar_vencido_pdf' %}?lote={{ pdf_lote }}&tipo={{ pdf_tipo }}"
+           class="btn btn-success btn-lg px-4 shadow-sm">
+          <i class="fas fa-download me-2"></i>Descargar Comprobante PDF
+        </a>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var modal = new bootstrap.Modal(document.getElementById('modalPdfVencido'));
+    modal.show();
+  });
+</script>
+{% endif %}
 
 {% endblock %}

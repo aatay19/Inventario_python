@@ -68,12 +68,14 @@ urlpatterns = [
     path('movimientos/carga-vencido/confirmar', views.movimientos_carga_vencido_confirmar, name='movimientos.carga_vencido_confirmar'),
     path('movimientos/carga-vencido/procesar', views.movimientos_carga_vencido_procesar, name='movimientos.carga_vencido_procesar'),
     path('movimientos/historial/vencidos/producto/<int:producto_id>/', views.movimientos_historial_vencidos_producto, name='movimientos.historial_vencidos_producto'),
+    path('movimientos/historial/vencidos', views.movimientos_historial_vencidos, name='movimientos.historial_vencidos'),
     path('movimientos/historial/pedidos', views.movimientos_historial_pedidos, name='movimientos.historial_pedidos'),
     path('movimientos/historial/salidas', views.movimientos_historial_salidas, name='movimientos.historial_salidas'),
     path('movimientos/historial/entradas', views.movimientos_historial_entradas, name='movimientos.historial_entradas'),
     path('movimientos/historial/exportar/pdf', views.exportar_lote_pdf, name='movimientos.exportar_lote_pdf'),
     path('movimientos/lote/eliminar', views.movimientos_lote_eliminar, name='movimientos.lote_eliminar'),
     path('movimientos/lote/editar/<str:lote_id>', views.movimientos_lote_editar, name='movimientos.lote_editar'),
+    path('movimientos/vencidos/exportar/pdf', views.exportar_vencido_pdf, name='movimientos.exportar_vencido_pdf'),
 
     #usuarios urls
     path('usuarios/', views.usuarios_index, name='usuarios.index'),

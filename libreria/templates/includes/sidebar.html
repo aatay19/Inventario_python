@@ -148,6 +148,7 @@
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
                 <li><a class="nav-link small py-2" href="{% url 'inventario.deposito_vencido' %}">➤ Depósito Vencido</a>
                 </li>
+                <li><a class="nav-link small py-2" href="{% url 'movimientos.historial_vencidos' %}">➤ Historial Vencidos</a></li>
                 {% if user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.traslado_vencido' %}">➤ Traslado a
                         Vencidos</a></li>

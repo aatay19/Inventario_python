@@ -377,7 +377,9 @@ def movimientos_traslado_vencido_procesar(request):
                         producto.cantidad_vencido += cant_traslado
                         producto.save()
                         traslados_creados += 1
-            messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al depósito de vencidos.')
+            messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al deposito de vencidos.')
+            request.session['ultimo_vencido_pdf_lote'] = lote_id
+            request.session['ultimo_vencido_pdf_tipo'] = 'TRASLADO_VENCIDO'
             return redirect('inventario.deposito_vencido')
         except forms.ValidationError as e:
             messages.error(request, str(e))
@@ -482,7 +484,9 @@ def movimientos_carga_vencido_procesar(request):
                         producto.cantidad_vencido += cant_carga
                         producto.save()
                         cargas_creadas += 1
-            messages.success(request, f'Se cargaron exitosamente {cargas_creadas} productos directamente al depósito de vencidos.')
+            messages.success(request, f'Se cargaron exitosamente {cargas_creadas} productos directamente al deposito de vencidos.')
+            request.session['ultimo_vencido_pdf_lote'] = lote_id
+            request.session['ultimo_vencido_pdf_tipo'] = 'CARGA_VENCIDO'
             return redirect('inventario.deposito_vencido')
         except Exception as e:
             messages.error(request, f'Error al procesar la carga: {str(e)}')
@@ -645,6 +649,68 @@ def movimientos_historial_salidas(request):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_historial_entradas(request):
     return _historial_agrupado(request, 'ENTRADA', 'Historial de Entradas')
+
+@login_required
+@user_passes_test(es_inventario_acceso, login_url='index')
+def movimientos_historial_vencidos(request):
+    """Historial de traslados y cargas directas al depósito de vencidos."""
+    q = request.GET.get('q', '').strip()
+    tipo_filtro = request.GET.get('tipo', '').strip()  # '' | 'TRASLADO_VENCIDO' | 'CARGA_VENCIDO'
+
+    tipos_validos = ['TRASLADO_VENCIDO', 'CARGA_VENCIDO']
+    if tipo_filtro in tipos_validos:
+        qs = MovimientosInventario.objects.filter(tipo_movimiento=tipo_filtro).select_related('producto', 'proveedor')
+    else:
+        qs = MovimientosInventario.objects.filter(tipo_movimiento__in=tipos_validos).select_related('producto', 'proveedor')
+
+    if q:
+        qs = qs.filter(Q(producto__nombre_producto__icontains=q) | Q(producto__codigo_producto__icontains=q))
+
+    from django.db.models.functions import Cast
+    from django.db.models import CharField, Case, When
+    qs_agrupado = qs.annotate(
+        lote_final=Case(
+            When(Q(codigo_lote__isnull=True) | Q(codigo_lote=''), then=Cast('id_movimiento', CharField())),
+            default='codigo_lote'
+        )
+    )
+
+    lotes_ids = qs_agrupado.values_list('lote_final', flat=True).distinct().order_by('-fecha_movimiento')
+
+    paginator = Paginator(lotes_ids, 10)
+    page_number = request.GET.get('page')
+    lotes_page = paginator.get_page(page_number)
+
+    historial_final = []
+    for lid in lotes_page:
+        if lid.isdigit() and not qs.filter(codigo_lote=lid).exists():
+            movs_del_lote = qs.filter(id_movimiento=int(lid))
+            es_individual = True
+        else:
+            movs_del_lote = qs.filter(codigo_lote=lid)
+            es_individual = False
+
+        if movs_del_lote.exists():
+            primero = movs_del_lote.first()
+            tipo_mov = primero.tipo_movimiento
+            historial_final.append({
+                'info': {
+                    'codigo_lote': lid if not es_individual else 'Individual (Sin Lote)',
+                    'fecha_movimiento': primero.fecha_movimiento,
+                    'tipo_movimiento': tipo_mov,
+                    'total_items': movs_del_lote.count(),
+                    'total_unidades': movs_del_lote.aggregate(Sum('cantidad'))['cantidad__sum'],
+                },
+                'detalles': movs_del_lote
+            })
+
+    return render(request, 'movimientos/historial_vencidos.html', {
+        'page_obj': lotes_page,
+        'historial_list': historial_final,
+        'tipo_filtro': tipo_filtro,
+        'q': q,
+        'titulo': 'Historial de Vencidos',
+    })
 
 def _historial_agrupado(request, tipo, titulo):
     q = request.GET.get('q', '').strip()
@@ -832,7 +898,7 @@ def exportar_lote_pdf(request):
         titulo_doc = "COMPROBANTE ENTRADA" if tipo == 'ENTRADA' else "Comprobante de Salida"
         pdf.cell(0, 10, titulo_doc, ln=True, align="C")
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 10, f"Fecha: {qs[0].fecha_movimiento.strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align="C")
+        pdf.cell(0, 10, f"Fecha: {timezone.localtime(qs[0].fecha_movimiento).strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align="C")
         pdf.ln(5)
         
         pdf.set_font("Helvetica", "B", 12)
@@ -1036,3 +1102,104 @@ def movimientos_lote_editar(request, lote_id):
         'unidades_choices': UnidadEmpaqueChoices.choices,
         'productos_disponibles': productos_disponibles
     })
+
+
+@login_required
+@user_passes_test(es_almacenista_o_superior, login_url='index')
+def exportar_vencido_pdf(request):
+    """Genera PDF para traslado a vencidos o carga directa a vencidos."""
+    lote_id = request.GET.get('lote')
+    tipo = request.GET.get('tipo', 'TRASLADO_VENCIDO')
+
+    try:
+        from fpdf import FPDF
+        from django.http import HttpResponse
+
+        qs = MovimientosInventario.objects.filter(
+            codigo_lote=lote_id
+        ).select_related('producto', 'proveedor').order_by('id_movimiento')
+
+        if not qs.exists():
+            messages.error(request, 'No se encontro el lote especificado para generar el PDF.')
+            return redirect('inventario.deposito_vencido')
+
+        ahora = timezone.localtime(qs[0].fecha_movimiento)
+
+        if tipo == 'TRASLADO_VENCIDO':
+            titulo_doc = 'COMPROBANTE DE TRASLADO A VENCIDOS'
+            subtitulo = 'Traslado desde inventario principal al deposito de vencidos'
+        else:
+            titulo_doc = 'COMPROBANTE DE CARGA DIRECTA A VENCIDOS'
+            subtitulo = 'Carga directa de productos al deposito de vencidos'
+
+        pdf = FPDF()
+        pdf.add_page()
+
+        # Encabezado
+        pdf.set_font('Helvetica', 'B', 13)
+        pdf.cell(0, 10, titulo_doc, ln=True, align='C')
+        pdf.set_font('Helvetica', '', 8)
+        pdf.cell(0, 5, subtitulo, ln=True, align='C')
+        pdf.cell(0, 5, f'Fecha: {ahora.strftime("%d/%m/%Y %H:%M:%S")}', ln=True, align='C')
+        pdf.cell(0, 5, f'Codigo de Lote: {lote_id}', ln=True, align='C')
+        pdf.ln(6)
+
+        # Separador
+        pdf.set_draw_color(200, 200, 200)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+
+        # Tabla header
+        pdf.set_font('Helvetica', 'B', 7)
+        pdf.set_fill_color(50, 50, 50)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(35, 8, 'Codigo', 1, 0, 'C', True)
+        pdf.cell(65, 8, 'Producto', 1, 0, 'C', True)
+        pdf.cell(25, 8, 'Cant. Unidades', 1, 0, 'C', True)
+        pdf.cell(25, 8, 'U. x Empaque', 1, 0, 'C', True)
+        pdf.cell(40, 8, 'Total Empaques', 1, 1, 'C', True)
+
+        pdf.set_font('Helvetica', '', 7)
+        pdf.set_text_color(0, 0, 0)
+        fill = False
+        total_unidades = 0
+        for mov in qs:
+            pdf.set_fill_color(245, 245, 245) if fill else pdf.set_fill_color(255, 255, 255)
+            nombre = (mov.producto.nombre_producto or '')[:38]
+            codigo = (mov.producto.codigo_producto or '')
+            cant_por_emp = mov.producto.cantidad_por_empaque or 1
+            empaques = round(mov.cantidad / cant_por_emp, 2)
+            pdf.cell(35, 7, str(codigo), 1, 0, 'L', fill)
+            pdf.cell(65, 7, nombre, 1, 0, 'L', fill)
+            pdf.cell(25, 7, str(mov.cantidad), 1, 0, 'C', fill)
+            pdf.cell(25, 7, str(cant_por_emp), 1, 0, 'C', fill)
+            pdf.cell(40, 7, str(empaques), 1, 1, 'C', fill)
+            total_unidades += mov.cantidad
+            fill = not fill
+
+        # Totales
+        pdf.ln(4)
+        pdf.set_font('Helvetica', 'B', 8)
+        pdf.cell(0, 7, f'Total de productos registrados: {qs.count()}', ln=True)
+        pdf.cell(0, 7, f'Total de unidades afectadas: {total_unidades}', ln=True)
+
+        pdf.ln(8)
+        pdf.set_font('Helvetica', 'I', 7)
+        pdf.cell(0, 5, 'Documento generado automaticamente por el sistema de inventario.', ln=True, align='R')
+
+        pdf_out = pdf.output(dest='S')
+        if isinstance(pdf_out, str):
+            pdf_out = pdf_out.encode('latin-1')
+        else:
+            pdf_out = bytes(pdf_out)
+
+        response = HttpResponse(pdf_out, content_type='application/pdf')
+        tipo_str = 'traslado_vencido' if tipo == 'TRASLADO_VENCIDO' else 'carga_vencido'
+        filename = f'comprobante_{tipo_str}_{ahora.strftime("%Y%m%d_%H%M%S")}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    except Exception as e:
+        messages.error(request, f'Error al generar el PDF: {str(e)}')
+        return redirect('inventario.deposito_vencido')
+
