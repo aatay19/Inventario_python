@@ -7,7 +7,7 @@ from django.db.models import Q, F, Sum
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from datetime import timedelta
 from fpdf import FPDF
 from .auth import es_pleno_acceso
@@ -334,3 +334,27 @@ def inventario_deposito_vencido(request):
         'titulo': 'Depósito de Productos Vencidos'
     }
     return render(request, 'inventario/deposito_vencido.html', context)
+
+@login_required
+def api_buscar_producto_stock(request):
+    q = request.GET.get('q', '').strip()
+    if not q or len(q) < 2:
+        return JsonResponse({'success': True, 'productos': []})
+    
+    productos = Inventario.objects.filter(
+        Q(nombre_producto__icontains=q) |
+        Q(codigo_producto__icontains=q)
+    )[:10]
+    
+    data = []
+    for p in productos:
+        data.append({
+            'id': p.id_producto,
+            'codigo': p.codigo_producto,
+            'nombre': p.nombre_producto,
+            'stock': p.cantidad,
+            'total_empaques': p.total_empaques,
+            'unidad': p.unidad
+        })
+        
+    return JsonResponse({'success': True, 'productos': data})

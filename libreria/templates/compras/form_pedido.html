@@ -41,6 +41,10 @@
                         </div>
                     </div>
                     <div class="col-md-3 text-end d-flex align-items-center justify-content-end gap-2">
+                        <button type="button" class="btn btn-sm btn-success fw-bold" data-bs-toggle="modal"
+                            data-bs-target="#modalCrearProducto" title="Crear nuevo producto">
+                            <i class="bi bi-plus-square me-1"></i>Nuevo
+                        </button>
                         <button type="button" class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal"
                             data-bs-target="#modalAgregarOtro" title="Agregar producto de otro proveedor">
                             <i class="bi bi-plus-circle me-1"></i>Agregar Otro
@@ -92,7 +96,7 @@
                             <td class="text-center">
                                 <span
                                     class="badge {% if p.cantidad <= p.stock_minimo %}bg-danger{% else %}bg-secondary{% endif %}">
-                                    {{ p.cantidad }}
+                                    {{ p.total_empaques|floatformat:2 }}
                                 </span>
                             </td>
                             <td>
@@ -102,20 +106,16 @@
                                     min="0" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not
-                                    detalle %}disabled{% endif %}>
+                                <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not detalle %}disabled{% endif %}>
                                     {% for val, label in unidades_choices %}
-                                    <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque==val
-                                        %}selected{% endif %}{% else %}{% if p.unidad_empaque==val %}selected{% endif
-                                        %}{% endif %}>{{ label }}</option>
+                                    <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque == val %}selected{% endif %}{% else %}{% if p.unidad_empaque == val %}selected{% endif %}{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
                             <td>
                                 <input type="number" name="cant_por_empaque[]"
                                     value="{% if detalle %}{{ detalle.cantidad_por_empaque }}{% else %}{{ p.cantidad_por_empaque }}{% endif %}"
-                                    class="form-control form-control-sm text-center input-factor input-item" min="1" {%
-                                    if not detalle %}disabled{% endif %}>
+                                    class="form-control form-control-sm text-center input-factor input-item" min="1" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
                                 <input type="number" name="total_unidades[]"
@@ -126,20 +126,17 @@
                             <td>
                                 <input type="number" name="minimo[]"
                                     value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}"
-                                    class="form-control form-control-sm text-center input-item" {% if not detalle
-                                    %}disabled{% endif %}>
+                                    class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
                                 <input type="number" name="maximo[]"
                                     value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}"
-                                    class="form-control form-control-sm text-center input-item" {% if not detalle
-                                    %}disabled{% endif %}>
+                                    class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
                                 <input type="text" name="detalle[]"
-                                    value="{% if detalle %}{{ detalle.detalle_nota|default:'' }}{% else %}Pedido generado vía módulo compras{% endif %}"
-                                    class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif
-                                    %}>
+                                    value="{% if detalle %}{{ detalle.detalle_nota|default:'' }}{% else %}{% endif %}"
+                                    class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif %}>
                             </td>
                         </tr>
                         {% endwith %}
@@ -182,8 +179,7 @@
                     <div class="col-md-4 text-end">
                         <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary me-2"
                             id="btn-cancelar">Cancelar</a>
-                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not
-                            productos_con_detalles %}disabled{% endif %}>
+                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not productos_con_detalles %}disabled{% endif %}>
                             Siguiente <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
@@ -225,8 +221,46 @@
                         </div>
                     </div>
                 </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear Producto -->
+    <div class="modal fade" id="modalCrearProducto" tabindex="-1" aria-labelledby="modalCrearProductoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold" id="modalCrearProductoLabel">
+                        <i class="bi bi-plus-square me-2"></i>Crear Nuevo Producto
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-crear-producto" action="{% url 'compras.crear_producto_ajax' proveedor.id %}" method="post">
+                        {% csrf_token %}
+                        <div class="alert alert-info small mb-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Nota:</strong> El producto creado se vinculará automáticamente con <strong>{{ proveedor.razonsocial }}</strong> y se agregará al pedido.
+                        </div>
+                        <div id="crear-producto-errores" class="alert alert-danger d-none small"></div>
+                        <div class="row g-3">
+                            {% for field in form_producto %}
+                                {% if field.name != 'proveedores' %}
+                                <div class="col-md-6">
+                                    <label for="{{ field.id_for_label }}" class="form-label small fw-bold">{{ field.label }}</label>
+                                    {{ field }}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="form-crear-producto" class="btn btn-success" id="btn-guardar-producto">
+                        <i class="bi bi-save me-1"></i>Guardar y Agregar
+                    </button>
                 </div>
             </div>
         </div>
@@ -533,7 +567,7 @@
                                  data-producto='${JSON.stringify(p).replace(/'/g, "&#39;")}'>
                                 <div>
                                     <div class="fw-bold">${p.nombre}</div>
-                                    <small class="text-muted">${p.codigo} | Stock: ${p.stock}</small>
+                                    <small class="text-muted">${p.codigo} | Stock: ${p.stock} (${parseFloat(p.total_empaques).toFixed(2)} Emp.)</small>
                                     <div class="text-muted" style="font-size:0.7rem;"><i class="bi bi-truck me-1"></i>${provsText}</div>
                                 </div>
                                 <button type="button" class="btn btn-sm btn-outline-success btn-agregar-externo" title="Agregar al pedido">
@@ -619,7 +653,7 @@
             </td>
             <td class="text-center">
                 <span class="badge ${prod.stock <= prod.stock_minimo ? 'bg-danger' : 'bg-secondary'}">
-                    ${prod.stock}
+                    ${parseFloat(prod.total_empaques).toFixed(2)}
                 </span>
             </td>
             <td>
@@ -666,6 +700,79 @@
         actualizarVista();
         if (autoGuardar) guardarEstado();
     }
+
+    // ====================================
+    // CREAR PRODUCTO AJAX
+    // ====================================
+    const formCrearProducto = document.getElementById('form-crear-producto');
+    const btnGuardarProducto = document.getElementById('btn-guardar-producto');
+    const alertErrores = document.getElementById('crear-producto-errores');
+
+    if(formCrearProducto) {
+        formCrearProducto.addEventListener('submit', function(e) {
+            e.preventDefault();
+            btnGuardarProducto.disabled = true;
+            btnGuardarProducto.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+            alertErrores.classList.add('d-none');
+            
+            const formData = new FormData(this);
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Cerrar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearProducto'));
+                    modal.hide();
+                    
+                    // Resetear form
+                    formCrearProducto.reset();
+                    
+                    // Agregar a la tabla
+                    agregarFilaExterna(data.producto, true);
+                    
+                    // Mostrar success
+                    const tbody = table.querySelector('tbody');
+                    const row = document.getElementById(`row-${data.producto.id}`);
+                    if(row) {
+                        row.classList.add('table-success');
+                        setTimeout(() => {
+                            row.classList.remove('table-success');
+                            if(row.classList.contains('row-externo')) {
+                                row.classList.add('table-info');
+                            }
+                        }, 2000);
+                    }
+                } else {
+                    // Mostrar errores
+                    let errorHtml = '<strong>Errores:</strong><ul class="mb-0">';
+                    for (const field in data.errors) {
+                        const fieldErrors = data.errors[field];
+                        fieldErrors.forEach(err => {
+                            errorHtml += `<li>${field}: ${err.message}</li>`;
+                        });
+                    }
+                    errorHtml += '</ul>';
+                    alertErrores.innerHTML = errorHtml;
+                    alertErrores.classList.remove('d-none');
+                }
+            })
+            .catch(error => {
+                alertErrores.innerHTML = 'Ocurrió un error inesperado al guardar el producto.';
+                alertErrores.classList.remove('d-none');
+            })
+            .finally(() => {
+                btnGuardarProducto.disabled = false;
+                btnGuardarProducto.innerHTML = '<i class="bi bi-save me-1"></i>Guardar y Agregar';
+            });
+        });
+    }
+
 });
 </script>
 <style>

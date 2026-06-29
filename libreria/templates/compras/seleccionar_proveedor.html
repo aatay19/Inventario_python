@@ -16,8 +16,11 @@
     </div>
 
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-primary text-white p-3">
+        <div class="card-header bg-primary text-white p-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Paso 1: Seleccione el Proveedor</h5>
+            <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#modalCrearProveedor">
+                <i class="bi bi-plus-circle me-1"></i>Nuevo Proveedor
+            </button>
         </div>
         <div class="card-body p-4">
             <p class="text-muted mb-4">Busque y seleccione el proveedor para el cual desea generar un pedido. Solo se mostrarán los productos asociados a este proveedor en el siguiente paso.</p>
@@ -65,4 +68,63 @@
     </div>
 </div>
 
+<!-- Modal Crear Proveedor -->
+<div class="modal fade" id="modalCrearProveedor" tabindex="-1" aria-labelledby="modalCrearProveedorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" action="{% url 'compras.index' %}">
+                {% csrf_token %}
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalCrearProveedorLabel"><i class="bi bi-person-plus me-2"></i>Registrar Nuevo Proveedor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Razón Social <span class="text-danger">*</span></label>
+                            {{ form_proveedor.razonsocial }}
+                            {% if form_proveedor.razonsocial.errors %}
+                                <div class="text-danger small mt-1">{{ form_proveedor.razonsocial.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">RIF <span class="text-danger">*</span></label>
+                            {{ form_proveedor.rif }}
+                            {% if form_proveedor.rif.errors %}
+                                <div class="text-danger small mt-1">{{ form_proveedor.rif.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Teléfono</label>
+                            {{ form_proveedor.telefono }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Días de Descuento</label>
+                            {{ form_proveedor.dias_descuentos }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Dirección</label>
+                            {{ form_proveedor.direccion }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Guardar Proveedor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if form_proveedor.errors %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var modal = new bootstrap.Modal(document.getElementById('modalCrearProveedor'));
+        modal.show();
+    });
+</script>
+{% endif %}
+
 {% endblock %}
+

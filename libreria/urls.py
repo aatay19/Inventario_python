@@ -27,6 +27,7 @@ urlpatterns = [
     path('compras/eliminar_pedido/', views.compras_eliminar_pedido, name='compras.eliminar_pedido'),
     path('compras/historial/eliminar_todo/', views.compras_eliminar_todo_historial, name='compras.eliminar_todo_historial'),
     path('compras/buscar_otros/<int:proveedor_id>/', views.buscar_productos_no_asociados, name='compras.buscar_otros'),
+    path('compras/crear_producto_ajax/<int:proveedor_id>/', views.compras_crear_producto_ajax, name='compras.crear_producto_ajax'),
 
     # HistorialProveedoresNotas urls
     path('HistorialProveedoresNotas/', views.historial_proveedores_notas_index, name='HistorialProveedoresNotas.index'),
@@ -37,6 +38,7 @@ urlpatterns = [
 
 
     # inventarios urls
+    path('api/productos/stock_search', views.api_buscar_producto_stock, name='api.productos.stock_search'),
     path('inventario/', views.inventario_index, name='inventario.index'),
     path('inventario/crear', views.inventario_crear, name='inventario.crear'),
     path('inventario/editar<int:id_producto>', views.inventario_editar, name='inventario.editar'),

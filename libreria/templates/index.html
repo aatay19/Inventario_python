@@ -43,6 +43,33 @@
 
     <!-- ======= SECCIONES DE INVENTARIO (Ocultas para rol Parque) ======= -->
     {% if user.perfilusuario.rol|lower != 'parque' %}
+        
+        <!-- ======= BUSCADOR RÁPIDO DE INVENTARIO ======= -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-search me-2"></i>Buscador Rápido de Inventario</h5>
+                <div class="input-group mb-3">
+                    <input type="text" id="buscador-rapido-inventario" class="form-control" placeholder="Buscar por nombre o código de producto..." autocomplete="off">
+                    <button class="btn btn-primary" type="button" id="btn-buscar-rapido">Buscar</button>
+                </div>
+                <div id="resultados-busqueda-rapida" class="d-none">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Stock Unidades</th>
+                                    <th class="text-center">Total Empaques</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-resultados-rapidos">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- ======= ALERTAS DE STOCK BAJO ======= -->
         {% if num_bajo_stock > 0 %}
         <div class="alert alert-danger shadow-sm border-start border-danger border-5 mb-4 d-flex align-items-center" role="alert">
@@ -154,4 +181,66 @@
         </div>
     {% endif %}
 </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputBusqueda = document.getElementById('buscador-rapido-inventario');
+    const btnBuscar = document.getElementById('btn-buscar-rapido');
+    const resultadosContainer = document.getElementById('resultados-busqueda-rapida');
+    const tbodyResultados = document.getElementById('tbody-resultados-rapidos');
+    let timeoutId = null;
+
+    if (inputBusqueda) {
+        function realizarBusqueda() {
+            const query = inputBusqueda.value.trim();
+            if (query.length < 2) {
+                resultadosContainer.classList.add('d-none');
+                return;
+            }
+
+            fetch(`{% url "api.productos.stock_search" %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        tbodyResultados.innerHTML = '';
+                        if (data.productos.length === 0) {
+                            tbodyResultados.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No se encontraron productos.</td></tr>';
+                        } else {
+                            data.productos.forEach(p => {
+                                const tr = document.createElement('tr');
+                                const totalEmpaques = parseFloat(p.total_empaques || 0).toFixed(2);
+                                tr.innerHTML = `
+                                    <td>${p.codigo}</td>
+                                    <td class="fw-bold">${p.nombre}</td>
+                                    <td class="text-center"><span class="badge bg-secondary">${p.stock} ${p.unidad}</span></td>
+                                    <td class="text-center"><span class="badge bg-info text-dark">${totalEmpaques}</span></td>
+                                `;
+                                tbodyResultados.appendChild(tr);
+                            });
+                        }
+                        resultadosContainer.classList.remove('d-none');
+                    }
+                })
+                .catch(error => console.error('Error buscando productos:', error));
+        }
+
+        btnBuscar.addEventListener('click', realizarBusqueda);
+        
+        inputBusqueda.addEventListener('input', function() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(realizarBusqueda, 500);
+        });
+        
+        inputBusqueda.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                realizarBusqueda();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

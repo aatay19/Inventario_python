@@ -15,13 +15,24 @@ from ..models import Proveedor, Inventario, PedidoCompra, DetallePedidoCompra, U
 @login_required
 @user_passes_test(es_gestion_pedidos, login_url='index')
 def compras_seleccionar_proveedor(request):
+    from ..forms import ProveedorForm
+    if request.method == 'POST':
+        form = ProveedorForm(request.POST)
+        if form.is_valid():
+            nuevo_prov = form.save()
+            messages.success(request, f'Proveedor "{nuevo_prov.razonsocial}" registrado exitosamente. Proceda a registrar el pedido.')
+            return redirect('compras.nuevo', proveedor_id=nuevo_prov.id)
+    else:
+        form = ProveedorForm()
+        
     q = request.GET.get('q', '').strip()
     qs = Proveedor.objects.all()
     if q:
         qs = qs.filter(Q(razonsocial__icontains=q) | Q(rif__icontains=q))
     return render(request, 'compras/seleccionar_proveedor.html', {
         'proveedores': qs,
-        'q': q
+        'q': q,
+        'form_proveedor': form
     })
 
 @login_required
@@ -30,13 +41,45 @@ def compras_form_pedido(request, proveedor_id):
     proveedor = get_object_or_404(Proveedor, id=proveedor_id)
     productos = Inventario.objects.filter(proveedores__id=proveedor_id).order_by('nombre_producto')
     from ..models import UnidadEmpaqueChoices
+    from ..forms import InventarioForm
     unidades_choices = UnidadEmpaqueChoices.choices
+    form_producto = InventarioForm()
+    
     return render(request, 'compras/form_pedido.html', {
         'proveedor': proveedor,
         'productos': productos,
         'productos_con_detalles': [{'producto': p, 'detalle': None} for p in productos],
-        'unidades_choices': unidades_choices
+        'unidades_choices': unidades_choices,
+        'form_producto': form_producto
     })
+
+@login_required
+@user_passes_test(es_gestion_pedidos, login_url='index')
+def compras_crear_producto_ajax(request, proveedor_id):
+    from ..forms import InventarioForm
+    if request.method == 'POST':
+        form = InventarioForm(request.POST)
+        if form.is_valid():
+            producto = form.save()
+            proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+            producto.proveedores.add(proveedor)
+            return JsonResponse({
+                'success': True,
+                'producto': {
+                    'id': producto.id_producto,
+                    'nombre': producto.nombre_producto,
+                    'codigo': producto.codigo_producto or 'S/C',
+                    'stock': producto.cantidad,
+                    'total_empaques': producto.total_empaques,
+                    'unidad_empaque': producto.unidad_empaque,
+                    'cantidad_por_empaque': producto.cantidad_por_empaque,
+                    'stock_minimo': producto.stock_minimo,
+                    'stock_maximo': producto.stock_maximo,
+                }
+            })
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
 
 @login_required
 @user_passes_test(es_gestion_pedidos, login_url='index')
@@ -327,6 +370,7 @@ def buscar_productos_no_asociados(request, proveedor_id):
             'nombre': p.nombre_producto,
             'codigo': p.codigo_producto or 'S/C',
             'stock': p.cantidad,
+            'total_empaques': p.total_empaques,
             'unidad_empaque': p.unidad_empaque,
             'cantidad_por_empaque': p.cantidad_por_empaque,
             'stock_minimo': p.stock_minimo,
