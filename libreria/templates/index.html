@@ -59,7 +59,7 @@
                                 <tr>
                                     <th>Código</th>
                                     <th>Producto</th>
-                                    <th class="text-center">Stock Unidades</th>
+                                    <th class="text-center">Stock Principal</th>
                                     <th class="text-center">Total Empaques</th>
                                 </tr>
                             </thead>
@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 tr.innerHTML = `
                                     <td>${p.codigo}</td>
                                     <td class="fw-bold">${p.nombre}</td>
-                                    <td class="text-center"><span class="badge bg-secondary">${p.stock} ${p.unidad}</span></td>
+                                    <td class="text-center"><span class="badge bg-secondary">${p.stock}</span></td>
                                     <td class="text-center"><span class="badge bg-info text-dark">${totalEmpaques}</span></td>
                                 `;
                                 tbodyResultados.appendChild(tr);
