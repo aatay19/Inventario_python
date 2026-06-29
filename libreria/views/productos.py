@@ -354,7 +354,7 @@ def api_buscar_producto_stock(request):
             'nombre': p.nombre_producto,
             'stock': p.cantidad,
             'total_empaques': p.total_empaques,
-            'unidad': p.unidad
+            'unidad': p.get_unidad_empaque_display()
         })
         
     return JsonResponse({'success': True, 'productos': data})
