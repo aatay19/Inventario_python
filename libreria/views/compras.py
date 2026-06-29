@@ -186,7 +186,7 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf.cell(95, 7, f" Fecha: {pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M')}", 0, 1)
     pdf.cell(95, 7, f" RIF: {pedido.proveedor.rif}", 0, 1)
     pdf.ln(10)
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("Helvetica", "B", 9)
     pdf.set_fill_color(0, 123, 255)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(100, 10, " Producto", 1, 0, "L", True)
@@ -194,18 +194,23 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf.cell(30, 10, " U. x Req.", 1, 0, "C", True)
     pdf.cell(30, 10, " Requerimiento", 1, 1, "C", True)
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("Helvetica", "", 8)
     for det in pedido.detalles.all():
         pdf.cell(100, 10, f" {det.producto.nombre_producto[:45]}", 1, 0, "L")
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", 8)
         pdf.cell(30, 10, str(det.unidad_empaque), 1, 0, "C")
         pdf.cell(30, 10, str(det.cantidad_por_empaque), 1, 0, "C")
-        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_font("Helvetica", "B", 8)
         pdf.cell(30, 10, str(det.cantidad_empaques), 1, 1, "C")
     pdf.ln(15)
     pdf.set_font("Helvetica", "I", 9)
     pdf.cell(0, 10, "Nota: Este documento es un comprobante de entrada de productos.", ln=True, align="C")
-    response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+    pdf_out = pdf.output(dest='S')
+    if isinstance(pdf_out, str):
+        pdf_out = pdf_out.encode('latin-1')
+    else:
+        pdf_out = bytes(pdf_out)
+    response = HttpResponse(pdf_out, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="comprobante_entrada_{pedido.codigo_lote}.pdf"'
     return response
 
@@ -225,14 +230,14 @@ def exportar_pedido_pdf(request):
         pdf.set_font("Helvetica", "I", 12)
         pdf.cell(0, 20, "No hay productos con stock bajo actualmente.", ln=True, align="C")
     else:
-        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(220, 53, 69)
         pdf.set_text_color(255, 255, 255)
         pdf.cell(70, 10, "Producto", 1, 0, "C", True)
         pdf.cell(30, 10, "Stock Act.", 1, 0, "C", True)
         pdf.cell(30, 10, "Stock Min.", 1, 0, "C", True)
         pdf.cell(60, 10, "Ingreso Sugerido", 1, 1, "C", True)
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(0, 0, 0)
         for p in productos:
             sugerido = p.stock_maximo - p.cantidad
@@ -241,7 +246,12 @@ def exportar_pedido_pdf(request):
             pdf.cell(30, 10, str(p.cantidad), 1, 0, "C")
             pdf.cell(30, 10, str(p.stock_minimo), 1, 0, "C")
             pdf.cell(60, 10, f"Ingresar {sugerido} unid. aprox.", 1, 1, "R")
-    response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+    pdf_out = pdf.output(dest='S')
+    if isinstance(pdf_out, str):
+        pdf_out = pdf_out.encode('latin-1')
+    else:
+        pdf_out = bytes(pdf_out)
+    response = HttpResponse(pdf_out, content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="reporte_sugerencia_ingreso.pdf"'
     return response
 

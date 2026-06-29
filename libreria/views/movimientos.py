@@ -835,7 +835,7 @@ def exportar_lote_pdf(request):
         pdf.cell(0, 7, f"RIF: {qs[0].proveedor.rif}", ln=True)
         pdf.ln(5)
         
-        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(240, 240, 240)
         pdf.cell(90, 10, "Producto", 1, 0, "C", True)
         pdf.cell(25, 10, "Total Unid.", 1, 0, "C", True)
@@ -843,7 +843,7 @@ def exportar_lote_pdf(request):
         pdf.cell(25, 10, "U. x Req.", 1, 0, "C", True)
         pdf.cell(25, 10, "Requerimiento", 1, 1, "C", True)
         
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", 8)
         for item in qs:
             pdf.cell(90, 8, item.producto.nombre_producto[:45], 1, 0, "L")
             pdf.cell(25, 8, str(item.cantidad), 1, 0, "C")
@@ -856,7 +856,12 @@ def exportar_lote_pdf(request):
         pdf.cell(0, 10, "Documento generado automaticamente por el sistema de inventario.", ln=True, align="R")
         
         from django.http import HttpResponse
-        response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+        pdf_out = pdf.output(dest='S')
+        if isinstance(pdf_out, str):
+            pdf_out = pdf_out.encode('latin-1')
+        else:
+            pdf_out = bytes(pdf_out)
+        response = HttpResponse(pdf_out, content_type='application/pdf')
         filename = f"comprobante_{tipo.lower()}_{qs[0].fecha_movimiento.strftime('%Y%m%d_%H%M%S')}.pdf"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response

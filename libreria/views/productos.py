@@ -251,13 +251,13 @@ def exportar_inventario_pdf(request):
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 7, f"Total de Productos: {total_items}", ln=True)
     pdf.ln(5)
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("Helvetica", "B", 9)
     pdf.set_fill_color(240, 240, 240)
     pdf.cell(30, 10, "Codigo", 1, 0, "C", True)
     pdf.cell(90, 10, "Producto", 1, 0, "C", True)
     pdf.cell(40, 10, "Categoria", 1, 0, "C", True)
     pdf.cell(30, 10, "Stock", 1, 1, "C", True)
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font("Helvetica", "", 8)
     for p in productos:
         nombre = p.nombre_producto[:45]
         categoria = p.get_categoria_display()[:20]
@@ -265,7 +265,12 @@ def exportar_inventario_pdf(request):
         pdf.cell(90, 8, nombre, 1, 0, "L")
         pdf.cell(40, 8, categoria, 1, 0, "L")
         pdf.cell(30, 8, str(p.cantidad), 1, 1, "C")
-    response = HttpResponse(pdf.output(dest='S').encode('latin-1'), content_type='application/pdf')
+    pdf_out = pdf.output(dest='S')
+    if isinstance(pdf_out, str):
+        pdf_out = pdf_out.encode('latin-1')
+    else:
+        pdf_out = bytes(pdf_out)
+    response = HttpResponse(pdf_out, content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="inventario_reporte.pdf"'
     return response
 @login_required
