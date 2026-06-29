@@ -10,6 +10,7 @@ class EventoForm(forms.ModelForm):
             'titulo', 'nombre_reserva', 'zona', 'total_pagar',
             'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago',
             'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2',
+            'tasa_dia', 'referencia_bancaria', 'banco', 'confirmado',
             'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'
         ]
         widgets = {
@@ -27,6 +28,10 @@ class EventoForm(forms.ModelForm):
             'monto_abono2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'metodo_pago2': forms.Select(attrs={'class': 'form-select'}),
             'nota_forma_pago2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nota abono 2...'}),
+            'tasa_dia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Tasa del día'}),
+            'referencia_bancaria': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia bancaria'}),
+            'banco': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Banco'}),
+            'confirmado': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Sí, No, Pendiente...'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
         }

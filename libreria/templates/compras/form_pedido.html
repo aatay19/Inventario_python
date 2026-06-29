@@ -6,12 +6,13 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <nav aria-label="breadcrumb">
-              <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="{% url 'compras.index' %}">Selección</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Pedido</li>
-              </ol>
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'compras.index' %}">Selección</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Pedido</li>
+                </ol>
             </nav>
-            <h2 class="fw-bold mb-0">Orden de Pedido para: <span class="text-primary">{{ proveedor.razonsocial }}</span></h2>
+            <h2 class="fw-bold mb-0">Orden de Pedido para: <span class="text-primary">{{ proveedor.razonsocial }}</span>
+            </h2>
         </div>
         <div class="text-end">
             <span class="badge bg-light text-dark border p-2">RIF: {{ proveedor.rif }}</span>
@@ -22,7 +23,7 @@
         {% csrf_token %}
         <input type="hidden" name="proveedor_id" value="{{ proveedor.id }}">
         {% if pedido %}
-            <input type="hidden" name="pedido_id" value="{{ pedido.id_pedido }}">
+        <input type="hidden" name="pedido_id" value="{{ pedido.id_pedido }}">
         {% endif %}
 
         <div class="card shadow-sm border-0 mb-4">
@@ -33,29 +34,33 @@
                     </div>
                     <div class="col-md-5">
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-white border-0"><i class="bi bi-search text-primary"></i></span>
-                            <input type="text" id="filtro-productos" class="form-control border-0" placeholder="Buscar productos en esta lista...">
+                            <span class="input-group-text bg-white border-0"><i
+                                    class="bi bi-search text-primary"></i></span>
+                            <input type="text" id="filtro-productos" class="form-control border-0"
+                                placeholder="Buscar productos en esta lista...">
                         </div>
                     </div>
                     <div class="col-md-3 text-end d-flex align-items-center justify-content-end gap-2">
-                        <button type="button" class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#modalAgregarOtro" title="Agregar producto de otro proveedor">
+                        <button type="button" class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal"
+                            data-bs-target="#modalAgregarOtro" title="Agregar producto de otro proveedor">
                             <i class="bi bi-plus-circle me-1"></i>Agregar Otro
                         </button>
                         <div class="form-check form-switch d-inline-block">
                             <input class="form-check-input" type="checkbox" id="ver-seleccionados">
-                            <label class="form-check-label small text-white" for="ver-seleccionados">Ver seleccionados</label>
+                            <label class="form-check-label small text-white" for="ver-seleccionados">Ver
+                                seleccionados</label>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <div class="table-responsive">
                 <table class="table table-bordered table-hover align-middle mb-0" id="tabla-pedido">
                     <thead class="table-dark text-center">
                         <tr class="small">
                             <th style="width: 4%;"><input type="checkbox" id="select-all"></th>
                             <th style="width: 20%;">Producto</th>
-                            <th style="width: 8%;">Stock Actual</th>
+                            <th style="width: 8%;">Stock Actual X Bulto</th>
                             <th style="width: 10%;">Total Empaques</th>
                             <th style="width: 12%;">Tipo Empaque</th>
                             <th style="width: 10%;">Unid. x Empaque</th>
@@ -68,57 +73,81 @@
                     <tbody>
                         {% for p_data in productos_con_detalles %}
                         {% with p=p_data.producto detalle=p_data.detalle %}
-                        <tr class="row-producto {% if not detalle %}row-locked{% else %}table-info{% endif %}" data-id="{{ p.id_producto }}" id="row-{{ p.id_producto }}" 
-                            data-orig-min="{{ p.stock_minimo }}" data-orig-max="{{ p.stock_maximo }}" 
-                            data-orig-unidad="{{ p.unidad_empaque }}" data-orig-cant-empaque="{{ p.cantidad_por_empaque }}">
+                        <tr class="row-producto {% if not detalle %}row-locked{% else %}table-info{% endif %}"
+                            data-id="{{ p.id_producto }}" id="row-{{ p.id_producto }}"
+                            data-orig-min="{{ p.stock_minimo }}" data-orig-max="{{ p.stock_maximo }}"
+                            data-orig-unidad="{{ p.unidad_empaque }}"
+                            data-orig-cant-empaque="{{ p.cantidad_por_empaque }}">
                             <td class="text-center">
-                                <input type="checkbox" name="items_seleccionados[]" value="{{ p.id_producto }}" class="form-check-input item-checkbox" {% if detalle %}checked{% endif %}>
+                                <input type="checkbox" name="items_seleccionados[]" value="{{ p.id_producto }}"
+                                    class="form-check-input item-checkbox" {% if detalle %}checked{% endif %}>
                             </td>
                             <input type="hidden" name="producto_id[]" value="{{ p.id_producto }}">
-                            
+
                             <td class="fw-bold text-wrap small">
                                 {{ p.nombre_producto }}
-                                <div class="text-muted x-small" style="font-size: 0.70rem;">{{ p.codigo_producto }}</div>
+                                <div class="text-muted x-small" style="font-size: 0.70rem;">{{ p.codigo_producto }}
+                                </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge {% if p.cantidad <= p.stock_minimo %}bg-danger{% else %}bg-secondary{% endif %}">
+                                <span
+                                    class="badge {% if p.cantidad <= p.stock_minimo %}bg-danger{% else %}bg-secondary{% endif %}">
                                     {{ p.cantidad }}
                                 </span>
                             </td>
                             <td>
-                                <input type="number" name="cant_empaques[]" value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}" 
-                                       class="form-control form-control-sm text-center border-primary input-calc input-item" min="0" {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="cant_empaques[]"
+                                    value="{% if detalle %}{{ detalle.cantidad_empaques }}{% else %}0{% endif %}"
+                                    class="form-control form-control-sm text-center border-primary input-calc input-item"
+                                    min="0" {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not detalle %}disabled{% endif %}>
+                                <select name="unidad_empaque[]" class="form-select form-select-sm input-item" {% if not
+                                    detalle %}disabled{% endif %}>
                                     {% for val, label in unidades_choices %}
-                                        <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque == val %}selected{% endif %}{% else %}{% if p.unidad_empaque == val %}selected{% endif %}{% endif %}>{{ label }}</option>
+                                    <option value="{{ val }}" {% if detalle %}{% if detalle.unidad_empaque==val
+                                        %}selected{% endif %}{% else %}{% if p.unidad_empaque==val %}selected{% endif
+                                        %}{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
                             <td>
-                                <input type="number" name="cant_por_empaque[]" value="{% if detalle %}{{ detalle.cantidad_por_empaque }}{% else %}{{ p.cantidad_por_empaque }}{% endif %}" 
-                                       class="form-control form-control-sm text-center input-factor input-item" min="1" {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="cant_por_empaque[]"
+                                    value="{% if detalle %}{{ detalle.cantidad_por_empaque }}{% else %}{{ p.cantidad_por_empaque }}{% endif %}"
+                                    class="form-control form-control-sm text-center input-factor input-item" min="1" {%
+                                    if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="total_unidades[]" value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}" 
-                                       class="form-control form-control-sm text-center fw-bold bg-light input-item" readonly {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="total_unidades[]"
+                                    value="{% if detalle %}{{ detalle.cantidad }}{% else %}0{% endif %}"
+                                    class="form-control form-control-sm text-center fw-bold bg-light input-item"
+                                    readonly {% if not detalle %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="minimo[]" value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="minimo[]"
+                                    value="{% if detalle %}{{ p.stock_minimo }}{% else %}{{ p.stock_minimo }}{% endif %}"
+                                    class="form-control form-control-sm text-center input-item" {% if not detalle
+                                    %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="number" name="maximo[]" value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}" class="form-control form-control-sm text-center input-item" {% if not detalle %}disabled{% endif %}>
+                                <input type="number" name="maximo[]"
+                                    value="{% if detalle %}{{ p.stock_maximo }}{% else %}{{ p.stock_maximo }}{% endif %}"
+                                    class="form-control form-control-sm text-center input-item" {% if not detalle
+                                    %}disabled{% endif %}>
                             </td>
                             <td>
-                                <input type="text" name="detalle[]" value="{% if detalle %}{{ detalle.detalle_nota|default:'Pedido generado vía módulo compras' }}{% else %}Pedido generado vía módulo compras{% endif %}" class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif %}>
+                                <input type="text" name="detalle[]"
+                                    value="{% if detalle %}{{ detalle.detalle_nota|default:'' }}{% else %}Pedido generado vía módulo compras{% endif %}"
+                                    class="form-control form-control-sm input-item" {% if not detalle %}disabled{% endif
+                                    %}>
                             </td>
                         </tr>
                         {% endwith %}
                         {% empty %}
                         <tr>
                             <td colspan="10" class="text-center py-5">
-                                <div class="text-muted"><i class="bi bi-exclamation-triangle fs-1"></i><br>Este proveedor no tiene productos asociados.</div>
+                                <div class="text-muted"><i class="bi bi-exclamation-triangle fs-1"></i><br>Este
+                                    proveedor no tiene productos asociados.</div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -127,10 +156,13 @@
             </div>
 
             <!-- Navegación por Partes (Paginación) -->
-            <div id="paginacion-container" class="bg-light p-2 border-top d-flex justify-content-center align-items-center gap-3">
-                <button type="button" id="btn-prev" class="btn btn-sm btn-outline-primary"><i class="bi bi-chevron-left"></i> Anterior</button>
+            <div id="paginacion-container"
+                class="bg-light p-2 border-top d-flex justify-content-center align-items-center gap-3">
+                <button type="button" id="btn-prev" class="btn btn-sm btn-outline-primary"><i
+                        class="bi bi-chevron-left"></i> Anterior</button>
                 <span class="small fw-bold" id="info-paginacion">Página 1 de 1</span>
-                <button type="button" id="btn-next" class="btn btn-sm btn-outline-primary">Siguiente <i class="bi bi-chevron-right"></i></button>
+                <button type="button" id="btn-next" class="btn btn-sm btn-outline-primary">Siguiente <i
+                        class="bi bi-chevron-right"></i></button>
                 <select id="size-pagina" class="form-select form-select-sm" style="width: auto;">
                     <option value="50" selected>50 por parte</option>
                     <option value="100">100 por parte</option>
@@ -138,16 +170,20 @@
                     <option value="0">Ver todos</option>
                 </select>
             </div>
-            
+
             <div class="card-footer bg-white py-3 border-top">
                 <div class="row align-items-center">
                     <div class="col-md-8 text-muted small">
-                        <i class="bi bi-info-circle me-1"></i> 
-                        <strong>Ajuste dinámico:</strong> Seleccione los productos para habilitar su edición. Al guardar, se actualizarán los niveles Mínimo y Máximo (traídos del registro original) de los productos seleccionados.
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Ajuste dinámico:</strong> Seleccione los productos para habilitar su edición. Al
+                        guardar, se actualizarán los niveles Mínimo y Máximo (traídos del registro original) de los
+                        productos seleccionados.
                     </div>
                     <div class="col-md-4 text-end">
-                        <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary me-2" id="btn-cancelar">Cancelar</a>
-                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not productos_con_detalles %}disabled{% endif %}>
+                        <a href="{% url 'compras.index' %}" class="btn btn-outline-secondary me-2"
+                            id="btn-cancelar">Cancelar</a>
+                        <button type="submit" class="btn btn-primary btn-lg" id="btn-procesar" {% if not
+                            productos_con_detalles %}disabled{% endif %}>
                             Siguiente <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
@@ -157,7 +193,8 @@
     </form>
 
     <!-- Modal: Agregar producto de otro proveedor -->
-    <div class="modal fade" id="modalAgregarOtro" tabindex="-1" aria-labelledby="modalAgregarOtroLabel" aria-hidden="true">
+    <div class="modal fade" id="modalAgregarOtro" tabindex="-1" aria-labelledby="modalAgregarOtroLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-warning text-dark">
@@ -169,12 +206,15 @@
                 <div class="modal-body">
                     <div class="alert alert-info small mb-3">
                         <i class="bi bi-info-circle me-1"></i>
-                        <strong>Nota:</strong> Los productos que agregues aquí se vincularán automáticamente con <strong>{{ proveedor.razonsocial }}</strong> al confirmar el pedido.
+                        <strong>Nota:</strong> Los productos que agregues aquí se vincularán automáticamente con
+                        <strong>{{ proveedor.razonsocial }}</strong> al confirmar el pedido.
                     </div>
                     <div class="input-group mb-3">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" id="buscar-otro-producto" class="form-control" placeholder="Buscar por nombre o código (mín. 2 caracteres)..." autocomplete="off">
-                        <button type="button" class="btn btn-outline-secondary" id="btn-limpiar-busqueda" title="Limpiar">
+                        <input type="text" id="buscar-otro-producto" class="form-control"
+                            placeholder="Buscar por nombre o código (mín. 2 caracteres)..." autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-limpiar-busqueda"
+                            title="Limpiar">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
@@ -197,25 +237,25 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const table = document.getElementById('tabla-pedido');
-    const tbody = table.querySelector('tbody');
-    const form = document.getElementById('form-pedido');
-    const filtroInput = document.getElementById('filtro-productos');
-    const toggleSeleccionados = document.getElementById('ver-seleccionados');
-    const proveedorId = document.querySelector('input[name="proveedor_id"]').value;
-    
-    // Unidades de empaque disponibles (desde Django)
-    const unidadesChoices = [
-        {% for val, label in unidades_choices %}
+    document.addEventListener('DOMContentLoaded', function () {
+        const table = document.getElementById('tabla-pedido');
+        const tbody = table.querySelector('tbody');
+        const form = document.getElementById('form-pedido');
+        const filtroInput = document.getElementById('filtro-productos');
+        const toggleSeleccionados = document.getElementById('ver-seleccionados');
+        const proveedorId = document.querySelector('input[name="proveedor_id"]').value;
+
+        // Unidades de empaque disponibles (desde Django)
+        const unidadesChoices = [
+            {% for val, label in unidades_choices %}
         { val: '{{ val }}', label: '{{ label }}' },
         {% endfor %}
     ];
-    
+
     // Variables de paginación
     let paginaActual = 1;
     let itemsPorPagina = 50;
-    
+
     function getAllRows() {
         return Array.from(document.querySelectorAll('.row-producto'));
     }
@@ -252,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             allRows.forEach(r => r.style.display = 'none');
             filteredRows.slice(inicio, fin).forEach(r => r.style.display = '');
-            
+
             document.getElementById('info-paginacion').innerText = `Parte ${paginaActual} de ${totalPaginas} (${totalItems} total)`;
             document.getElementById('btn-prev').disabled = (paginaActual <= 1);
             document.getElementById('btn-next').disabled = (paginaActual >= totalPaginas);
@@ -268,25 +308,25 @@ document.addEventListener('DOMContentLoaded', function() {
         actualizarVista();
     });
 
-    document.getElementById('btn-prev').addEventListener('click', () => { if (paginaActual > 1) { paginaActual--; actualizarVista(); window.scrollTo(0,0); } });
-    document.getElementById('btn-next').addEventListener('click', () => { paginaActual++; actualizarVista(); window.scrollTo(0,0); });
+    document.getElementById('btn-prev').addEventListener('click', () => { if (paginaActual > 1) { paginaActual--; actualizarVista(); window.scrollTo(0, 0); } });
+    document.getElementById('btn-next').addEventListener('click', () => { paginaActual++; actualizarVista(); window.scrollTo(0, 0); });
 
     actualizarVista(); // Render inicial
-    
+
     // Recalcular empaques en carga inicial (útil para cuando se regresa con 'Volver a Editar' / history.back())
     document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
         calcularSubtotal(cb.closest('tr'));
     });
-    
+
     // Listener para cambios en la tabla (cálculos y checkboxes)
-    table.addEventListener('change', function(e) {
+    table.addEventListener('change', function (e) {
         if (e.target.classList.contains('item-checkbox')) {
             const row = e.target.closest('tr');
             toggleRowSelection(row, e.target.checked);
         }
     });
 
-    table.addEventListener('input', function(e) {
+    table.addEventListener('input', function (e) {
         if (e.target.classList.contains('input-calc') || e.target.classList.contains('input-factor')) {
             const row = e.target.closest('tr');
             calcularSubtotal(row);
@@ -295,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function toggleRowSelection(row, selected) {
         const inputs = row.querySelectorAll('.input-item');
-        
+
         if (selected) {
             row.classList.remove('row-locked');
             row.classList.add('table-info');
@@ -304,16 +344,16 @@ document.addEventListener('DOMContentLoaded', function() {
             row.classList.add('row-locked');
             row.classList.remove('table-info');
             inputs.forEach(input => input.disabled = true);
-            
+
             // Resetear a valores registrados
             row.querySelector('input[name="minimo[]"]').value = row.dataset.origMin;
             row.querySelector('input[name="maximo[]"]').value = row.dataset.origMax;
             row.querySelector('select[name="unidad_empaque[]"]').value = row.dataset.origUnidad;
             row.querySelector('input[name="cant_por_empaque[]"]').value = row.dataset.origCantEmpaque;
             row.querySelector('input[name="cant_empaques[]"]').value = 0;
-            
+
             calcularSubtotal(row);
-            
+
             // Si es un producto externo y se deselecciona, removerlo
             if (row.classList.contains('row-externo')) {
                 row.remove();
@@ -327,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalEmpaques = parseFloat(row.querySelector('input[name="cant_empaques[]"]').value) || 0;
         const factor = parseFloat(row.querySelector('input[name="cant_por_empaque[]"]').value) || 1;
         const unidadesInput = row.querySelector('input[name="total_unidades[]"]');
-        
+
         if (factor > 0) {
             const totalU = totalEmpaques * factor;
             unidadesInput.value = totalU % 1 === 0 ? totalU : totalU.toFixed(2);
@@ -337,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Funcionalidad Seleccionar Todo
-    document.getElementById('select-all').addEventListener('change', function() {
+    document.getElementById('select-all').addEventListener('change', function () {
         const checkboxes = document.querySelectorAll('.item-checkbox');
         checkboxes.forEach(cb => {
             cb.checked = this.checked;
@@ -347,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Lógica de Persistencia (Corregir datos) ---
     const storageKey = `pedido_data_prov_${proveedorId}`;
-    
+
     function guardarEstado() {
         const data = {};
         getAllRows().forEach(row => {
@@ -375,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         Object.keys(saved).forEach(id => {
             const data = saved[id];
             let row = document.getElementById(`row-${id}`);
-            
+
             // Si es un producto externo que fue agregado dinámicamente, recrear la fila
             if (!row && data.es_externo) {
                 const prod = {
@@ -391,12 +431,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 agregarFilaExterna(prod, false); // false = no auto-guardar aún
                 row = document.getElementById(`row-${id}`);
             }
-            
+
             if (row) {
                 const cb = row.querySelector('.item-checkbox');
                 cb.checked = true;
                 toggleRowSelection(row, true);
-                
+
                 row.querySelector('input[name="minimo[]"]').value = data.min;
                 row.querySelector('input[name="maximo[]"]').value = data.max;
                 row.querySelector('select[name="unidad_empaque[]"]').value = data.unidad;
@@ -405,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 row.querySelector('input[name="cant_empaques[]"]').value = data.cant;
                 row.querySelector('input[name="detalle[]"]').value = data.detalle;
-                
+
                 calcularSubtotal(row);
             }
         });
@@ -420,12 +460,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // IMPORTANTE: Antes de enviar, habilitar temporalmente todo para que Django reciba los arrays completos
     // y los indices coincidan en el backend. Quitamos validaciones de filas no seleccionadas para evitar bloqueos.
-    form.addEventListener('submit', function() {
+    form.addEventListener('submit', function () {
         const rows = form.querySelectorAll('.row-producto');
         rows.forEach(row => {
             const isSelected = row.querySelector('.item-checkbox').checked;
             const inputs = row.querySelectorAll('.input-item, .input-calc');
-            
+
             if (!isSelected) {
                 // Si no está seleccionado, quitar validaciones para que no bloquee el submit
                 inputs.forEach(input => {
@@ -439,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Limpiar storage si se cancela explícitamente
-    document.getElementById('btn-cancelar').addEventListener('click', function() {
+    document.getElementById('btn-cancelar').addEventListener('click', function () {
         sessionStorage.removeItem(storageKey);
     });
 
@@ -451,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
     let searchTimeout = null;
 
-    buscarOtroInput.addEventListener('input', function() {
+    buscarOtroInput.addEventListener('input', function () {
         clearTimeout(searchTimeout);
         const q = this.value.trim();
         if (q.length < 2) {
@@ -467,11 +507,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="spinner-border text-primary" role="status"></div>
                 <p class="mt-2 text-muted">Buscando productos...</p>
             </div>`;
-        
+
         searchTimeout = setTimeout(() => {
             // Obtener IDs de productos ya en la tabla
             const idsExistentes = getAllRows().map(r => r.dataset.id).join(',');
-            
+
             fetch(`/compras/buscar_otros/${proveedorId}/?q=${encodeURIComponent(q)}&excluir=${idsExistentes}`)
                 .then(res => res.json())
                 .then(data => {
@@ -485,8 +525,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     let html = '<div class="list-group">';
                     data.results.forEach(p => {
-                        const provsText = p.proveedores_actuales.length > 0 
-                            ? p.proveedores_actuales.join(', ') 
+                        const provsText = p.proveedores_actuales.length > 0
+                            ? p.proveedores_actuales.join(', ')
                             : 'Sin proveedor asignado';
                         html += `
                             <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center producto-resultado" 
@@ -506,7 +546,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // Click listeners para agregar
                     resultadosDiv.querySelectorAll('.btn-agregar-externo').forEach(btn => {
-                        btn.addEventListener('click', function(e) {
+                        btn.addEventListener('click', function (e) {
                             e.stopPropagation();
                             const item = this.closest('.producto-resultado');
                             const prod = JSON.parse(item.dataset.producto);
@@ -528,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 350);
     });
 
-    btnLimpiar.addEventListener('click', function() {
+    btnLimpiar.addEventListener('click', function () {
         buscarOtroInput.value = '';
         resultadosDiv.innerHTML = `
             <div class="text-center text-muted py-4">
@@ -538,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Reset modal al cerrarlo
-    document.getElementById('modalAgregarOtro').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('modalAgregarOtro').addEventListener('hidden.bs.modal', function () {
         buscarOtroInput.value = '';
         resultadosDiv.innerHTML = `
             <div class="text-center text-muted py-4">
@@ -550,7 +590,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function agregarFilaExterna(prod, autoGuardar) {
         // Verificar que no exista ya
         if (document.getElementById(`row-${prod.id}`)) return;
-        
+
         // Construir opciones de unidad de empaque
         let opcionesUnidad = '';
         unidadesChoices.forEach(u => {
@@ -612,7 +652,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Insertar al inicio de la tabla para que sea visible
         tbody.insertBefore(newRow, tbody.firstChild);
-        
+
         // Eliminar mensaje de "no tiene productos" si existe
         const emptyMsg = tbody.querySelector('td[colspan="10"]');
         if (emptyMsg) {
@@ -621,7 +661,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Habilitar el botón de siguiente
         document.getElementById('btn-procesar').disabled = false;
-        
+
         // Actualizar vista y guardar estado
         actualizarVista();
         if (autoGuardar) guardarEstado();
@@ -629,23 +669,47 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <style>
-    .x-small { font-size: 0.75rem; }
-    .table-dark { --bs-table-bg: #2d3436; }
-    .row-locked { background-color: #f8f9fa; opacity: 0.8; }
-    .row-locked .input-item { background-color: #e9ecef; cursor: not-allowed; }
-    .row-externo { border-left: 4px solid #ffc107 !important; }
-    .row-externo.table-warning { background-color: #fff8e1 !important; }
-    .row-externo.table-info { background-color: #e8f5e9 !important; border-left-color: #28a745 !important; }
-    
+    .x-small {
+        font-size: 0.75rem;
+    }
+
+    .table-dark {
+        --bs-table-bg: #2d3436;
+    }
+
+    .row-locked {
+        background-color: #f8f9fa;
+        opacity: 0.8;
+    }
+
+    .row-locked .input-item {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .row-externo {
+        border-left: 4px solid #ffc107 !important;
+    }
+
+    .row-externo.table-warning {
+        background-color: #fff8e1 !important;
+    }
+
+    .row-externo.table-info {
+        background-color: #e8f5e9 !important;
+        border-left-color: #28a745 !important;
+    }
+
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
-      opacity: 1;
+        opacity: 1;
     }
 
     .producto-resultado {
         transition: all 0.2s ease;
         cursor: pointer;
     }
+
     .producto-resultado:hover {
         background-color: #f0f9ff !important;
     }
