@@ -28,9 +28,9 @@
                         <p class="text-muted small">Seleccione el proveedor o entidad a la que se le está asignando esta salida de inventario.</p>
                         
                         <div class="mb-3">
-                            <label for="proveedor_id" class="form-label fw-bold">Proveedor / Destinatario:</label>
-                            <select name="proveedor_id" id="proveedor_id" class="form-select form-select-lg border-primary" required>
-                                <option value="" selected disabled>-- Seleccione un Proveedor --</option>
+                            <label for="proveedor_id" class="form-label fw-bold">Proveedor / Destinatario (Opcional):</label>
+                            <select name="proveedor_id" id="proveedor_id" class="form-select form-select-lg border-primary">
+                                <option value="" selected>-- Seleccione un Proveedor (Opcional) --</option>
                                 {% for prov in proveedores %}
                                     <option value="{{ prov.id }}">{{ prov.razonsocial }} ({{ prov.rif }})</option>
                                 {% endfor %}

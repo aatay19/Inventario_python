@@ -239,10 +239,9 @@ def movimientos_salida_procesar(request):
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
         proveedor_id = request.POST.get('proveedor_id')
-        if not proveedor_id:
-            messages.error(request, 'Debe seleccionar un proveedor para el descargo.')
-            return redirect('movimientos.salida')
-        proveedor = Proveedor.objects.get(id=proveedor_id)
+        proveedor = None
+        if proveedor_id:
+            proveedor = Proveedor.objects.get(id=proveedor_id)
         ahora = timezone.now()
         lote_id = f"S-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         salidas_creadas = 0
@@ -267,11 +266,19 @@ def movimientos_salida_procesar(request):
                         producto.cantidad -= cant_salida
                         producto.save()
                         salidas_creadas += 1
-            messages.success(request, f'Se registraron exitosamente {salidas_creadas} salidas del inventario con descargo a {proveedor.razonsocial}.')
+            
+            if proveedor:
+                razon_social = proveedor.razonsocial
+                msg = f'Se registraron exitosamente {salidas_creadas} salidas del inventario con descargo a {razon_social}.'
+            else:
+                razon_social = "Sin especificar"
+                msg = f'Se registraron exitosamente {salidas_creadas} salidas del inventario.'
+                
+            messages.success(request, msg)
             request.session['ultimo_pdf_params'] = {
                 'lote': lote_id,
                 'fecha': ahora.strftime('%Y-%m-%d %H:%M:%S.%f'),
-                'prov': proveedor.razonsocial
+                'prov': razon_social
             }
             return redirect('movimientos.historial_salidas')
         except forms.ValidationError as e:
