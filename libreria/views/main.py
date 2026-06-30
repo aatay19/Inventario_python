@@ -67,6 +67,15 @@ def index(request):
         )
     ).filter(cantidad__gt=0).order_by('total_salidas', '-cantidad')[:5]
 
+    productos_mayor_movimiento = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').values(
+        'producto__nombre_producto',
+        'producto__codigo_producto'
+    ).annotate(
+        total_entradas=Sum('cantidad', filter=Q(tipo_movimiento='ENTRADA')),
+        total_salidas=Sum('cantidad', filter=Q(tipo_movimiento='SALIDA')),
+        total_movimientos=Sum('cantidad')
+    ).order_by('-total_movimientos')[:15]
+
     context = {
         'producto_top': producto_top,
         'ultimos_movimientos': ultimos_movimientos,
@@ -74,9 +83,12 @@ def index(request):
         'num_bajo_stock': productos_bajo_stock.count(),
         'mayor_rotacion': mayor_rotacion,
         'menor_rotacion': menor_rotacion,
+        'productos_mayor_movimiento': productos_mayor_movimiento,
     }
 
     return render(request, 'index.html', context)
+
+from django.http import JsonResponse
 
 @login_required
 @user_passes_test(es_admin, login_url='index')
@@ -93,3 +105,50 @@ def realizar_copia_seguridad(request):
     filename = f"backup_inventario_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.json"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+@login_required
+def api_mayor_movimiento(request):
+    q = request.GET.get('q', '').strip()
+    sort_by = request.GET.get('sort', 'total_desc')
+
+    qs = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').values(
+        'producto__nombre_producto',
+        'producto__codigo_producto'
+    ).annotate(
+        total_entradas=Sum('cantidad', filter=Q(tipo_movimiento='ENTRADA')),
+        total_salidas=Sum('cantidad', filter=Q(tipo_movimiento='SALIDA')),
+        total_movimientos=Sum('cantidad')
+    )
+
+    if q:
+        qs = qs.filter(
+            Q(producto__nombre_producto__icontains=q) |
+            Q(producto__codigo_producto__icontains=q)
+        )
+
+    if sort_by == 'entradas_desc':
+        qs = qs.order_by('-total_entradas')
+    elif sort_by == 'entradas_asc':
+        qs = qs.order_by('total_entradas')
+    elif sort_by == 'salidas_desc':
+        qs = qs.order_by('-total_salidas')
+    elif sort_by == 'salidas_asc':
+        qs = qs.order_by('total_salidas')
+    elif sort_by == 'total_asc':
+        qs = qs.order_by('total_movimientos')
+    else:
+        qs = qs.order_by('-total_movimientos')
+        
+    qs = qs[:50]
+
+    data = []
+    for item in qs:
+        data.append({
+            'codigo': item['producto__codigo_producto'],
+            'nombre': item['producto__nombre_producto'],
+            'entradas': item['total_entradas'] or 0,
+            'salidas': item['total_salidas'] or 0,
+            'total': item['total_movimientos'] or 0
+        })
+
+    return JsonResponse({'success': True, 'data': data})

@@ -359,6 +359,7 @@ def api_buscar_producto_stock(request):
             'codigo': p.codigo_producto,
             'nombre': p.nombre_producto,
             'stock': p.cantidad,
+            'vencido': p.cantidad_vencido,
             'total_empaques': p.total_empaques,
             'unidad': p.get_unidad_empaque_display()
         })
