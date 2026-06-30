@@ -196,6 +196,21 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-7">
+            <input type="text" id="busqueda-modal-movimientos" class="form-control" placeholder="Buscar producto por nombre o código...">
+          </div>
+          <div class="col-md-5">
+            <select id="filtro-modal-movimientos" class="form-select">
+              <option value="total_desc">Mayor Movimiento Total</option>
+              <option value="total_asc">Menor Movimiento Total</option>
+              <option value="entradas_desc">Mayor Entrada</option>
+              <option value="entradas_asc">Menor Entrada</option>
+              <option value="salidas_desc">Mayor Salida</option>
+              <option value="salidas_asc">Menor Salida</option>
+            </select>
+          </div>
+        </div>
         <div class="table-responsive">
           <table class="table table-hover align-middle">
             <thead class="table-light">
@@ -207,7 +222,7 @@
                 <th class="text-center">Movimientos Totales</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="tbody-mayor-movimientos">
               {% for prod in productos_mayor_movimiento %}
               <tr>
                 <td>{{ prod.producto__codigo_producto }}</td>
@@ -239,6 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let timeoutId = null;
 
     if (inputBusqueda) {
+        // ... (el resto del código anterior) ...
         function realizarBusqueda() {
             const query = inputBusqueda.value.trim();
             if (query.length < 2) {
@@ -252,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.success) {
                         tbodyResultados.innerHTML = '';
                         if (data.productos.length === 0) {
-                            tbodyResultados.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No se encontraron productos.</td></tr>';
+                            tbodyResultados.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No se encontraron productos.</td></tr>';
                         } else {
                             data.productos.forEach(p => {
                                 const tr = document.createElement('tr');
@@ -286,6 +302,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 realizarBusqueda();
             }
         });
+    }
+
+    // --- JS Para Modal de Mayor Movimiento ---
+    const inputBusquedaModal = document.getElementById('busqueda-modal-movimientos');
+    const selectFiltroModal = document.getElementById('filtro-modal-movimientos');
+    const tbodyMovimientos = document.getElementById('tbody-mayor-movimientos');
+    let timeoutModalId = null;
+
+    function fetchMovimientos() {
+        const q = inputBusquedaModal ? inputBusquedaModal.value.trim() : '';
+        const sort = selectFiltroModal ? selectFiltroModal.value : 'total_desc';
+        
+        fetch(`{% url "api.movimientos.mayor" %}?q=${encodeURIComponent(q)}&sort=${sort}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && tbodyMovimientos) {
+                    tbodyMovimientos.innerHTML = '';
+                    if (data.data.length === 0) {
+                        tbodyMovimientos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No se encontraron productos.</td></tr>';
+                    } else {
+                        data.data.forEach(prod => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${prod.codigo}</td>
+                                <td class="fw-bold">${prod.nombre}</td>
+                                <td class="text-center text-success fw-bold">${prod.entradas}</td>
+                                <td class="text-center text-danger fw-bold">${prod.salidas}</td>
+                                <td class="text-center"><span class="badge bg-dark fs-6">${prod.total}</span></td>
+                            `;
+                            tbodyMovimientos.appendChild(tr);
+                        });
+                    }
+                }
+            })
+            .catch(err => console.error('Error:', err));
+    }
+
+    if (inputBusquedaModal) {
+        inputBusquedaModal.addEventListener('input', function() {
+            clearTimeout(timeoutModalId);
+            timeoutModalId = setTimeout(fetchMovimientos, 400);
+        });
+    }
+    
+    if (selectFiltroModal) {
+        selectFiltroModal.addEventListener('change', fetchMovimientos);
     }
 });
 </script>
