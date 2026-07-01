@@ -14,6 +14,9 @@
                         <a href="{% url 'parque:generar_pdf_abono1' evento.pk %}" class="btn btn-sm btn-success me-2" title="Imprimir Recibo Abono 1">
                             <i class="bi bi-printer"></i> Imprimir Abono 1
                         </a>
+                        <a href="{% url 'parque:pagar_abono2' evento.pk %}" class="btn btn-sm {% if evento.monto_abono2 or evento.metodo_pago2 %}btn-outline-warning{% else %}btn-warning{% endif %} me-2" title="Registrar/Actualizar Abono 2">
+                            <i class="bi bi-cash-coin"></i> {% if evento.monto_abono2 or evento.metodo_pago2 %}Actualizar Abono 2{% else %}Pagar Abono 2{% endif %}
+                        </a>
                         <a href="{% url 'parque:lista_eventos' %}" class="btn btn-sm btn-outline-secondary">Volver al listado</a>
                     </div>
                 </div>

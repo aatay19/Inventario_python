@@ -216,7 +216,7 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 18)
-    pdf.cell(0, 15, "COMPROBANTE ENTRADA", ln=True, align="C")
+    pdf.cell(0, 15, "COMPROBANTE PEDIDO", ln=True, align="C")
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, f"Código: {pedido.codigo_lote}", ln=True, align="C")
     pdf.ln(5)

@@ -1,6 +1,23 @@
 from django import forms
 from .models import Evento, ProductoParque, ComboParque, Brazalete
 
+class Abono2Form(forms.ModelForm):
+    class Meta:
+        model = Evento
+        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2']
+        widgets = {
+            'fecha_abono2': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
+            'monto_abono2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'metodo_pago2': forms.Select(attrs={'class': 'form-select'}),
+            'nota_forma_pago2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia, banco u observación...'}),
+        }
+        labels = {
+            'fecha_abono2': 'Fecha del Abono',
+            'monto_abono2': 'Monto ($)',
+            'metodo_pago2': 'Método de Pago',
+            'nota_forma_pago2': 'Nota / Referencia',
+        }
+
 class EventoForm(forms.ModelForm):
     total_pagar = forms.DecimalField(required=False, initial=0.00, widget=forms.NumberInput(attrs={'class': 'form-control bg-light fw-bold text-success', 'readonly': 'readonly'}))
 

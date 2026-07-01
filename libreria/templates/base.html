@@ -57,7 +57,7 @@
         {% for message in messages %}
         Swal.fire({
             title: "{% if message.tags == 'success' %}¡Éxito!{% elif message.tags == 'error' %}Error{% else %}Información{% endif %}",
-            text: "{{ message }}",
+            text: "{{ message|escapejs }}",
             icon: "{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}info{% endif %}",
             confirmButtonText: 'Aceptar',
             confirmButtonColor: '#0d6efd',

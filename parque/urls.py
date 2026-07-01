@@ -15,6 +15,8 @@ urlpatterns = [
     path('eventos/detalle/<int:pk>/', views.detalle_evento, name='detalle_evento'),
     path('eventos/pdf/<int:pk>/', views.generar_pdf_evento, name='generar_pdf_evento'),
     path('eventos/pdf_abono1/<int:pk>/', views.generar_pdf_abono1, name='generar_pdf_abono1'),
+    path('eventos/pdf_abono2/<int:pk>/', views.generar_pdf_abono2, name='generar_pdf_abono2'),
+    path('eventos/pagar_abono2/<int:pk>/', views.pagar_abono2, name='pagar_abono2'),
 
     # Productos CRUD
     path('productos/', views.lista_productos, name='lista_productos'),

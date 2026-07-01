@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 from fpdf import FPDF
 from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEvento, ProductoEnCombo
-from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm
+from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm, Abono2Form
 
 def actualizar_estados_eventos():
     """Lógica para mover eventos a 'En Curso' o 'Finalizado' según la hora exacta"""
@@ -318,7 +318,9 @@ def generar_pdf_evento(request, pk):
     # La salida depende de la version de fpdf, pero esto suele ser lo mas seguro
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, str):
-        response.write(pdf_output.encode('latin-1'))
+        response.write(pdf_output.encode('latin-1', 'replace'))
+    elif isinstance(pdf_output, bytearray):
+        response.write(bytes(pdf_output))
     else:
         response.write(pdf_output)
         
@@ -368,11 +370,98 @@ def generar_pdf_abono1(request, pk):
     
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, str):
-        response.write(pdf_output.encode('latin-1'))
+        response.write(pdf_output.encode('latin-1', 'replace'))
+    elif isinstance(pdf_output, bytearray):
+        response.write(bytes(pdf_output))
     else:
         response.write(pdf_output)
         
     return response
+
+@login_required
+def generar_pdf_abono2(request, pk):
+    evento = get_object_or_404(Evento, pk=pk)
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Título
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(190, 10, txt="RECIBO DE ABONO 2 (DÍA DEL EVENTO)", ln=True, align='C')
+    pdf.ln(10)
+
+    # Información General
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(190, 8, txt="Detalles del Evento", ln=True)
+    pdf.set_font("Helvetica", size=11)
+    pdf.cell(190, 7, txt=f"Evento: {evento.titulo}", ln=True)
+    if evento.nombre_reserva:
+        pdf.cell(190, 7, txt=f"Cliente: {evento.nombre_reserva}", ln=True)
+    if evento.zona:
+        pdf.cell(190, 7, txt=f"Zona: {evento.get_zona_display()}", ln=True)
+    pdf.cell(190, 7, txt=f"Fecha del Evento: {evento.fecha_inicio.strftime('%d/%m/%Y')}", ln=True)
+
+    pdf.ln(5)
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(190, 8, txt="Información del Abono 2", ln=True)
+    pdf.set_font("Helvetica", size=11)
+
+    if evento.fecha_abono2:
+        pdf.cell(190, 7, txt=f"Fecha de Abono: {evento.fecha_abono2.strftime('%d/%m/%Y')}", ln=True)
+    if evento.monto_abono2:
+        pdf.cell(190, 7, txt=f"Monto: ${evento.monto_abono2}", ln=True)
+    if evento.metodo_pago2:
+        pdf.cell(190, 7, txt=f"Metodo de Pago: {evento.get_metodo_pago2_display()}", ln=True)
+    if evento.nota_forma_pago2:
+        pdf.cell(190, 7, txt=f"Nota: {evento.nota_forma_pago2}", ln=True)
+
+    if not evento.monto_abono2 and not evento.metodo_pago2:
+        pdf.ln(3)
+        pdf.set_font("Helvetica", 'I', 10)
+        pdf.cell(190, 7, txt="Este evento aún no registra un segundo abono.", ln=True)
+
+    # Generar respuesta
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="recibo_abono2_{evento.id}.pdf"'
+
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, str):
+        response.write(pdf_output.encode('latin-1', 'replace'))
+    elif isinstance(pdf_output, bytearray):
+        response.write(bytes(pdf_output))
+    else:
+        response.write(pdf_output)
+
+    return response
+
+
+@login_required
+def pagar_abono2(request, pk):
+    evento = get_object_or_404(Evento, pk=pk)
+    
+    total = evento.total_pagar or 0
+    abono1 = evento.monto_abono1 or 0
+    restante = total - abono1
+    if restante < 0:
+        restante = 0
+
+    if request.method == 'POST':
+        form = Abono2Form(request.POST, instance=evento)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Abono 2 registrado correctamente para "{evento.titulo}".')
+            return redirect('parque:detalle_evento', pk=evento.pk)
+    else:
+        form = Abono2Form(instance=evento)
+        if not evento.monto_abono2:
+            form.initial['monto_abono2'] = restante
+
+    return render(request, 'parque/eventos/pagar_abono2.html', {
+        'form': form, 
+        'evento': evento,
+        'restante': restante
+    })
 
 @login_required
 def lista_productos(request):

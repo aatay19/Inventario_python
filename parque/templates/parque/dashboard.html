@@ -134,6 +134,16 @@
                                         <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-sm btn-outline-primary rounded-pill">
                                             <i class="bi bi-eye"></i> Detalles
                                         </a>
+                                        <a href="{% url 'parque:generar_pdf_abono2' evento.pk %}" 
+                                           class="btn btn-sm {% if evento.monto_abono2 or evento.metodo_pago2 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} rounded-pill"
+                                           title="{% if evento.monto_abono2 or evento.metodo_pago2 %}Recibo Abono 2{% else %}Recibo Abono 2 (sin datos){% endif %}">
+                                            <i class="bi bi-printer"></i> PDF
+                                        </a>
+                                        <a href="{% url 'parque:pagar_abono2' evento.pk %}" 
+                                           class="btn btn-sm {% if evento.monto_abono2 or evento.metodo_pago2 %}btn-outline-warning{% else %}btn-outline-primary{% endif %} rounded-pill"
+                                           title="{% if evento.monto_abono2 or evento.metodo_pago2 %}Actualizar Abono 2{% else %}Pagar Abono 2{% endif %}">
+                                            <i class="bi bi-cash-coin"></i> {% if evento.monto_abono2 or evento.metodo_pago2 %}Act.{% else %}Pagar{% endif %}
+                                        </a>
                                         <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-sm btn-outline-secondary rounded-pill">
                                             <i class="bi bi-pencil"></i>
                                         </a>

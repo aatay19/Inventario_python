@@ -881,11 +881,13 @@ def exportar_lote_pdf(request):
         if lote_id:
             qs = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
         else:
-            qs = MovimientosInventario.objects.filter(
-                fecha_movimiento=fecha_str,
-                proveedor__razonsocial=prov_nombre,
-                tipo_movimiento=tipo
-            ).select_related('producto', 'proveedor')
+            filtros = {
+                'fecha_movimiento': fecha_str,
+                'tipo_movimiento': tipo,
+            }
+            if prov_nombre:
+                filtros['proveedor__razonsocial'] = prov_nombre
+            qs = MovimientosInventario.objects.filter(**filtros).select_related('producto', 'proveedor')
         
         if not qs.exists():
             messages.error(request, "No se encontró el lote especificado.")
@@ -904,8 +906,11 @@ def exportar_lote_pdf(request):
         pdf.set_font("Helvetica", "B", 12)
         pdf.cell(0, 10, "Datos del Proveedor / Destinatario:", ln=True)
         pdf.set_font("Helvetica", "", 11)
-        pdf.cell(0, 7, f"Nombre/Razon Social: {qs[0].proveedor.razonsocial}", ln=True)
-        pdf.cell(0, 7, f"RIF: {qs[0].proveedor.rif}", ln=True)
+        proveedor = qs[0].proveedor
+        nombre_prov = proveedor.razonsocial if proveedor else "Sin proveedor asignado"
+        rif_prov = proveedor.rif if proveedor else "N/A"
+        pdf.cell(0, 7, f"Nombre/Razon Social: {nombre_prov}", ln=True)
+        pdf.cell(0, 7, f"RIF: {rif_prov}", ln=True)
         pdf.ln(5)
         
         pdf.set_font("Helvetica", "B", 9)
