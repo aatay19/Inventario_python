@@ -18,8 +18,11 @@
                 <i class="bi bi-clock-history me-2 text-warning"></i>Historial de Vencidos
             </h2>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             {% if user.perfilusuario.rol|lower != 'consulta' %}
+            <a href="{% url 'movimientos.salida_vencido' %}" class="btn btn-danger">
+                <i class="fas fa-sign-out-alt me-2"></i>Salida Vencido
+            </a>
             <a href="{% url 'movimientos.traslado_vencido' %}" class="btn btn-warning">
                 <i class="fas fa-exchange-alt me-2"></i>Nuevo Traslado
             </a>
@@ -55,6 +58,9 @@
                         <option value="CARGA_VENCIDO" {% if tipo_filtro == 'CARGA_VENCIDO' %}selected{% endif %}>
                             Carga Directa a Vencidos
                         </option>
+                        <option value="SALIDA_VENCIDO" {% if tipo_filtro == 'SALIDA_VENCIDO' %}selected{% endif %}>
+                            Salida de Vencidos
+                        </option>
                     </select>
                 </div>
                 <div class="col-md-2 d-flex gap-2">
@@ -73,12 +79,16 @@
             <div class="card shadow-sm border-0 mb-4 overflow-hidden">
                 <!-- Cabecera del lote -->
                 <div class="card-header text-white py-3
-                    {% if tipo_mov == 'TRASLADO_VENCIDO' %}bg-warning{% else %}bg-info{% endif %}">
+                    {% if tipo_mov == 'TRASLADO_VENCIDO' %}bg-warning
+                    {% elif tipo_mov == 'SALIDA_VENCIDO' %}bg-danger
+                    {% else %}bg-info{% endif %}">
                     <div class="row align-items-center">
                         <div class="col-md-7">
-                            <h5 class="mb-0 fw-bold {% if tipo_mov == 'CARGA_VENCIDO' %}text-white{% endif %}">
+                            <h5 class="mb-0 fw-bold {% if tipo_mov == 'TRASLADO_VENCIDO' %}text-dark{% else %}text-white{% endif %}">
                                 {% if tipo_mov == 'TRASLADO_VENCIDO' %}
                                     <i class="fas fa-exchange-alt me-2"></i>Traslado a Vencidos
+                                {% elif tipo_mov == 'SALIDA_VENCIDO' %}
+                                    <i class="fas fa-sign-out-alt me-2"></i>Salida de Vencidos
                                 {% else %}
                                     <i class="fas fa-plus-circle me-2"></i>Carga Directa a Vencidos
                                 {% endif %}
@@ -97,11 +107,15 @@
                 <!-- Resumen -->
                 <div class="card-body bg-light border-bottom">
                     <div class="row align-items-center">
-                        <div class="col-xl-4 col-md-12 mb-2 mb-xl-0">
+                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Tipo de operación:</span>
                             {% if tipo_mov == 'TRASLADO_VENCIDO' %}
                                 <span class="badge bg-warning text-dark fs-6">
                                     <i class="fas fa-exchange-alt me-1"></i>Traslado desde Inventario
+                                </span>
+                            {% elif tipo_mov == 'SALIDA_VENCIDO' %}
+                                <span class="badge bg-danger text-white fs-6">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Salida de Vencidos
                                 </span>
                             {% else %}
                                 <span class="badge bg-info text-white fs-6">
@@ -109,7 +123,13 @@
                                 </span>
                             {% endif %}
                         </div>
-                        <div class="col-xl-4 col-md-12 mb-2 mb-xl-0">
+                        {% if lote.info.proveedor_nombre %}
+                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
+                            <span class="text-muted small d-block">Proveedor:</span>
+                            <span class="fw-semibold"><i class="fas fa-truck me-1 text-muted"></i>{{ lote.info.proveedor_nombre }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Resumen:</span>
                             <span class="badge bg-white text-dark border me-1">
                                 {{ lote.info.total_items }} Producto{% if lote.info.total_items != 1 %}s{% endif %}
@@ -118,7 +138,7 @@
                                 {{ lote.info.total_unidades }} Unidades Totales
                             </span>
                         </div>
-                        <div class="col-xl-4 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
+                        <div class="col-xl-3 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
                             <!-- Botón PDF -->
                             <a href="{% url 'movimientos.exportar_vencido_pdf' %}?lote={{ lote.info.codigo_lote }}&tipo={{ tipo_mov }}"
                                class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap"
@@ -157,7 +177,10 @@
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
                                         <div class="small text-muted font-monospace">{{ item.producto.codigo_producto }}</div>
                                     </td>
-                                    <td class="text-center fw-bold text-warning fs-6">
+                                    <td class="text-center fw-bold fs-6
+                                        {% if tipo_mov == 'TRASLADO_VENCIDO' %}text-warning
+                                        {% elif tipo_mov == 'SALIDA_VENCIDO' %}text-danger
+                                        {% else %}text-info{% endif %}">
                                         {{ item.cantidad }}
                                     </td>
                                     <td class="text-center">
@@ -214,7 +237,7 @@
         <div class="text-center py-5">
             <i class="fas fa-trash-alt fa-4x text-muted mb-4 d-block opacity-25"></i>
             <p class="text-muted fs-5 mb-1">No se encontraron registros de vencidos.</p>
-            <p class="text-muted small">Usa los filtros de arriba o registra un nuevo traslado o carga directa.</p>
+            <p class="text-muted small">Usa los filtros de arriba o registra un nuevo traslado, carga directa o salida de vencidos.</p>
         </div>
     {% endif %}
 </div>

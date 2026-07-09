@@ -653,11 +653,11 @@ def movimientos_historial_entradas(request):
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def movimientos_historial_vencidos(request):
-    """Historial de traslados y cargas directas al depósito de vencidos."""
+    """Historial de traslados, cargas directas y salidas del depósito de vencidos."""
     q = request.GET.get('q', '').strip()
-    tipo_filtro = request.GET.get('tipo', '').strip()  # '' | 'TRASLADO_VENCIDO' | 'CARGA_VENCIDO'
+    tipo_filtro = request.GET.get('tipo', '').strip()  # '' | 'TRASLADO_VENCIDO' | 'CARGA_VENCIDO' | 'SALIDA_VENCIDO'
 
-    tipos_validos = ['TRASLADO_VENCIDO', 'CARGA_VENCIDO']
+    tipos_validos = ['TRASLADO_VENCIDO', 'CARGA_VENCIDO', 'SALIDA_VENCIDO']
     if tipo_filtro in tipos_validos:
         qs = MovimientosInventario.objects.filter(tipo_movimiento=tipo_filtro).select_related('producto', 'proveedor')
     else:
@@ -700,6 +700,7 @@ def movimientos_historial_vencidos(request):
                     'tipo_movimiento': tipo_mov,
                     'total_items': movs_del_lote.count(),
                     'total_unidades': movs_del_lote.aggregate(Sum('cantidad'))['cantidad__sum'],
+                    'proveedor_nombre': primero.proveedor.razonsocial if primero.proveedor else None,
                 },
                 'detalles': movs_del_lote
             })
@@ -1133,6 +1134,9 @@ def exportar_vencido_pdf(request):
         if tipo == 'TRASLADO_VENCIDO':
             titulo_doc = 'COMPROBANTE DE TRASLADO A VENCIDOS'
             subtitulo = 'Traslado desde inventario principal al deposito de vencidos'
+        elif tipo == 'SALIDA_VENCIDO':
+            titulo_doc = 'COMPROBANTE DE SALIDA DE VENCIDOS'
+            subtitulo = 'Salida de productos del deposito de vencidos'
         else:
             titulo_doc = 'COMPROBANTE DE CARGA DIRECTA A VENCIDOS'
             subtitulo = 'Carga directa de productos al deposito de vencidos'
@@ -1147,6 +1151,8 @@ def exportar_vencido_pdf(request):
         pdf.cell(0, 5, subtitulo, ln=True, align='C')
         pdf.cell(0, 5, f'Fecha: {ahora.strftime("%d/%m/%Y %H:%M:%S")}', ln=True, align='C')
         pdf.cell(0, 5, f'Codigo de Lote: {lote_id}', ln=True, align='C')
+        if qs[0].proveedor:
+            pdf.cell(0, 5, f'Proveedor: {qs[0].proveedor.razonsocial} (RIF: {qs[0].proveedor.rif})', ln=True, align='C')
         pdf.ln(6)
 
         # Separador
@@ -1199,7 +1205,12 @@ def exportar_vencido_pdf(request):
             pdf_out = bytes(pdf_out)
 
         response = HttpResponse(pdf_out, content_type='application/pdf')
-        tipo_str = 'traslado_vencido' if tipo == 'TRASLADO_VENCIDO' else 'carga_vencido'
+        if tipo == 'TRASLADO_VENCIDO':
+            tipo_str = 'traslado_vencido'
+        elif tipo == 'SALIDA_VENCIDO':
+            tipo_str = 'salida_vencido'
+        else:
+            tipo_str = 'carga_vencido'
         filename = f'comprobante_{tipo_str}_{ahora.strftime("%Y%m%d_%H%M%S")}.pdf'
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -1208,3 +1219,139 @@ def exportar_vencido_pdf(request):
         messages.error(request, f'Error al generar el PDF: {str(e)}')
         return redirect('inventario.deposito_vencido')
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SALIDA DE VENCIDOS (descuenta del depósito de vencidos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_salida_vencido_form(request):
+    """Formulario para registrar la salida de productos del depósito de vencidos."""
+    from ..models import UnidadEmpaqueChoices
+    # Solo productos que tienen cantidad vencida > 0
+    qs = Inventario.objects.filter(cantidad_vencido__gt=0).order_by('nombre_producto')
+    proveedores = Proveedor.objects.all().order_by('razonsocial')
+    unidades_choices = UnidadEmpaqueChoices.choices
+    unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
+
+    productos_json = []
+    for p in qs:
+        productos_json.append({
+            'id': p.id_producto,
+            'nombre': str(p.nombre_producto or ""),
+            'codigo': str(p.codigo_producto or ""),
+            'stock_vencido': p.cantidad_vencido,
+            'unidades_html': unidades_html,
+            'id_unidad_default': p.unidad_empaque,
+            'cant_por_empaque': p.cantidad_por_empaque,
+        })
+    return render(request, 'movimientos/form_salida_vencido.html', {
+        'productos_json': productos_json,
+        'proveedores': proveedores,
+        'unidades_choices': unidades_choices,
+    })
+
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_salida_vencido_confirmar(request):
+    """Muestra un resumen antes de confirmar la salida de vencidos."""
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
+        proveedor_id = request.POST.get('proveedor_id')
+
+        items_resumen = []
+        for i in range(len(producto_ids)):
+            cant = int(totales[i])
+            if cant > 0:
+                producto = Inventario.objects.get(id_producto=producto_ids[i])
+                items_resumen.append({
+                    'producto': producto,
+                    'unidad': unidades_empaque[i],
+                    'cant_por_empaque': cants_por_empaque[i] if cants_por_empaque and i < len(cants_por_empaque) else producto.cantidad_por_empaque,
+                    'cant_empaques': cants_empaques[i],
+                    'total': cant,
+                })
+
+        if not items_resumen:
+            messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
+            return redirect('movimientos.salida_vencido')
+
+        proveedor = None
+        if proveedor_id:
+            proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+
+        return render(request, 'movimientos/confirmar_salida_vencido.html', {
+            'items': items_resumen,
+            'proveedor': proveedor,
+        })
+    return redirect('movimientos.index')
+
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def movimientos_salida_vencido_procesar(request):
+    """Procesa la salida de productos del depósito de vencidos."""
+    if request.method == 'POST':
+        producto_ids = request.POST.getlist('producto_id[]')
+        unidades_empaque = request.POST.getlist('unidad_empaque[]')
+        cants_empaques = request.POST.getlist('cant_empaques[]')
+        totales = request.POST.getlist('total_unidades[]')
+        proveedor_id = request.POST.get('proveedor_id')
+
+        proveedor = None
+        if proveedor_id:
+            try:
+                proveedor = Proveedor.objects.get(id=proveedor_id)
+            except Proveedor.DoesNotExist:
+                pass
+
+        ahora = timezone.now()
+        lote_id = f"SV-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
+        salidas_creadas = 0
+        try:
+            with transaction.atomic():
+                for i in range(len(producto_ids)):
+                    producto = Inventario.objects.get(id_producto=producto_ids[i])
+                    cant_salida = int(totales[i])
+                    if cant_salida > 0:
+                        if producto.cantidad_vencido < cant_salida:
+                            raise forms.ValidationError(
+                                f"Stock vencido insuficiente para {producto.nombre_producto}. "
+                                f"Disponible en vencido: {producto.cantidad_vencido}"
+                            )
+                        MovimientosInventario.objects.create(
+                            producto=producto,
+                            tipo_movimiento='SALIDA_VENCIDO',
+                            cantidad=cant_salida,
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
+                            proveedor=proveedor,
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id
+                        )
+                        # Solo descuenta del depósito de vencidos
+                        producto.cantidad_vencido -= cant_salida
+                        producto.save()
+                        salidas_creadas += 1
+
+            if proveedor:
+                msg = f'Se registraron {salidas_creadas} salidas del depósito de vencidos con descargo a {proveedor.razonsocial}.'
+            else:
+                msg = f'Se registraron {salidas_creadas} salidas del depósito de vencidos.'
+
+            messages.success(request, msg)
+            return redirect('inventario.deposito_vencido')
+
+        except forms.ValidationError as e:
+            messages.error(request, str(e))
+            return redirect('movimientos.salida_vencido')
+        except Exception as e:
+            messages.error(request, f'Error al procesar las salidas de vencidos: {str(e)}')
+            return redirect('movimientos.salida_vencido')
+    return redirect('movimientos.index')

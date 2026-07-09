@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}Salida de Vencidos{% endblock %}
+{% block content %}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'inventario.deposito_vencido' %}">Depósito de Vencidos</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Salida de Vencidos</li>
+              </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Registrar <span class="text-danger">Salida de Vencidos</span></h2>
+            <p class="text-muted">Descuente productos del depósito de vencidos y regístrelos bajo un proveedor.</p>
+        </div>
+    </div>
+
+    <form action="{% url 'movimientos.salida_vencido_confirmar' %}" method="post" id="form-salida-vencido">
+        {% csrf_token %}
+
+        <!-- Selección de Proveedor -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3 border-bottom">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-truck me-2 text-danger"></i>Proveedor <span class="text-muted fw-normal fs-6">(opcional)</span></h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-6">
+                        <label for="id_proveedor" class="form-label fw-semibold">Seleccionar Proveedor</label>
+                        <select name="proveedor_id" id="id_proveedor" class="form-select form-select-lg">
+                            <option value="">— Sin proveedor —</option>
+                            {% for proveedor in proveedores %}
+                            <option value="{{ proveedor.id }}">{{ proveedor.razonsocial }} ({{ proveedor.rif }})</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Puede dejar en blanco si la salida no está asociada a un proveedor.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buscador Dinámico -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body bg-light">
+                <label class="fw-bold mb-2"><i class="fas fa-search me-1"></i> Buscar Producto del Depósito de Vencidos</label>
+                <div class="position-relative">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" id="buscador-producto" class="form-control border-start-0" 
+                               placeholder="Escriba el nombre o el código..." autocomplete="off">
+                    </div>
+                    <!-- Resultados de búsqueda -->
+                    <div id="resultados-busqueda" class="list-group shadow position-absolute w-100 mt-1" 
+                         style="z-index: 1050; display: none; max-height: 300px; overflow-y: auto;">
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">Solo se muestran productos con stock vencido disponible.</small>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-danger text-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-sign-out-alt me-2"></i>Productos Seleccionados para Salida de Vencidos</h5>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0" id="tabla-salida-vencido">
+                    <thead class="table-dark text-center">
+                        <tr class="small">
+                            <th style="width: 30%;">Producto</th>
+                            <th style="width: 12%;">Stock Vencido</th>
+                            <th style="width: 15%;">Cant. a Dar Salida</th>
+                            <th style="width: 15%;">Tipo Empaque</th>
+                            <th style="width: 13%;">Unid. x Empaque</th>
+                            <th style="width: 10%;">Total Empaques</th>
+                            <th style="width: 5%;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-tabla">
+                        <!-- Las filas se agregarán aquí dinámicamente -->
+                        <tr id="fila-vacia">
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-box-open fs-1 mb-3 d-block"></i>
+                                No hay productos en la lista. Use el buscador superior para agregar productos del depósito de vencidos.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card-footer bg-white py-3 border-top">
+                <div class="row align-items-center">
+                    <div class="col-md-8 text-muted small">
+                        <i class="fas fa-info-circle me-1"></i> 
+                        <strong>Importante:</strong> Esta acción <strong>solo descontará del depósito de vencidos</strong>. No afectará el inventario principal.
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <a href="{% url 'inventario.deposito_vencido' %}" class="btn btn-outline-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-danger btn-lg" id="btn-procesar" disabled>
+                            Siguiente <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Datos en JSON para el buscador (JS) -->
+{{ productos_json|json_script:"productos-data" }}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador-producto');
+    const resultados = document.getElementById('resultados-busqueda');
+    const cuerpoTabla = document.getElementById('cuerpo-tabla');
+    const filaVacia = document.getElementById('fila-vacia');
+    const btnProcesar = document.getElementById('btn-procesar');
+    const formSalida = document.getElementById('form-salida-vencido');
+
+    // Cargar productos del script tag
+    const productos = JSON.parse(document.getElementById('productos-data').textContent);
+    const seleccionados = new Set();
+
+    // --- Lógica del Buscador ---
+    buscador.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        if (query.length < 1) {
+            resultados.style.display = 'none';
+            return;
+        }
+
+        const matches = productos.filter(p => 
+            (p.nombre && p.nombre.toLowerCase().includes(query)) || 
+            (p.codigo && p.codigo.toLowerCase().includes(query))
+        );
+
+        if (matches.length > 0) {
+            resultados.innerHTML = matches.map(p => {
+                const yaAgregado = seleccionados.has(p.id);
+                return `
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${yaAgregado ? 'disabled text-muted' : ''}" 
+                            onclick="agregarProducto(${p.id})" ${yaAgregado ? 'disabled' : ''}>
+                        <div>
+                            <strong>${p.nombre}</strong><br>
+                            <small class="text-muted">${p.codigo}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-warning text-dark rounded-pill ms-2">Vencido: ${p.stock_vencido}</span>
+                            ${yaAgregado ? '<span class="badge bg-secondary ms-1">Ya agregado</span>' : ''}
+                        </div>
+                    </button>
+                `;
+            }).join('');
+            resultados.style.display = 'block';
+        } else {
+            resultados.innerHTML = '<div class="list-group-item text-muted text-center py-3"><i class="fas fa-search me-2"></i>No se encontraron productos con stock vencido.</div>';
+            resultados.style.display = 'block';
+        }
+    });
+
+    // --- Agregar Producto a la Tabla ---
+    window.agregarProducto = function(id) {
+        if (seleccionados.has(id)) {
+            buscador.value = '';
+            resultados.style.display = 'none';
+            return;
+        }
+
+        const p = productos.find(prod => prod.id === id);
+        if (!p) return;
+
+        if (filaVacia && filaVacia.parentNode) filaVacia.remove();
+
+        const tr = document.createElement('tr');
+        tr.id = `fila-${id}`;
+        tr.innerHTML = `
+            <input type="hidden" name="producto_id[]" value="${id}">
+            
+            <td class="fw-bold">
+                ${p.nombre}
+                <div class="text-muted x-small">${p.codigo}</div>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-warning text-dark fs-6">${p.stock_vencido}</span>
+            </td>
+            <td>
+                <input type="number" name="total_unidades[]" value="1" min="1" max="${p.stock_vencido}"
+                       class="form-control form-control-sm text-center fw-bold border-danger input-cant" 
+                       oninput="actualizarCant(${id}, this.value)">
+                <div class="text-danger x-small mt-1 aviso-stock-${id}" style="display:none;">
+                    <i class="fas fa-exclamation-triangle me-1"></i> Supera el stock vencido
+                </div>
+            </td>
+            <td>
+                <select name="unidad_empaque[]" class="form-select form-select-sm" id="select-unid-${id}">
+                    ${p.unidades_html}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="cant_por_empaque[]" value="${p.cant_por_empaque || 1}" min="1" 
+                       class="form-control form-control-sm text-center input-factor" 
+                       oninput="actualizarCant(${id}, document.getElementById('fila-${id}').querySelector('.input-cant').value)">
+            </td>
+            <td>
+                <input type="number" name="cant_empaques[]" id="hidden-cant-${id}" value="${(p.cant_por_empaque || 1) > 0 ? (1 / (p.cant_por_empaque || 1)).toFixed(2) : 0}" 
+                       class="form-control form-control-sm text-center bg-light input-empaques" readonly>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removerProducto(${id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+
+        cuerpoTabla.appendChild(tr);
+        seleccionados.add(id);
+
+        // Seleccionar la unidad por defecto
+        if (p.id_unidad_default) {
+            document.getElementById(`select-unid-${id}`).value = p.id_unidad_default;
+        }
+        
+        // Calcular empaques iniciales
+        actualizarCant(id, 1);
+
+        buscador.value = '';
+        resultados.style.display = 'none';
+        actualizarBotonProcesar();
+    };
+
+    window.removerProducto = function(id) {
+        const fila = document.getElementById(`fila-${id}`);
+        if (fila) fila.remove();
+        seleccionados.delete(id);
+        
+        if (cuerpoTabla.querySelectorAll('tr:not(#fila-vacia)').length === 0) {
+            const filaVaciaNew = document.createElement('tr');
+            filaVaciaNew.id = 'fila-vacia';
+            filaVaciaNew.innerHTML = `
+                <td colspan="7" class="text-center py-5 text-muted">
+                    <i class="fas fa-box-open fs-1 mb-3 d-block"></i>
+                    No hay productos en la lista. Use el buscador superior para agregar productos del depósito de vencidos.
+                </td>
+            `;
+            cuerpoTabla.appendChild(filaVaciaNew);
+        }
+        actualizarBotonProcesar();
+    };
+
+    window.actualizarCant = function(id, val) {
+        const row = document.getElementById(`fila-${id}`);
+        if (!row) return;
+        const v = parseFloat(val) || 0;
+        const factor = parseFloat(row.querySelector('.input-factor').value) || 1;
+        const empaquesInput = document.getElementById(`hidden-cant-${id}`);
+        const avisoStock = row.querySelector(`.aviso-stock-${id}`);
+        
+        // Obtener stock vencido del producto
+        const p = productos.find(prod => prod.id === id);
+        const stockVencido = p ? p.stock_vencido : 0;
+
+        // Advertencia de stock
+        if (avisoStock) {
+            avisoStock.style.display = v > stockVencido ? 'block' : 'none';
+        }
+        
+        // Calcular empaques
+        if (factor > 0) {
+            const totalE = v / factor;
+            empaquesInput.value = totalE % 1 === 0 ? totalE : totalE.toFixed(2);
+        } else {
+            empaquesInput.value = 0;
+        }
+        actualizarBotonProcesar();
+    };
+
+    function actualizarBotonProcesar() {
+        const hayProductos = seleccionados.size > 0;
+        const hayExcesos = document.querySelectorAll('[class*="aviso-stock-"]').length > 0 &&
+            Array.from(document.querySelectorAll('[class*="aviso-stock-"]')).some(el => el.style.display !== 'none');
+        btnProcesar.disabled = !hayProductos || hayExcesos;
+    }
+
+    // Cerrar resultados al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
+            resultados.style.display = 'none';
+        }
+    });
+
+    // Prevenir doble envío
+    formSalida.addEventListener('submit', function(e) {
+        // Verificar que ninguna cantidad exceda el stock
+        let excede = false;
+        seleccionados.forEach(id => {
+            const p = productos.find(prod => prod.id === id);
+            const row = document.getElementById(`fila-${id}`);
+            if (row && p) {
+                const inputCant = row.querySelector('.input-cant');
+                const cant = parseInt(inputCant ? inputCant.value : 0) || 0;
+                if (cant > p.stock_vencido) {
+                    excede = true;
+                }
+            }
+        });
+
+        if (excede) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Error de Cantidad',
+                text: 'Una o más cantidades superan el stock vencido disponible.',
+                icon: 'error',
+                confirmButtonColor: '#dc3545'
+            });
+            return;
+        }
+
+        btnProcesar.disabled = true;
+        btnProcesar.innerHTML = 'Siguiente <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>';
+    });
+});
+</script>
+<style>
+    .x-small { font-size: 0.75rem; }
+    .list-group-item:hover { background-color: #f8f9fa; cursor: pointer; }
+    .input-cant:focus { box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25); border-color: #dc3545; }
+    .table-dark { --bs-table-bg: #212529; }
+</style>
+{% endblock %}

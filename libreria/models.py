@@ -121,6 +121,7 @@ class MovimientosInventario(models.Model):
         ('SALIDA', 'Salida'),
         ('TRASLADO_VENCIDO', 'Traslado a Vencido'),
         ('CARGA_VENCIDO', 'Carga Directa a Vencido'),
+        ('SALIDA_VENCIDO', 'Salida de Vencido'),
     ]
 
     id_movimiento = models.AutoField(primary_key=True)

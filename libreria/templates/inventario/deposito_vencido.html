@@ -11,6 +11,7 @@
       <p class="text-muted">Lista de productos trasladados por vencimiento o daño.</p>
     </div>
     <div class="btn-group shadow-sm">
+      <a href="{% url 'movimientos.salida_vencido' %}" class="btn btn-danger"><i class="fas fa-sign-out-alt me-2"></i>Salida Vencido</a>
       <a href="{% url 'movimientos.traslado_vencido' %}" class="btn btn-warning"><i class="fas fa-exchange-alt me-2"></i>Nuevo Traslado</a>
       <a href="{% url 'movimientos.carga_vencido' %}" class="btn btn-info text-white"><i class="fas fa-plus-circle me-2"></i>Carga Directa</a>
       <a href="{% url 'inventario.index' %}" class="btn btn-outline-primary"><i class="fas fa-boxes me-2"></i>Ver Inventario Principal</a>

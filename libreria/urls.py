@@ -77,6 +77,9 @@ urlpatterns = [
     path('movimientos/lote/eliminar', views.movimientos_lote_eliminar, name='movimientos.lote_eliminar'),
     path('movimientos/lote/editar/<str:lote_id>', views.movimientos_lote_editar, name='movimientos.lote_editar'),
     path('movimientos/vencidos/exportar/pdf', views.exportar_vencido_pdf, name='movimientos.exportar_vencido_pdf'),
+    path('movimientos/salida-vencido', views.movimientos_salida_vencido_form, name='movimientos.salida_vencido'),
+    path('movimientos/salida-vencido/confirmar', views.movimientos_salida_vencido_confirmar, name='movimientos.salida_vencido_confirmar'),
+    path('movimientos/salida-vencido/procesar', views.movimientos_salida_vencido_procesar, name='movimientos.salida_vencido_procesar'),
 
     #usuarios urls
     path('usuarios/', views.usuarios_index, name='usuarios.index'),
