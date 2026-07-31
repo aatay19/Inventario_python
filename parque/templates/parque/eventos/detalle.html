@@ -8,16 +8,21 @@
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold text-primary">Detalles del Evento #{{ evento.id }}</h5>
                     <div>
-                        <a href="{% url 'parque:generar_pdf_evento' evento.pk %}" class="btn btn-sm btn-danger me-2" title="Descargar PDF Evento Completo">
+                        <a href="{% url 'parque:generar_pdf_evento' evento.pk %}" class="btn btn-sm btn-danger me-2"
+                            title="Descargar PDF Evento Completo">
                             <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
                         </a>
-                        <a href="{% url 'parque:generar_pdf_abono1' evento.pk %}" class="btn btn-sm btn-success me-2" title="Imprimir Recibo Abono 1">
+                        <a href="{% url 'parque:generar_pdf_abono1' evento.pk %}" class="btn btn-sm btn-success me-2"
+                            title="Imprimir Recibo Abono 1">
                             <i class="bi bi-printer"></i> Imprimir Abono 1
                         </a>
-                        <a href="{% url 'parque:pagar_abono2' evento.pk %}" class="btn btn-sm {% if evento.monto_abono2 or evento.metodo_pago2 %}btn-outline-warning{% else %}btn-warning{% endif %} me-2" title="Registrar/Actualizar Abono 2">
+                        <a href="{% url 'parque:pagar_abono2' evento.pk %}"
+                            class="btn btn-sm {% if evento.monto_abono2 or evento.metodo_pago2 %}btn-outline-warning{% else %}btn-warning{% endif %} me-2"
+                            title="Registrar/Actualizar Abono 2">
                             <i class="bi bi-cash-coin"></i> {% if evento.monto_abono2 or evento.metodo_pago2 %}Actualizar Abono 2{% else %}Pagar Abono 2{% endif %}
                         </a>
-                        <a href="{% url 'parque:lista_eventos' %}" class="btn btn-sm btn-outline-secondary">Volver al listado</a>
+                        <a href="{% url 'parque:lista_eventos' %}" class="btn btn-sm btn-outline-secondary">Volver al
+                            listado</a>
                     </div>
                 </div>
                 <div class="card-body p-4">
@@ -29,7 +34,8 @@
                         <div class="col-md-6 text-md-end">
                             <div class="mb-2">
                                 <span class="text-muted small text-uppercase fw-bold d-block">Estado Actual</span>
-                                <span class="badge {% if evento.estado == 'FINALIZADO' %}bg-success{% elif evento.estado == 'CANCELADO' %}bg-danger{% else %}bg-primary{% endif %} px-3">
+                                <span
+                                    class="badge {% if evento.estado == 'FINALIZADO' %}bg-success{% elif evento.estado == 'CANCELADO' %}bg-danger{% else %}bg-primary{% endif %} px-3">
                                     {{ evento.get_estado_display }}
                                 </span>
                             </div>
@@ -53,7 +59,8 @@
                                     {% for detalle in evento.detalles.all %}
                                     <tr>
                                         <td>
-                                            <span class="badge {% if detalle.tipo_item == 'BRAZALETE' %}bg-primary{% elif detalle.tipo_item == 'COMBO' %}bg-success{% else %}bg-info{% endif %} rounded-pill">
+                                            <span
+                                                class="badge {% if detalle.tipo_item == 'BRAZALETE' %}bg-primary{% elif detalle.tipo_item == 'COMBO' %}bg-success{% else %}bg-info{% endif %} rounded-pill">
                                                 {{ detalle.tipo_item }}
                                             </span>
                                         </td>
@@ -64,7 +71,8 @@
                                     </tr>
                                     {% empty %}
                                     <tr>
-                                        <td colspan="5" class="text-center py-3 text-muted">No hay detalles de venta registrados.</td>
+                                        <td colspan="5" class="text-center py-3 text-muted">No hay detalles de venta
+                                            registrados.</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -93,6 +101,12 @@
                                 {% if evento.nota_forma_pago %}
                                 <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago }}</div>
                                 {% endif %}
+                                <div class="text-muted small mt-1 border-top pt-1">
+                                    Tasa: <strong>{% if evento.tasa_dia %}{{ evento.tasa_dia }}{% else %}-{% endif %}</strong> |
+                                    Banco: <strong>{{ evento.banco|default:"-" }}</strong> |
+                                    Ref: <strong>{{ evento.referencia_bancaria|default:"-" }}</strong> |
+                                    Confirmado: <strong>{{ evento.confirmado|default:"-" }}</strong>
+                                </div>
                             </div>
                             <div class="col-sm-6 mb-3">
                                 <h6 class="fw-bold">Abono 2 (Día del Evento)</h6>
@@ -102,6 +116,12 @@
                                 {% if evento.nota_forma_pago2 %}
                                 <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago2 }}</div>
                                 {% endif %}
+                                <div class="text-muted small mt-1 border-top pt-1">
+                                    Tasa: <strong>{% if evento.tasa_dia2 %}{{ evento.tasa_dia2 }}{% else %}-{% endif %}</strong> |
+                                    Banco: <strong>{{ evento.banco2|default:"-" }}</strong> |
+                                    Ref: <strong>{{ evento.referencia_bancaria2|default:"-" }}</strong> |
+                                    Confirmado: <strong>{{ evento.confirmado2|default:"-" }}</strong>
+                                </div>
                             </div>
                             <div class="col-sm-6">
                                 <span class="text-muted small d-block">Horario:</span>
@@ -110,27 +130,6 @@
                             <div class="col-sm-6">
                                 <span class="text-muted small d-block">Finalización Estimada:</span>
                                 <strong>{{ evento.fecha_fin|date:"d/m/Y H:i"|default:"Indefinida" }}</strong>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-3 border-start border-info border-4 bg-light mb-4">
-                        <div class="row">
-                            <div class="col-sm-3 mb-2">
-                                <span class="text-muted small d-block">Tasa del Día:</span>
-                                <strong>{% if evento.tasa_dia %}{{ evento.tasa_dia }}{% else %}-{% endif %}</strong>
-                            </div>
-                            <div class="col-sm-3 mb-2">
-                                <span class="text-muted small d-block">Banco:</span>
-                                <strong>{{ evento.banco|default:"-" }}</strong>
-                            </div>
-                            <div class="col-sm-4 mb-2">
-                                <span class="text-muted small d-block">Referencia Bancaria:</span>
-                                <strong>{{ evento.referencia_bancaria|default:"-" }}</strong>
-                            </div>
-                            <div class="col-sm-3 mb-2">
-                                <span class="text-muted small d-block">Estado Pago / Confirmado:</span>
-                                <strong>{{ evento.confirmado|default:"-" }}</strong>
                             </div>
                         </div>
                     </div>

@@ -4,18 +4,26 @@ from .models import Evento, ProductoParque, ComboParque, Brazalete
 class Abono2Form(forms.ModelForm):
     class Meta:
         model = Evento
-        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2']
+        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2']
         widgets = {
             'fecha_abono2': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'monto_abono2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
             'metodo_pago2': forms.Select(attrs={'class': 'form-select'}),
             'nota_forma_pago2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia, banco u observación...'}),
+            'tasa_dia2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Tasa del día'}),
+            'referencia_bancaria2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia bancaria'}),
+            'banco2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Banco'}),
+            'confirmado2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Confirmado por'}),
         }
         labels = {
             'fecha_abono2': 'Fecha del Abono',
             'monto_abono2': 'Monto ($)',
             'metodo_pago2': 'Método de Pago',
             'nota_forma_pago2': 'Nota / Referencia',
+            'tasa_dia2': 'Tasa del Día',
+            'referencia_bancaria2': 'Referencia Bancaria',
+            'banco2': 'Banco',
+            'confirmado2': 'Confirmado',
         }
 
 class EventoForm(forms.ModelForm):
@@ -28,6 +36,7 @@ class EventoForm(forms.ModelForm):
             'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago',
             'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2',
             'tasa_dia', 'referencia_bancaria', 'banco', 'confirmado',
+            'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2',
             'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'
         ]
         widgets = {
@@ -49,6 +58,10 @@ class EventoForm(forms.ModelForm):
             'referencia_bancaria': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia bancaria'}),
             'banco': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Banco'}),
             'confirmado': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre y apellido de quien revisa la cuenta'}),
+            'tasa_dia2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Tasa del día 2'}),
+            'referencia_bancaria2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia bancaria 2'}),
+            'banco2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Banco 2'}),
+            'confirmado2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre y apellido de quien revisa la cuenta 2'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
         }

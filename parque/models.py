@@ -92,11 +92,17 @@ class Evento(models.Model):
     
     total_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total a Pagar")
     
-    # Nuevos campos solicitados
+    # Nuevos campos solicitados Abono 1
     tasa_dia = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Tasa del Día")
     referencia_bancaria = models.CharField(max_length=100, null=True, blank=True, verbose_name="Referencia Bancaria")
     banco = models.CharField(max_length=100, null=True, blank=True, verbose_name="Banco")
     confirmado = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado")
+
+    # Nuevos campos solicitados Abono 2
+    tasa_dia2 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Tasa del Día 2")
+    referencia_bancaria2 = models.CharField(max_length=100, null=True, blank=True, verbose_name="Referencia Bancaria 2")
+    banco2 = models.CharField(max_length=100, null=True, blank=True, verbose_name="Banco 2")
+    confirmado2 = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado 2")
     
     descripcion = models.TextField(verbose_name="Descripción General", blank=True, null=True)
     fecha_inicio = models.DateField(default=timezone.now, verbose_name="Fecha de Reserva")
