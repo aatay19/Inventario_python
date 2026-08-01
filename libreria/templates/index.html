@@ -149,8 +149,16 @@
                                     <td>
                                         {% if mov.tipo_movimiento == 'ENTRADA' %}
                                             <span class="badge bg-success">ENTRADA</span>
-                                        {% else %}
+                                        {% elif mov.tipo_movimiento == 'SALIDA' %}
                                             <span class="badge bg-danger">SALIDA</span>
+                                        {% elif mov.tipo_movimiento == 'TRASLADO_VENCIDO' %}
+                                            <span class="badge bg-warning text-dark">TRASLADO VENCIDO</span>
+                                        {% elif mov.tipo_movimiento == 'CARGA_VENCIDO' %}
+                                            <span class="badge bg-danger bg-opacity-75">CARGA VENCIDO</span>
+                                        {% elif mov.tipo_movimiento == 'SALIDA_VENCIDO' %}
+                                            <span class="badge bg-secondary">SALIDA VENCIDO</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ mov.tipo_movimiento }}</span>
                                         {% endif %}
                                     </td>
                                     <td class="fw-bold">{{ mov.cantidad }}</td>

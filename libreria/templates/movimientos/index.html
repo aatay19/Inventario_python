@@ -151,6 +151,8 @@
                                     <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-1"><i class="fas fa-exchange-alt me-1"></i>Traslado Vencido</span>
                                 {% elif movimiento.tipo_movimiento == 'CARGA_VENCIDO' %}
                                     <span class="badge bg-info bg-opacity-10 text-info border border-info px-2 py-1"><i class="fas fa-plus-circle me-1"></i>Carga Vencido</span>
+                                {% elif movimiento.tipo_movimiento == 'SALIDA_VENCIDO' %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-2 py-1"><i class="fas fa-trash me-1"></i>Salida de Vencidos</span>
                                 {% else %}
                                     <span class="badge bg-secondary">{{ movimiento.tipo_movimiento }}</span>
                                 {% endif %}
