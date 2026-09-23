@@ -93,10 +93,12 @@
                     <thead class="table-light text-center">
                         <tr class="small">
                             <th style="width: 25%;">Producto / SKU</th>
-                            <th style="width: 15%;">Cant. Unidades</th>
-                            <th style="width: 15%;">Tipo Empaque</th>
-                            <th style="width: 15%;">Unid. x Empaque</th>
-                            <th style="width: 15%;">Total Empaques</th>
+                            <th style="width: 10%;">Cant. Unidades</th>
+                            <th style="width: 10%;">Tipo Empaque</th>
+                            <th style="width: 10%;">Unid. x Empaque</th>
+                            <th style="width: 10%;">Total Empaques</th>
+                            <th style="width: 15%;">Lote ID</th>
+                            <th style="width: 15%;">Fecha Venc.</th>
                             <th style="width: 5%;"></th>
                         </tr>
                     </thead>
@@ -318,6 +320,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>
                 <input type="number" name="cant_empaques[]" class="form-control text-center bg-light inp-total-empaques" 
                        value="0" readonly>
+            </td>
+            <td>
+                <input type="text" name="lote_id[]" class="form-control" value="LOTE-${id}-${Date.now().toString().slice(-5)}" readonly>
+            </td>
+            <td>
+                <input type="date" name="fecha_vencimiento[]" class="form-control" required>
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-outline-danger btn-sm rounded-circle" onclick="removerProducto(${id})">

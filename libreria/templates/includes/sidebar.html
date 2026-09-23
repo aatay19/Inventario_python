@@ -50,6 +50,7 @@
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
                 <li><a class="nav-link small py-2" href="{% url 'inventario.index' %}">➤ Lista de productos</a></li>
+                <li><a class="nav-link small py-2" href="{% url 'lotes.index' %}">➤ Lotes Registrados</a></li>
                 {% if user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small py-2" href="{% url 'inventario.crear' %}">➤ Crear producto</a></li>
                 {% endif %}

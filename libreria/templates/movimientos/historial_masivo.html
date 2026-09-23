@@ -106,6 +106,7 @@
                             <thead class="table-light">
                                 <tr class="small text-muted text-uppercase">
                                     <th class="ps-4">Producto</th>
+                                    <th class="text-center">Código Lote</th>
                                     <th class="text-center">{% if tipo == 'ENTRADA' %}Total Unid. Entrantes{% else %}Total Unid. Salientes{% endif %}</th>
                                     <th class="text-center">Unidad</th>
                                     <th class="text-center">Unid. x Empaque</th>
@@ -118,6 +119,9 @@
                                     <td class="ps-4">
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
                                         <div class="x-small text-muted">{{ item.producto.codigo_producto }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-secondary">{{ item.codigo_lote|default:"-" }}</span>
                                     </td>
                                     <td class="text-center fw-bold {% if tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
                                         {{ item.cantidad }}

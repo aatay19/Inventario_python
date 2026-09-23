@@ -89,6 +89,22 @@
         </div>
         {% endif %}
 
+        <!-- ======= ALERTAS DE LOTES POR VENCER ======= -->
+        {% if lotes_por_vencer %}
+        <div class="alert alert-warning shadow-sm border-start border-warning border-5 mb-4 d-flex align-items-center" role="alert">
+            <div class="pe-3">
+                <i class="fas fa-clock fa-2x"></i>
+            </div>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading mb-1 fw-bold">Alerta de Vencimiento de Lotes</h5>
+                <p class="mb-0">
+                    Se han detectado <strong>{{ lotes_por_vencer|length }}</strong> lotes próximos a vencer (≤ 45 días) o ya vencidos.
+                    <button class="btn btn-sm btn-link fw-bold text-warning p-0" data-bs-toggle="modal" data-bs-target="#modalLotesVencer">Ver detalles <i class="fas fa-arrow-right small"></i></button>
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- ======= CARDS PRINCIPALES ======= -->
         <div class="row g-4 mb-4">
             <!-- Producto con más movimiento  -->
@@ -241,6 +257,54 @@
               </tr>
               {% empty %}
               <tr><td colspan="5" class="text-center text-muted">No hay movimientos registrados.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Lotes por Vencer -->
+<div class="modal fade" id="modalLotesVencer" tabindex="-1" aria-labelledby="modalLotesVencerLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="modalLotesVencerLabel">Lotes Próximos a Vencer o Vencidos</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Código Lote</th>
+                <th>Producto</th>
+                <th>Fecha Vencimiento</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lote in lotes_por_vencer %}
+              <tr>
+                <td>{{ lote.codigo_lote }}</td>
+                <td class="fw-bold">{{ lote.producto.nombre_producto }}</td>
+                <td class="{% if lote.fecha_vencimiento < now %}text-danger fw-bold{% endif %}">
+                  {{ lote.fecha_vencimiento|date:"d/m/Y" }}
+                </td>
+                <td class="text-center">
+                    {% if lote.fecha_vencimiento < now %}
+                        <i class="fas fa-times-circle text-danger fs-5" title="Ya vencido"></i>
+                    {% elif lote.fecha_vencimiento <= threshold_date %}
+                        <i class="fas fa-exclamation-triangle text-warning fs-5" title="Próximo a vencer (≤ 45 días)"></i>
+                    {% else %}
+                        <i class="fas fa-check-circle text-success fs-5" title="Vigente"></i>
+                    {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted">No hay lotes por vencer.</td></tr>
               {% endfor %}
             </tbody>
           </table>

@@ -112,8 +112,18 @@ class Inventario(models.Model):
         return 0
 
     def __str__(self):
-        fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + self.descripcion + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)
+        fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)
         return fila   
+    
+class Lote(models.Model):
+    id_lote = models.AutoField(primary_key=True)
+    producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
+    codigo_lote = models.CharField(max_length=50, verbose_name="Código de Lote")
+    fecha_vencimiento = models.DateField(verbose_name="Fecha de Vencimiento")
+    cantidad_actual = models.IntegerField(default=0, verbose_name="Cantidad Actual")
+
+    def __str__(self):
+        return f"{self.codigo_lote} - {self.producto.nombre_producto}"
     
 class MovimientosInventario(models.Model):
     TIPO_MOVIMIENTO_CHOICES = [

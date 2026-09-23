@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 from django.core.management import call_command
 from .auth import es_admin
-from ..models import Proveedor, Inventario, MovimientosInventario
+from ..models import Proveedor, Inventario, MovimientosInventario, Lote
 from datetime import timedelta
 
 @login_required
@@ -50,6 +50,9 @@ def index(request):
         cantidad__lte=F('stock_minimo')
     ).values('nombre_producto', 'cantidad', 'stock_minimo')
 
+    threshold_date = timezone.now().date() + timedelta(days=45)
+    lotes_por_vencer = Lote.objects.filter(fecha_vencimiento__lte=threshold_date).order_by('fecha_vencimiento')
+
     hace_6_dias = timezone.now() - timedelta(days=6)
     
     mayor_rotacion = MovimientosInventario.objects.filter(
@@ -81,9 +84,11 @@ def index(request):
         'ultimos_movimientos': ultimos_movimientos,
         'productos_bajo_stock': productos_bajo_stock,
         'num_bajo_stock': productos_bajo_stock.count(),
+        'lotes_por_vencer': lotes_por_vencer,
         'mayor_rotacion': mayor_rotacion,
         'menor_rotacion': menor_rotacion,
         'productos_mayor_movimiento': productos_mayor_movimiento,
+        'now': timezone.now().date(),
     }
 
     return render(request, 'index.html', context)
