@@ -5,6 +5,17 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold"><i class="bi bi-box-seam me-2 text-primary"></i>Lotes Registrados</h2>
+        
+        <form method="get" class="d-flex align-items-center">
+            <select name="sort" class="form-select me-2" onchange="this.form.submit()">
+                <option value="fecha_llegada" {% if sort == 'fecha_llegada' %}selected{% endif %}>Ordenar por: Llegada</option>
+                <option value="estado" {% if sort == 'estado' %}selected{% endif %}>Ordenar por: Estado</option>
+                <option value="vencimiento" {% if sort == 'vencimiento' %}selected{% endif %}>Ordenar por: Vencimiento</option>
+            </select>
+            <input type="text" name="lote_q" class="form-control me-2" placeholder="Buscar lote..." value="{{ lote_q|default:'' }}">
+            <button type="submit" class="btn btn-primary">Buscar</button>
+            {% if producto_id %}<input type="hidden" name="producto" value="{{ producto_id }}">{% endif %}
+        </form>
     </div>
 
     <div class="card shadow-sm border-0">

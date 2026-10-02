@@ -120,6 +120,7 @@ class Lote(models.Model):
     producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
     codigo_lote = models.CharField(max_length=50, verbose_name="Código de Lote")
     fecha_vencimiento = models.DateField(verbose_name="Fecha de Vencimiento")
+    fecha_llegada = models.DateField(verbose_name="Fecha de Llegada", default=timezone.now)
     cantidad_actual = models.IntegerField(default=0, verbose_name="Cantidad Actual")
 
     def __str__(self):

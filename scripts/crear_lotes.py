@@ -11,8 +11,8 @@ def crear_lotes_iniciales():
             lote.save()
             print(f"Lote actualizado: {lote.codigo_lote}")
 
-        # 2. Crear nuevos para productos que no tienen ninguno
-        for p in Inventario.objects.all():
+        # 2. Crear nuevos únicamente para productos con stock >= 1 que no tengan ningún lote
+        for p in Inventario.objects.filter(cantidad__gte=1):
             if not Lote.objects.filter(producto=p).exists():
                 Lote.objects.create(
                     producto=p, 
@@ -20,7 +20,7 @@ def crear_lotes_iniciales():
                     fecha_vencimiento=date(2026, 11, 20), 
                     cantidad_actual=p.cantidad
                 )
-                print(f"Lote inicial creado para: {p.nombre_producto}")
+                print(f"Lote inicial creado para: {p.nombre_producto} (Stock: {p.cantidad})")
             else:
                 # Ya existía, pero se actualizó arriba
                 pass

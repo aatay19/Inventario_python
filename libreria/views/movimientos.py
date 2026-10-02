@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Q, Sum, Max, Count
+from django.db.models import Q, Sum, Max, Count, OuterRef, Subquery, Case, When, Value, IntegerField, F
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -153,27 +153,43 @@ def movimientos_inventario_editar(request, id_movimiento):
 @user_passes_test(es_inventario_acceso, login_url='index')
 def lotes_index(request):
     producto_id = request.GET.get('producto')
-    lotes = Lote.objects.select_related('producto').all().order_by('-fecha_vencimiento')
+    lote_q = request.GET.get('lote_q')
+    sort = request.GET.get('sort', 'fecha_llegada')
+    
+    # Anotaciones
+    lotes = Lote.objects.select_related('producto').annotate(
+        estado_priority=Case(
+            When(fecha_vencimiento__lt=timezone.now().date(), then=Value(1)),
+            When(fecha_vencimiento__lte=timezone.now().date() + timedelta(days=45), then=Value(2)),
+            default=Value(3),
+            output_field=IntegerField(),
+        )
+    )
     
     if producto_id:
         lotes = lotes.filter(producto_id=producto_id)
+    if lote_q:
+        lotes = lotes.filter(codigo_lote__icontains=lote_q)
         
-    paginator = Paginator(lotes, 10) # Cambio aquí a 10
+    # Ordenamiento
+    if sort == 'estado':
+        lotes = lotes.order_by('estado_priority', 'fecha_vencimiento')
+    elif sort == 'vencimiento':
+        lotes = lotes.order_by('fecha_vencimiento')
+    else: # fecha_llegada
+        lotes = lotes.order_by(F('fecha_llegada').desc(nulls_last=True))
+        
+    paginator = Paginator(lotes, 10) 
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Optimización: Solo calcular para los objetos en la página actual
-    for lote in page_obj:
-        lote.fecha_llegada = MovimientosInventario.objects.filter(
-            producto=lote.producto, 
-            codigo_lote__contains=lote.codigo_lote[:5]
-        ).values_list('fecha_movimiento', flat=True).first()
-
     return render(request, 'movimientos/lotes_lista.html', {
         'page_obj': page_obj, 
         'now': timezone.now().date(),
         'threshold_date': timezone.now().date() + timedelta(days=45),
-        'producto_id': producto_id
+        'producto_id': producto_id,
+        'lote_q': lote_q,
+        'sort': sort
     })
 
 @login_required
@@ -285,8 +301,15 @@ def movimientos_salida_procesar(request):
                             producto=producto,
                             tipo_movimiento='SALIDA',
                             cantidad=cant_salida,
-                            # ... otros campos
+                            unidad_empaque=unidades_empaque[i],
+                            cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
+                            proveedor=proveedor,
+                            fecha_movimiento=ahora,
+                            codigo_lote=lote_id
                         )
+                        producto.cantidad -= cant_salida
+                        producto.save()
+                        salidas_creadas += 1
 
                         # Lógica transaccional para descontar de lotes
                         lotes_vigentes = Lote.objects.filter(
@@ -337,22 +360,42 @@ def movimientos_salida_procesar(request):
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_traslado_vencido_form(request):
+    """
+    Formulario de Traslado a Vencidos.
+    NOTA: Trae únicamente la cantidad exacta del lote vencido (fecha_vencimiento <= hoy y cantidad_actual > 0),
+    evitando cargar todo el stock existente del producto.
+    """
     from ..models import UnidadEmpaqueChoices
-    qs = Inventario.objects.all().order_by('nombre_producto')
+    hoy = timezone.now().date()
+    qs = Inventario.objects.filter(
+        lote__fecha_vencimiento__lte=hoy,
+        lote__cantidad_actual__gt=0
+    ).prefetch_related('lote_set').distinct().order_by('nombre_producto')
     unidades_choices = UnidadEmpaqueChoices.choices
     unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
     
     productos_json = []
     for p in qs:
+        lotes_vencidos = [l for l in p.lote_set.all() if l.fecha_vencimiento and l.fecha_vencimiento <= hoy and l.cantidad_actual > 0]
+        if not lotes_vencidos:
+            continue
+        cant_vencida = sum(l.cantidad_actual for l in lotes_vencidos)
+        fechas_venc = sorted(list(set([l.fecha_vencimiento.strftime('%d/%m/%Y') for l in lotes_vencidos])))
+        fechas_str = ", ".join(fechas_venc) if fechas_venc else "Vencido"
+        lotes_detalles = ", ".join([f"{l.codigo_lote} ({l.cantidad_actual} un.)" for l in lotes_vencidos])
+        
         productos_json.append({
             'id': p.id_producto,
             'nombre': str(p.nombre_producto or ""),
             'codigo': str(p.codigo_producto or ""),
-            'stock': p.cantidad,
+            'stock': cant_vencida,
+            'stock_total': p.cantidad,
             'unidades_html': unidades_html,
             'id_unidad_default': p.unidad_empaque,
             'cant_por_empaque': p.cantidad_por_empaque,
-            'total_empaques': p.total_empaques
+            'total_empaques': p.total_empaques,
+            'fecha_vencimiento': fechas_str,
+            'lotes_detalles': lotes_detalles
         })
     return render(request, 'movimientos/form_traslado_vencido.html', {
         'productos_json': productos_json,
@@ -391,6 +434,10 @@ def movimientos_traslado_vencido_confirmar(request):
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
 def movimientos_traslado_vencido_procesar(request):
+    """
+    Procesa el traslado a vencidos.
+    NOTA: Descuenta la cantidad trasladada directamente del campo 'cantidad_actual' de los lotes vencidos.
+    """
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
@@ -421,6 +468,44 @@ def movimientos_traslado_vencido_procesar(request):
                         producto.cantidad -= cant_traslado
                         producto.cantidad_vencido += cant_traslado
                         producto.save()
+
+                        # Descontar de los lotes vencidos del producto
+                        lotes_vencidos = Lote.objects.filter(
+                            producto=producto,
+                            fecha_vencimiento__lte=ahora.date(),
+                            cantidad_actual__gt=0
+                        ).order_by('fecha_vencimiento')
+
+                        cant_restante = cant_traslado
+                        for lote in lotes_vencidos:
+                            if cant_restante <= 0:
+                                break
+                            if lote.cantidad_actual <= cant_restante:
+                                cant_restante -= lote.cantidad_actual
+                                lote.cantidad_actual = 0
+                                lote.save()
+                            else:
+                                lote.cantidad_actual -= cant_restante
+                                cant_restante = 0
+                                lote.save()
+
+                        if cant_restante > 0:
+                            lotes_resto = Lote.objects.filter(
+                                producto=producto,
+                                cantidad_actual__gt=0
+                            ).order_by('fecha_vencimiento')
+                            for lote in lotes_resto:
+                                if cant_restante <= 0:
+                                    break
+                                if lote.cantidad_actual <= cant_restante:
+                                    cant_restante -= lote.cantidad_actual
+                                    lote.cantidad_actual = 0
+                                    lote.save()
+                                else:
+                                    lote.cantidad_actual -= cant_restante
+                                    cant_restante = 0
+                                    lote.save()
+
                         traslados_creados += 1
             messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al deposito de vencidos.')
             request.session['ultimo_vencido_pdf_lote'] = lote_id
@@ -653,6 +738,7 @@ def movimientos_entrada_procesar(request):
                             producto=producto,
                             codigo_lote=lote_ids[i],
                             fecha_vencimiento=fecha_ven,
+                            fecha_llegada=ahora.date(),
                             cantidad_actual=cant_entrada
                         )
                         producto.cantidad += cant_entrada
