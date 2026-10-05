@@ -4,6 +4,8 @@ from . import views
 app_name = 'parque'
 
 urlpatterns = [
+    path('', views.calendario, name='inicio'),
+    path('calendario/', views.calendario, name='calendario'),
     path('dashboard/', views.dashboard, name='dashboard'),
     
     # Eventos CRUD
@@ -17,6 +19,8 @@ urlpatterns = [
     path('eventos/pdf_abono1/<int:pk>/', views.generar_pdf_abono1, name='generar_pdf_abono1'),
     path('eventos/pdf_abono2/<int:pk>/', views.generar_pdf_abono2, name='generar_pdf_abono2'),
     path('eventos/pagar_abono2/<int:pk>/', views.pagar_abono2, name='pagar_abono2'),
+    path('eventos/borrar_foto_abono1/<int:pk>/', views.borrar_foto_abono1, name='borrar_foto_abono1'),
+    path('eventos/borrar_foto_abono2/<int:pk>/', views.borrar_foto_abono2, name='borrar_foto_abono2'),
 
     # Productos CRUD
     path('productos/', views.lista_productos, name='lista_productos'),

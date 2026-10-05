@@ -1,0 +1,210 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block title %}Calendario de Eventos – Control Parque{% endblock %}
+
+{% block content %}
+<!-- FullCalendar CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+
+<div class="container-fluid">
+
+    <!-- Cabecera -->
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0 text-gray-800 fw-bold">
+                <i class="bi bi-calendar3 me-2 text-success"></i>Calendario de Eventos
+            </h1>
+            <p class="text-muted small mb-0">Vista general de todas las reservas y eventos registrados.</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'parque:crear_evento' %}" class="btn btn-success shadow-sm">
+                <i class="bi bi-plus-circle me-1"></i> Nueva Reserva/Evento
+            </a>
+        </div>
+    </div>
+
+    <!-- Leyenda de colores -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <span class="fw-semibold small text-muted">Estado:</span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#0d6efd;">
+                    <i class="bi bi-circle-fill me-1 small"></i>Programado
+                </span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#ffc107; color:#212529;">
+                    <i class="bi bi-circle-fill me-1 small"></i>En Curso
+                </span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#198754;">
+                    <i class="bi bi-circle-fill me-1 small"></i>Finalizado
+                </span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#dc3545;">
+                    <i class="bi bi-circle-fill me-1 small"></i>Cancelado
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendario -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de detalle del evento -->
+<div class="modal fade" id="modalEvento" tabindex="-1" aria-labelledby="modalEventoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0" id="modalHeader">
+                <h5 class="modal-title fw-bold" id="modalEventoLabel">—</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-borderless table-sm mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted fw-semibold" style="width:40%;">Estado</td>
+                            <td id="modalEstado">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Reserva / Persona</td>
+                            <td id="modalReserva">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Zona</td>
+                            <td id="modalZona">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Fecha inicio</td>
+                            <td id="modalStart">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Hora inicio</td>
+                            <td id="modalHora">—</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                <a id="modalLinkDetalle" href="#" class="btn btn-primary btn-sm">
+                    <i class="bi bi-eye me-1"></i>Ver Detalles
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/es.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const eventosData = {{ eventos_json|safe }};
+
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'es',
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+        },
+        buttonText: {
+            today:    'Hoy',
+            month:    'Mes',
+            week:     'Semana',
+            day:      'Día',
+            list:     'Lista',
+        },
+        events: eventosData,
+        eventTimeFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        },
+        height: 'auto',
+        aspectRatio: 1.8,
+        eventDisplay: 'block',
+        dayMaxEvents: 3,
+        eventClick: function (info) {
+            const ev = info.event;
+            const props = ev.extendedProps;
+            const color = ev.backgroundColor || '#0d6efd';
+
+            document.getElementById('modalHeader').style.borderBottom = '4px solid ' + color;
+            document.getElementById('modalEventoLabel').textContent = ev.title;
+
+            document.getElementById('modalEstado').innerHTML =
+                '<span class="badge rounded-pill" style="background:' + color + ';color:' + (color === '#ffc107' ? '#212529' : '#fff') + '">' + props.estado + '</span>';
+            document.getElementById('modalReserva').textContent = props.nombre_reserva || '—';
+            document.getElementById('modalZona').textContent = props.zona || '—';
+
+            const start = ev.start;
+            if (start) {
+                const fechaStr = start.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+                document.getElementById('modalStart').textContent = fechaStr;
+                if (!ev.allDay) {
+                    const horaStr = start.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    document.getElementById('modalHora').textContent = horaStr;
+                } else {
+                    document.getElementById('modalHora').textContent = 'Todo el día';
+                }
+            }
+
+            document.getElementById('modalLinkDetalle').href = props.url_detalle;
+
+            const modal = new bootstrap.Modal(document.getElementById('modalEvento'));
+            modal.show();
+        },
+        eventDidMount: function(info) {
+            info.el.style.borderRadius = '5px';
+            info.el.style.border = 'none';
+            info.el.style.cursor = 'pointer';
+        }
+    });
+
+    calendar.render();
+});
+</script>
+
+<style>
+    #calendar {
+        font-family: inherit;
+    }
+    .fc .fc-toolbar-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+    .fc .fc-button-primary {
+        background-color: #198754;
+        border-color: #198754;
+    }
+    .fc .fc-button-primary:not(:disabled):hover,
+    .fc .fc-button-primary:not(:disabled).fc-button-active {
+        background-color: #146c43;
+        border-color: #146c43;
+    }
+    .fc .fc-button-primary:focus {
+        box-shadow: 0 0 0 0.2rem rgba(25,135,84,.3);
+    }
+    .fc-event {
+        font-size: 0.82rem;
+        padding: 1px 4px;
+    }
+    .fc-day-today {
+        background: rgba(25,135,84,0.06) !important;
+    }
+    .fc-list-event:hover td {
+        background: rgba(25,135,84,0.07);
+        cursor: pointer;
+    }
+</style>
+{% endblock %}

@@ -4,7 +4,7 @@ from .models import Evento, ProductoParque, ComboParque, Brazalete
 class Abono2Form(forms.ModelForm):
     class Meta:
         model = Evento
-        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2']
+        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2', 'foto_abono2']
         widgets = {
             'fecha_abono2': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'monto_abono2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
@@ -24,6 +24,7 @@ class Abono2Form(forms.ModelForm):
             'referencia_bancaria2': 'Referencia Bancaria',
             'banco2': 'Banco',
             'confirmado2': 'Confirmado',
+            'foto_abono2': 'Foto Comprobante',
         }
 
 class EventoForm(forms.ModelForm):
@@ -33,8 +34,8 @@ class EventoForm(forms.ModelForm):
         model = Evento
         fields = [
             'titulo', 'nombre_reserva', 'zona', 'total_pagar',
-            'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago',
-            'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2',
+            'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago', 'foto_abono1',
+            'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'foto_abono2',
             'tasa_dia', 'referencia_bancaria', 'banco', 'confirmado',
             'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2',
             'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'

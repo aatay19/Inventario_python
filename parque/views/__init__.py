@@ -1,7 +1,8 @@
-from .dashboard_views import dashboard
+from .dashboard_views import dashboard, calendario
 from .registros_views import (
     lista_eventos, crear_evento, editar_evento, eliminar_evento, detalle_evento,
     finalizar_evento, generar_pdf_evento, generar_pdf_abono1, generar_pdf_abono2, pagar_abono2,
+    borrar_foto_abono1, borrar_foto_abono2,
     lista_productos, crear_producto, editar_producto, eliminar_producto,
     lista_combos, crear_combo, editar_combo, eliminar_combo,
     lista_brazaletes, crear_brazalete, editar_brazalete, eliminar_brazalete

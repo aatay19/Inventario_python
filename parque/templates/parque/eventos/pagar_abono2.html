@@ -67,7 +67,7 @@
                     </h6>
                 </div>
                 <div class="card-body p-4">
-                    <form method="post" novalidate>
+                    <form method="post" enctype="multipart/form-data" novalidate>
                         {% csrf_token %}
                         <div class="row g-3">
                             <div class="col-sm-6">
@@ -143,6 +143,21 @@
                                 {{ form.confirmado2 }}
                                 {% if form.confirmado2.errors %}
                                     <div class="text-danger small mt-1">{{ form.confirmado2.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            </div>
+                            <!-- Foto Comprobante -->
+                            <div class="col-12 mt-2">
+                                <label class="form-label fw-bold small"><i class="bi bi-image me-1"></i>Foto Comprobante Abono 2</label>
+                                {{ form.foto_abono2 }}
+                                {% if evento.foto_abono2 %}
+                                <div class="mt-2 d-flex align-items-center gap-3">
+                                    <img src="{{ evento.foto_abono2.url }}" alt="Comprobante" class="img-thumbnail" style="max-height:100px;">
+                                    <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Borrar la foto? Los datos del abono no se modificarán.')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar foto</button>
+                                    </form>
+                                </div>
                                 {% endif %}
                             </div>
                         </div>

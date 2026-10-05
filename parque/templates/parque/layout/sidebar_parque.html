@@ -1,12 +1,19 @@
 <div id="sidebar" class="sidebar bg-dark text-white shadow">
     <div class="sidebar-header p-4 text-center border-bottom border-secondary mb-3">
-        <a href="{% url 'parque:dashboard' %}" class="text-decoration-none text-white d-flex align-items-center justify-content-center">
+        <a href="{% url 'parque:calendario' %}" class="text-decoration-none text-white d-flex align-items-center justify-content-center">
             <i class="bi bi-tree-fill fs-3 me-2 text-success"></i>
             <h4 class="mb-0 fw-bold tracking-tight">Control Parque</h4>
         </a>
     </div>
 
     <ul class="nav flex-column px-2">
+        <!-- Calendario -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'calendario' or request.resolver_match.url_name == 'inicio' %}active-park{% endif %}" href="{% url 'parque:calendario' %}">
+                <i class="bi bi-calendar3 me-3 opacity-75"></i> Calendario
+            </a>
+        </li>
+
         <!-- Dashboard -->
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'dashboard' %}active-park{% endif %}" href="{% url 'parque:dashboard' %}">

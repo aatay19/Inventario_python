@@ -107,6 +107,15 @@
                                     Ref: <strong>{{ evento.referencia_bancaria|default:"-" }}</strong> |
                                     Confirmado: <strong>{{ evento.confirmado|default:"-" }}</strong>
                                 </div>
+                                {% if evento.foto_abono1 %}
+                                <div class="mt-2 text-center">
+                                    <img src="{{ evento.foto_abono1.url }}" alt="Comprobante Abono 1" class="img-fluid img-thumbnail mb-2" style="max-height: 150px;">
+                                    <form method="post" action="{% url 'parque:borrar_foto_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 1?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash me-1"></i>Borrar foto</button>
+                                    </form>
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="col-sm-6 mb-3">
                                 <h6 class="fw-bold">Abono 2 (Día del Evento)</h6>
@@ -122,6 +131,15 @@
                                     Ref: <strong>{{ evento.referencia_bancaria2|default:"-" }}</strong> |
                                     Confirmado: <strong>{{ evento.confirmado2|default:"-" }}</strong>
                                 </div>
+                                {% if evento.foto_abono2 %}
+                                <div class="mt-2 text-center">
+                                    <img src="{{ evento.foto_abono2.url }}" alt="Comprobante Abono 2" class="img-fluid img-thumbnail mb-2" style="max-height: 150px;">
+                                    <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 2?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash me-1"></i>Borrar foto</button>
+                                    </form>
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="col-sm-6">
                                 <span class="text-muted small d-block">Horario:</span>

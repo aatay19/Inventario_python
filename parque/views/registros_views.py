@@ -90,7 +90,7 @@ def lista_eventos(request):
 @login_required
 def crear_evento(request):
     if request.method == 'POST':
-        form = EventoForm(request.POST)
+        form = EventoForm(request.POST, request.FILES)
         items_json = request.POST.get('items_data')
         
         if form.is_valid():
@@ -143,7 +143,7 @@ def crear_evento(request):
 def editar_evento(request, pk):
     evento = get_object_or_404(Evento, pk=pk)
     if request.method == 'POST':
-        form = EventoForm(request.POST, instance=evento)
+        form = EventoForm(request.POST, request.FILES, instance=evento)
         items_json = request.POST.get('items_data')
         
         if form.is_valid():
@@ -447,7 +447,7 @@ def pagar_abono2(request, pk):
         restante = 0
 
     if request.method == 'POST':
-        form = Abono2Form(request.POST, instance=evento)
+        form = Abono2Form(request.POST, request.FILES, instance=evento)
         if form.is_valid():
             form.save()
             messages.success(request, f'Abono 2 registrado correctamente para "{evento.titulo}".')
@@ -462,6 +462,39 @@ def pagar_abono2(request, pk):
         'evento': evento,
         'restante': restante
     })
+
+
+@login_required
+def borrar_foto_abono1(request, pk):
+    """Borra solo la foto del Abono 1 sin afectar ningún otro dato del evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    if request.method == 'POST':
+        if evento.foto_abono1:
+            import os
+            if os.path.isfile(evento.foto_abono1.path):
+                os.remove(evento.foto_abono1.path)
+            # Solo limpia el campo, no toca nada más
+            Evento.objects.filter(pk=pk).update(foto_abono1='')
+            messages.success(request, 'Foto del Abono 1 eliminada correctamente.')
+        else:
+            messages.warning(request, 'Este abono no tiene foto registrada.')
+    return redirect('parque:detalle_evento', pk=pk)
+
+
+@login_required
+def borrar_foto_abono2(request, pk):
+    """Borra solo la foto del Abono 2 sin afectar ningún otro dato del evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    if request.method == 'POST':
+        if evento.foto_abono2:
+            import os
+            if os.path.isfile(evento.foto_abono2.path):
+                os.remove(evento.foto_abono2.path)
+            Evento.objects.filter(pk=pk).update(foto_abono2='')
+            messages.success(request, 'Foto del Abono 2 eliminada correctamente.')
+        else:
+            messages.warning(request, 'Este abono no tiene foto registrada.')
+    return redirect('parque:detalle_evento', pk=pk)
 
 @login_required
 def lista_productos(request):

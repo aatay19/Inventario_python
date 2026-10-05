@@ -111,6 +111,18 @@ class Evento(models.Model):
     fecha_fin = models.DateTimeField(blank=True, null=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PROGRAMADO')
 
+    # Fotos de comprobante por abono (se pueden borrar sin afectar los datos del evento)
+    foto_abono1 = models.ImageField(
+        upload_to='parque/comprobantes/',
+        null=True, blank=True,
+        verbose_name="Foto Comprobante Abono 1"
+    )
+    foto_abono2 = models.ImageField(
+        upload_to='parque/comprobantes/',
+        null=True, blank=True,
+        verbose_name="Foto Comprobante Abono 2"
+    )
+
     def __str__(self):
         return f"{self.titulo} ({self.get_estado_display()})"
 
