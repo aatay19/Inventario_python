@@ -2,27 +2,36 @@ from libreria.models import Inventario, Lote
 from datetime import date
 from django.db import transaction
 
+# Nueva fecha de vencimiento para los lotes iniciales (enero 2027).
+# Cambia este valor si necesitas mover los lotes a otra fecha.
+NUEVA_FECHA = date(2027, 1, 20)
+
+
 def crear_lotes_iniciales():
     with transaction.atomic():
-        # 1. Actualizar lotes iniciales existentes
+        # 1. Si ya existen lotes iniciales, se actualizan a la nueva fecha.
         lotes_iniciales = Lote.objects.filter(codigo_lote__startswith='LOTE-INICIAL-')
-        for lote in lotes_iniciales:
-            lote.fecha_vencimiento = date(2026, 11, 20)
-            lote.save()
-            print(f"Lote actualizado: {lote.codigo_lote}")
+        total_existentes = lotes_iniciales.count()
+        actualizados = (
+            lotes_iniciales
+            .exclude(fecha_vencimiento=NUEVA_FECHA)
+            .update(fecha_vencimiento=NUEVA_FECHA)
+        )
+        print(f"Lotes iniciales existentes: {total_existentes} | actualizados a {NUEVA_FECHA}: {actualizados}")
 
-        # 2. Crear nuevos únicamente para productos con stock >= 1 que no tengan ningún lote
+        # 2. Crear lotes únicamente para productos con stock >= 1 que no tengan ningún lote.
+        creados = 0
         for p in Inventario.objects.filter(cantidad__gte=1):
             if not Lote.objects.filter(producto=p).exists():
                 Lote.objects.create(
-                    producto=p, 
-                    codigo_lote='LOTE-INICIAL-' + p.codigo_producto, 
-                    fecha_vencimiento=date(2026, 11, 20), 
-                    cantidad_actual=p.cantidad
+                    producto=p,
+                    codigo_lote='LOTE-INICIAL-' + p.codigo_producto,
+                    fecha_vencimiento=NUEVA_FECHA,
+                    cantidad_actual=p.cantidad,
                 )
+                creados += 1
                 print(f"Lote inicial creado para: {p.nombre_producto} (Stock: {p.cantidad})")
-            else:
-                # Ya existía, pero se actualizó arriba
-                pass
+        print(f"Lotes iniciales nuevos creados: {creados}")
+
 
 crear_lotes_iniciales()

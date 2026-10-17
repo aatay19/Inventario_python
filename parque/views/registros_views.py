@@ -497,6 +497,29 @@ def borrar_foto_abono2(request, pk):
     return redirect('parque:detalle_evento', pk=pk)
 
 @login_required
+def toggle_confirmado(request, pk, abono_num):
+    evento = get_object_or_404(Evento, pk=pk)
+    if not hasattr(request.user, 'perfilusuario') or request.user.perfilusuario.rol not in ['admin', 'soporte']:
+        messages.error(request, "No tienes permisos para confirmar abonos.")
+        return redirect('parque:detalle_evento', pk=pk)
+        
+    if request.method == 'POST':
+        if abono_num == 1:
+            if evento.confirmado == 'Sí':
+                evento.confirmado = ''
+            else:
+                evento.confirmado = 'Sí'
+        elif abono_num == 2:
+            if evento.confirmado2 == 'Sí':
+                evento.confirmado2 = ''
+            else:
+                evento.confirmado2 = 'Sí'
+        evento.save()
+        messages.success(request, f"Estado de confirmación de Abono {abono_num} actualizado.")
+        
+    return redirect('parque:detalle_evento', pk=pk)
+
+@login_required
 def lista_productos(request):
     from django.core.paginator import Paginator
     productos = ProductoParque.objects.all().order_by('nombre')
@@ -663,3 +686,4 @@ def eliminar_brazalete(request, pk):
         messages.success(request, "Configuración eliminada.")
         return redirect('parque:lista_brazaletes')
     return render(request, 'parque/brazaletes/eliminar.html', {'brazalete': brazalete})
+

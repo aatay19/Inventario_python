@@ -24,4 +24,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path('', include('libreria.urls')),
     path('parque/', include('parque.urls')),
+    path('control-nino/', include('control_nino.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

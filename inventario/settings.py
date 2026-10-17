@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     'libreria',
     'parque',
+    'control_nino',
 ]
 
 MIDDLEWARE = [

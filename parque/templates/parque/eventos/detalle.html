@@ -101,11 +101,25 @@
                                 {% if evento.nota_forma_pago %}
                                 <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago }}</div>
                                 {% endif %}
-                                <div class="text-muted small mt-1 border-top pt-1">
-                                    Tasa: <strong>{% if evento.tasa_dia %}{{ evento.tasa_dia }}{% else %}-{% endif %}</strong> |
-                                    Banco: <strong>{{ evento.banco|default:"-" }}</strong> |
-                                    Ref: <strong>{{ evento.referencia_bancaria|default:"-" }}</strong> |
-                                    Confirmado: <strong>{{ evento.confirmado|default:"-" }}</strong>
+                                <div class="text-muted small mt-1 border-top pt-1 d-flex align-items-center flex-wrap gap-2">
+                                    <span>Tasa: <strong>{% if evento.tasa_dia %}{{ evento.tasa_dia }}{% else %}-{% endif %}</strong> |</span>
+                                    <span>Banco: <strong>{{ evento.banco|default:"-" }}</strong> |</span>
+                                    <span>Ref: <strong>{{ evento.referencia_bancaria|default:"-" }}</strong> |</span>
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <span>Confirmado:</span>
+                                        {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
+                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 1 %}" class="d-inline m-0 p-0">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm {% if evento.confirmado == 'Sí' %}btn-success{% else %}btn-danger{% endif %}" title="Clic para cambiar el estado">
+                                                    {% if evento.confirmado == 'Sí' %}Sí{% else %}No{% endif %}
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <button type="button" class="btn btn-sm {% if evento.confirmado == 'Sí' %}btn-success{% else %}btn-danger{% endif %} disabled" style="opacity: 1;" title="Solo soporte o admin pueden confirmar">
+                                                {% if evento.confirmado == 'Sí' %}Sí{% else %}No{% endif %}
+                                            </button>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 {% if evento.foto_abono1 %}
                                 <div class="mt-2 text-center">
@@ -125,11 +139,25 @@
                                 {% if evento.nota_forma_pago2 %}
                                 <div class="text-muted small mt-1">Nota: {{ evento.nota_forma_pago2 }}</div>
                                 {% endif %}
-                                <div class="text-muted small mt-1 border-top pt-1">
-                                    Tasa: <strong>{% if evento.tasa_dia2 %}{{ evento.tasa_dia2 }}{% else %}-{% endif %}</strong> |
-                                    Banco: <strong>{{ evento.banco2|default:"-" }}</strong> |
-                                    Ref: <strong>{{ evento.referencia_bancaria2|default:"-" }}</strong> |
-                                    Confirmado: <strong>{{ evento.confirmado2|default:"-" }}</strong>
+                                <div class="text-muted small mt-1 border-top pt-1 d-flex align-items-center flex-wrap gap-2">
+                                    <span>Tasa: <strong>{% if evento.tasa_dia2 %}{{ evento.tasa_dia2 }}{% else %}-{% endif %}</strong> |</span>
+                                    <span>Banco: <strong>{{ evento.banco2|default:"-" }}</strong> |</span>
+                                    <span>Ref: <strong>{{ evento.referencia_bancaria2|default:"-" }}</strong> |</span>
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <span>Confirmado:</span>
+                                        {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
+                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 2 %}" class="d-inline m-0 p-0">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm {% if evento.confirmado2 == 'Sí' %}btn-success{% else %}btn-danger{% endif %}" title="Clic para cambiar el estado">
+                                                    {% if evento.confirmado2 == 'Sí' %}Sí{% else %}No{% endif %}
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <button type="button" class="btn btn-sm {% if evento.confirmado2 == 'Sí' %}btn-success{% else %}btn-danger{% endif %} disabled" style="opacity: 1;" title="Solo soporte o admin pueden confirmar">
+                                                {% if evento.confirmado2 == 'Sí' %}Sí{% else %}No{% endif %}
+                                            </button>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 {% if evento.foto_abono2 %}
                                 <div class="mt-2 text-center">

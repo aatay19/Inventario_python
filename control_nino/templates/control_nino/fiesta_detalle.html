@@ -1,0 +1,189 @@
+{% extends 'control_nino/layout/base_control_nino.html' %}
+
+{% block content %}
+<div class="container-fluid" id="fiestaControles" data-now="{{ ahora_ms }}"
+     data-iniciada="{% if fiesta.iniciada %}1{% else %}0{% endif %}"
+     data-inicio="{% if fiesta.iniciada %}{{ fiesta.inicio_ms }}{% endif %}">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-balloon-fill text-primary me-2"></i>{{ fiesta.nombre }}
+            </h1>
+            <p class="text-muted small mb-0">
+                {{ fiesta.cantidad_brazaletes }} brazaletes ·
+                Tiempo general: {{ fiesta.tiempo }} min ·
+                Ingresó {{ fiesta.fecha_registro|date:"d/m/Y H:i" }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'control_nino:lista_control_ninos' %}" class="btn btn-outline-secondary shadow-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver
+            </a>
+            <a href="{% url 'control_nino:eliminar_fiesta' fiesta.pk %}" class="btn btn-outline-danger shadow-sm">
+                <i class="bi bi-trash me-1"></i> Eliminar
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0 estado-{{ fiesta.color_estado }}" id="panelEstado">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Tiempo restante de la fiesta</div>
+                    <div class="display-6 fw-bold tiempo-restante">--:--</div>
+                    <span class="badge estado-badge badge-{{ fiesta.color_estado }}">—</span>
+
+                    {% if not fiesta.iniciada %}
+                    <hr>
+                    <p class="small text-muted mb-2">
+                        El tiempo no ha iniciado. Puedes iniciarlo cuando lo indiques.
+                    </p>
+                    <form method="post" action="{% url 'control_nino:iniciar_fiesta' fiesta.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="bi bi-play-fill me-1"></i> Iniciar tiempo ahora
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-list-ol me-2"></i>Lista de brazaletes (solo lectura)</span>
+            <small class="opacity-75">{{ fiesta.cantidad_brazaletes }} brazaletes</small>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">#</th>
+                            <th style="width: 30%;">Nombre</th>
+                            <th>Descripción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in fiesta.brazaletes.all %}
+                        <tr>
+                            <td><span class="badge bg-primary rounded-pill px-3">{{ b.numero }}</span></td>
+                            <td class="fw-bold text-dark">{{ b.nombre|default:"—" }}</td>
+                            <td class="text-muted">{{ b.descripcion|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-4">Sin brazaletes.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="alertasControl" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;"></div>
+
+<style>
+    #panelEstado { border-left: 10px solid #64748b !important; transition: all 0.3s; color: #fff; }
+    #panelEstado.estado-verde { background: #16a34a; border-left-color: #0b6b2e !important; color: #fff; }
+    #panelEstado.estado-amarillo { background: #f5b301; border-left-color: #b57e00 !important; color: #1a1a1a; }
+    #panelEstado.estado-rojo { background: #dc2626; border-left-color: #8f1a1a !important; color: #fff; }
+    .badge-verde { background-color: #198754; }
+    .badge-amarillo { background-color: #ffc107; color: #000; }
+    .badge-rojo { background-color: #dc3545; }
+
+    /* Texto legible y más grande sobre el color intenso */
+    #panelEstado .text-muted,
+    #panelEstado small { color: rgba(255, 255, 255, 0.88) !important; }
+    #panelEstado .estado-badge { background: rgba(0, 0, 0, 0.45) !important; color: #fff !important; }
+    #panelEstado .tiempo-restante { font-size: 3.2rem !important; line-height: 1.1; }
+    #panelEstado.estado-amarillo .text-muted,
+    #panelEstado.estado-amarillo small { color: rgba(0, 0, 0, 0.7) !important; }
+
+    .alerta-toast { min-width: 320px; }
+</style>
+
+<script>
+(function () {
+    const contenedor = document.getElementById('fiestaControles');
+    if (!contenedor) return;
+
+    const panel = document.getElementById('panelEstado');
+    const tiempoEl = panel.querySelector('.tiempo-restante');
+    const badge = panel.querySelector('.estado-badge');
+
+    const iniciada = contenedor.dataset.iniciada === '1';
+    const serverNow = parseInt(contenedor.dataset.now, 10) || Date.now();
+    const offset = Date.now() - serverNow;
+    const inicio = parseInt(contenedor.dataset.inicio, 10);
+    const totalSeg = {{ fiesta.tiempo }} * 60;
+    const nombreFiesta = "{{ fiesta.nombre|escapejs }}";
+    const clave = 'fiesta-' + {{ fiesta.pk }} + '-' + inicio;
+    const alertadosSet = new Set(JSON.parse(localStorage.getItem('alertas_control_nino') || '[]'));
+
+    if (!iniciada) {
+        tiempoEl.textContent = 'Sin iniciar';
+        badge.className = 'badge estado-badge bg-secondary';
+        badge.textContent = 'Sin iniciar';
+        return;
+    }
+
+    function formato(seg) {
+        if (seg < 0) seg = 0;
+        return String(Math.floor(seg / 60)).padStart(2, '0') + ':' + String(seg % 60).padStart(2, '0');
+    }
+
+    function mostrarToast() {
+        const cont = document.getElementById('alertasControl');
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-danger shadow alerta-toast mb-2';
+        toast.textContent = '¡Tiempo agotado! Fiesta: ' + nombreFiesta;
+        cont.appendChild(toast);
+        setTimeout(function () { toast.remove(); }, 20000);
+    }
+
+    function alertaAmigable() {
+        const mensaje = 'Fiesta: ' + nombreFiesta;
+        if (window.Swal) {
+            Swal.fire({
+                icon: 'warning',
+                title: '¡El tiempo se agotó!',
+                text: mensaje,
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#6f42c1',
+                allowOutsideClick: false,
+            });
+        } else {
+            alert('¡El tiempo se agotó!\n\n' + mensaje);
+        }
+    }
+
+    function actualizar() {
+        const ahoraServidor = Date.now() - offset;
+        const restante = totalSeg - Math.floor((ahoraServidor - inicio) / 1000);
+        tiempoEl.textContent = formato(restante);
+
+        let estado;
+        if (restante <= 0) estado = 'rojo';
+        else if (restante > 45 * 60) estado = 'verde';
+        else estado = 'amarillo';
+
+        panel.classList.remove('estado-verde', 'estado-amarillo', 'estado-rojo');
+        panel.classList.add('estado-' + estado);
+        badge.className = 'badge estado-badge badge-' + estado;
+        badge.textContent = estado === 'rojo' ? 'Tiempo agotado' : (estado === 'verde' ? 'Activo' : 'Por vencer');
+
+        if (restante <= 0 && !alertadosSet.has(clave)) {
+            alertadosSet.add(clave);
+            try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
+            mostrarToast();
+            alertaAmigable();
+        }
+    }
+
+    actualizar();
+    setInterval(actualizar, 1000);
+})();
+</script>
+{% endblock %}

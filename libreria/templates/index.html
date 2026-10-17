@@ -41,8 +41,34 @@
     </style>
     {% endif %}
 
-    <!-- ======= SECCIONES DE INVENTARIO (Ocultas para rol Parque) ======= -->
-    {% if user.perfilusuario.rol|lower != 'parque' %}
+    <!-- ACCESO RÁPIDO A CONTROL NIÑO (Solo para roles autorizados) -->
+    {% if user.perfilusuario.rol|lower in 'admin,soporte,control_nino' %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm text-white overflow-hidden" style="background: linear-gradient(135deg, #6f42c1 0%, #4b2a86 100%);">
+                <div class="card-body p-0">
+                    <a href="{% url 'control_nino:lista_control_ninos' %}" class="btn btn-link text-white text-decoration-none w-100 p-4 d-flex align-items-center justify-content-between hover-lift">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-4">
+                                <i class="bi bi-person-badge fs-1"></i>
+                            </div>
+                            <div class="text-start">
+                                <h2 class="fw-bold mb-1">CONTROL NIÑO</h2>
+                                <p class="mb-0 opacity-75">Monitoreo de niños y fiestas con cronómetro y alertas</p>
+                            </div>
+                        </div>
+                        <div class="d-none d-md-block">
+                            <i class="bi bi-arrow-right-circle fs-1"></i>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ======= SECCIONES DE INVENTARIO (Ocultas para rol Parque y Control Niño) ======= -->
+    {% if user.perfilusuario.rol|lower != 'parque' and user.perfilusuario.rol|lower != 'control_nino' %}
         
         <!-- ======= BUSCADOR RÁPIDO DE INVENTARIO ======= -->
         <div class="card border-0 shadow-sm mb-4">

@@ -1,0 +1,80 @@
+<div id="sidebar" class="sidebar text-white shadow" style="background: linear-gradient(180deg, #3d2a6b 0%, #2b1c4d 100%);">
+    <div class="sidebar-header p-4 text-center border-bottom border-secondary mb-3">
+        <a href="{% url 'control_nino:lista_control_ninos' %}" class="text-decoration-none text-white d-flex align-items-center justify-content-center">
+            <i class="bi bi-person-badge fs-3 me-2 text-warning"></i>
+            <h4 class="mb-0 fw-bold tracking-tight">Control Niño</h4>
+        </a>
+    </div>
+
+    <ul class="nav flex-column px-2">
+        <!-- Monitoreo -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'lista_control_ninos' %}active-park{% endif %}" href="{% url 'control_nino:lista_control_ninos' %}">
+                <i class="bi bi-grid-1x2 me-3 opacity-75"></i> Monitoreo
+            </a>
+        </li>
+
+        <!-- Agregar Niño -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'crear_control_nino' %}active-park{% endif %}" href="{% url 'control_nino:crear_control_nino' %}">
+                <i class="bi bi-person-plus me-3 opacity-75"></i> Agregar Niño
+            </a>
+        </li>
+
+        <!-- Agregar Fiesta -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'crear_fiesta' %}active-park{% endif %}" href="{% url 'control_nino:crear_fiesta' %}">
+                <i class="bi bi-balloon me-3 opacity-75"></i> Agregar Fiesta
+            </a>
+        </li>
+
+        <!-- Reporte -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'reporte_control_ninos' %}active-park{% endif %}" href="{% url 'control_nino:reporte_control_ninos' %}">
+                <i class="bi bi-file-earmark-bar-graph me-3 opacity-75"></i> Reporte
+            </a>
+        </li>
+
+        <!-- Estadísticas -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'estadisticas_control_ninos' %}active-park{% endif %}" href="{% url 'control_nino:estadisticas_control_ninos' %}">
+                <i class="bi bi-bar-chart-line me-3 opacity-75"></i> Estadísticas
+            </a>
+        </li>
+
+        <!-- Historial -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'historial_control_ninos' %}active-park{% endif %}" href="{% url 'control_nino:historial_control_ninos' %}">
+                <i class="bi bi-clock-history me-3 opacity-75"></i> Historial
+            </a>
+        </li>
+
+        <!-- Regresar al Inventario -->
+        <li class="nav-item mt-5 pt-4 border-top border-secondary border-opacity-25">
+            <a class="nav-link d-flex align-items-center mx-2 rounded-3 py-3 px-3 bg-info bg-opacity-10 text-info fw-bold border border-info border-opacity-10 hover-inventory" href="{% url 'index' %}">
+                <i class="bi bi-arrow-left-circle me-3 fs-5"></i> <span>Volver al Inventario</span>
+            </a>
+        </li>
+
+        <!-- Cerrar Sesión -->
+        <li class="nav-item mt-4 mb-3 px-2">
+            <a class="nav-link d-flex align-items-center text-danger border border-danger border-opacity-25 rounded-3 py-2 px-3 hover-logout" href="{% url 'logout' %}" style="background: rgba(220, 53, 69, 0.05);">
+                <i class="bi bi-box-arrow-right me-3"></i> <span class="fw-bold">Cerrar Sesión</span>
+            </a>
+        </li>
+    </ul>
+</div>
+
+<style>
+    .sidebar { min-width: 260px; transition: 0.3s; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .nav-link { border-radius: 8px !important; margin: 0 4px; transition: all 0.2s; color: #e5def5; }
+    .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; transform: translateX(4px); }
+
+    .active-park { background: rgba(255, 193, 7, 0.18) !important; color: #ffc107 !important; border-left: 4px solid #ffc107; font-weight: bold; }
+
+    .hover-inventory:hover { background: rgba(13, 202, 240, 0.2) !important; color: #0dcaf0 !important; transform: translateX(-4px) !important; }
+    .hover-logout:hover { background: rgba(220, 53, 69, 0.15) !important; color: #dc3545 !important; border-color: #dc3545 !important; }
+
+    .sidebar::-webkit-scrollbar { width: 5px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+</style>
