@@ -52,6 +52,10 @@ def calendario(request):
         }
 
         eventos = Evento.objects.all()
+        puede_confirmar = (
+            hasattr(request.user, 'perfilusuario')
+            and request.user.perfilusuario.rol.lower() in ['admin', 'soporte']
+        )
         eventos_json = []
         for ev in eventos:
             color = COLOR_MAP.get(ev.estado, '#6c757d')
@@ -60,6 +64,8 @@ def calendario(request):
                 start_str = f"{ev.fecha_inicio.strftime('%Y-%m-%d')}T{ev.hora_inicio.strftime('%H:%M:%S')}"
             else:
                 start_str = ev.fecha_inicio.strftime('%Y-%m-%d')
+
+            tiene_abono2 = bool(ev.monto_abono2) or bool(ev.metodo_pago2)
 
             # No pasamos 'end' para que el evento quede confinado al recuadro del día de inicio.
             # Si la fecha_fin cae en otro día, FullCalendar lo dibujaría como multi-día.
@@ -73,6 +79,16 @@ def calendario(request):
                     'zona': ev.zona or '',
                     'nombre_reserva': ev.nombre_reserva or '',
                     'url_detalle': f'/parque/eventos/detalle/{ev.pk}/',
+                    'url_editar': f'/parque/eventos/editar/{ev.pk}/',
+                    'url_pagar_abono2': f'/parque/eventos/pagar_abono2/{ev.pk}/',
+                    'url_pdf_abono2': f'/parque/eventos/pdf_abono2/{ev.pk}/',
+                    'url_toggle_1': f'/parque/eventos/toggle_confirmado/{ev.pk}/1/',
+                    'url_toggle_2': f'/parque/eventos/toggle_confirmado/{ev.pk}/2/',
+                    'tiene_abono1': bool(ev.monto_abono1),
+                    'tiene_abono2': tiene_abono2,
+                    'confirmado1': ev.confirmado == 'Sí',
+                    'confirmado2': ev.confirmado2 == 'Sí',
+                    'puede_confirmar': puede_confirmar,
                 },
             })
 

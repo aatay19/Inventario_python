@@ -145,7 +145,6 @@
                                     <div class="text-danger small mt-1">{{ form.confirmado2.errors|join:", " }}</div>
                                 {% endif %}
                             </div>
-                            </div>
                             <!-- Foto Comprobante -->
                             <div class="col-12 mt-2">
                                 <label class="form-label fw-bold small"><i class="bi bi-image me-1"></i>Foto Comprobante Abono 2</label>
@@ -162,7 +161,7 @@
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <div class="d-flex flex-wrap justify-content-end gap-2 mt-4 pt-3 border-top">
                             <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-outline-secondary">
                                 Cancelar
                             </a>

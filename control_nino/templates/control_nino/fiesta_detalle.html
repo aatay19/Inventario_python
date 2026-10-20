@@ -3,16 +3,18 @@
 {% block content %}
 <div class="container-fluid" id="fiestaControles" data-now="{{ ahora_ms }}"
      data-iniciada="{% if fiesta.iniciada %}1{% else %}0{% endif %}"
+     data-salio="{% if fiesta.salio %}1{% else %}0{% endif %}"
      data-inicio="{% if fiesta.iniciada %}{{ fiesta.inicio_ms }}{% endif %}">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
                 <i class="bi bi-balloon-fill text-primary me-2"></i>{{ fiesta.nombre }}
             </h1>
             <p class="text-muted small mb-0">
                 {{ fiesta.cantidad_brazaletes }} brazaletes ·
-                Tiempo general: {{ fiesta.tiempo }} min ·
+                Tiempo general: <span id="tiempoTotal">{{ fiesta.tiempo }}</span> min ·
                 Ingresó {{ fiesta.fecha_registro|date:"d/m/Y H:i" }}
+                {% if fiesta.salio %} · Salida {{ fiesta.hora_salida|date:"d/m/Y H:i" }}{% endif %}
             </p>
         </div>
         <div class="d-flex gap-2">
@@ -33,7 +35,7 @@
                     <div class="display-6 fw-bold tiempo-restante">--:--</div>
                     <span class="badge estado-badge badge-{{ fiesta.color_estado }}">—</span>
 
-                    {% if not fiesta.iniciada %}
+                    {% if not fiesta.iniciada and not fiesta.salio %}
                     <hr>
                     <p class="small text-muted mb-2">
                         El tiempo no ha iniciado. Puedes iniciarlo cuando lo indiques.
@@ -45,13 +47,42 @@
                         </button>
                     </form>
                     {% endif %}
+
+                    {% if not fiesta.salio %}
+                    <hr>
+                    {% if fiesta.tiempo < 90 %}
+                    <div class="d-flex align-items-center flex-wrap gap-2" id="bloqueAgregarTiempo">
+                        <span class="small text-muted">Agregar tiempo:</span>
+                        {% if fiesta.tiempo <= 45 %}
+                        <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="45">
+                            {% csrf_token %}
+                            <input type="hidden" name="minutos" value="45">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <button type="submit" class="btn btn-sm btn-light">+45 min</button>
+                        </form>
+                        {% endif %}
+                        {% if fiesta.tiempo <= 0 %}
+                        <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="90">
+                            {% csrf_token %}
+                            <input type="hidden" name="minutos" value="90">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <button type="submit" class="btn btn-sm btn-light">+90 min</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="small text-muted">
+                        <i class="bi bi-info-circle me-1"></i> Tiempo máximo alcanzado (90 min).
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div class="card-header bg-dark text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span><i class="bi bi-list-ol me-2"></i>Lista de brazaletes (solo lectura)</span>
             <small class="opacity-75">{{ fiesta.cantidad_brazaletes }} brazaletes</small>
         </div>
@@ -86,6 +117,7 @@
 
 <style>
     #panelEstado { border-left: 10px solid #64748b !important; transition: all 0.3s; color: #fff; }
+    #panelEstado.estado-gris { background: #64748b; border-left-color: #3f4a5a !important; color: #fff; }
     #panelEstado.estado-verde { background: #16a34a; border-left-color: #0b6b2e !important; color: #fff; }
     #panelEstado.estado-amarillo { background: #f5b301; border-left-color: #b57e00 !important; color: #1a1a1a; }
     #panelEstado.estado-rojo { background: #dc2626; border-left-color: #8f1a1a !important; color: #fff; }
@@ -102,6 +134,11 @@
     #panelEstado.estado-amarillo small { color: rgba(0, 0, 0, 0.7) !important; }
 
     .alerta-toast { min-width: 320px; }
+
+    @media (max-width: 575.98px) {
+        .alerta-toast { min-width: 0; width: calc(100vw - 2rem); }
+        #panelEstado .tiempo-restante { font-size: 2.4rem !important; }
+    }
 </style>
 
 <script>
@@ -114,13 +151,84 @@
     const badge = panel.querySelector('.estado-badge');
 
     const iniciada = contenedor.dataset.iniciada === '1';
+    const salio = contenedor.dataset.salio === '1';
     const serverNow = parseInt(contenedor.dataset.now, 10) || Date.now();
     const offset = Date.now() - serverNow;
     const inicio = parseInt(contenedor.dataset.inicio, 10);
-    const totalSeg = {{ fiesta.tiempo }} * 60;
+    let totalSeg = {{ fiesta.tiempo }} * 60;
+    const MAX_SEG = 90 * 60;
     const nombreFiesta = "{{ fiesta.nombre|escapejs }}";
-    const clave = 'fiesta-' + {{ fiesta.pk }} + '-' + inicio;
-    const alertadosSet = new Set(JSON.parse(localStorage.getItem('alertas_control_nino') || '[]'));
+    const fiestaPk = {{ fiesta.pk }};
+    let alertadosIniciales = [];
+    try { alertadosIniciales = JSON.parse(localStorage.getItem('alertas_control_nino') || '[]'); } catch (e) { alertadosIniciales = []; }
+    const alertadosSet = new Set(alertadosIniciales);
+
+    function claveActual() {
+        return 'fiesta-' + fiestaPk + '-' + inicio + '-' + totalSeg;
+    }
+
+    function getCookie(name) {
+        const parts = ('; ' + document.cookie).split('; ' + name + '=');
+        return parts.length === 2 ? parts.pop().split(';').shift() : '';
+    }
+
+    function agregarTiempo(minutos) {
+        const datos = new URLSearchParams({ minutos: String(minutos) });
+        fetch("{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}", {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: datos.toString(),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (!data || !data.ok) {
+                if (data && typeof data.tiempo !== 'undefined') {
+                    totalSeg = data.tiempo * 60;
+                    const totalEl = document.getElementById('tiempoTotal');
+                    if (totalEl) totalEl.textContent = data.tiempo;
+                    actualizarBotonesTiempo();
+                }
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No se pudo agregar tiempo',
+                        text: (data && data.error) || 'Intenta de nuevo.',
+                    });
+                }
+                return;
+            }
+            const claveVieja = claveActual();
+            totalSeg = (data.tiempo || 0) * 60;
+            alertadosSet.delete(claveVieja);
+            try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
+            const totalEl = document.getElementById('tiempoTotal');
+            if (totalEl) totalEl.textContent = data.tiempo;
+            actualizarBotonesTiempo();
+        }).catch(function () { });
+    }
+
+    function actualizarBotonesTiempo() {
+        const bloque = document.getElementById('bloqueAgregarTiempo');
+        if (!bloque) return;
+        if (totalSeg >= MAX_SEG) {
+            bloque.classList.add('d-none');
+            return;
+        }
+        bloque.classList.remove('d-none');
+        bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
+            const minutos = parseInt(form.dataset.minutos, 10) || 0;
+            form.classList.toggle('d-none', totalSeg + minutos * 60 > MAX_SEG);
+        });
+    }
+
+    if (salio) {
+        tiempoEl.textContent = 'Finalizada';
+        badge.className = 'badge estado-badge bg-secondary';
+        badge.textContent = 'Finalizada';
+        return;
+    }
 
     if (!iniciada) {
         tiempoEl.textContent = 'Sin iniciar';
@@ -134,28 +242,88 @@
         return String(Math.floor(seg / 60)).padStart(2, '0') + ':' + String(seg % 60).padStart(2, '0');
     }
 
+    function chime() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [[659.25, 0], [783.99, 0.18]].forEach(function (nota) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = nota[0];
+                const inicio = ctx.currentTime + nota[1];
+                gain.gain.setValueAtTime(0.0001, inicio);
+                gain.gain.exponentialRampToValueAtTime(0.12, inicio + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.38);
+                osc.start(inicio);
+                osc.stop(inicio + 0.4);
+            });
+        } catch (e) { /* silencio si el navegador lo bloquea */ }
+    }
+
     function mostrarToast() {
         const cont = document.getElementById('alertasControl');
         const toast = document.createElement('div');
-        toast.className = 'alert alert-danger shadow alerta-toast mb-2';
-        toast.textContent = '¡Tiempo agotado! Fiesta: ' + nombreFiesta;
+        toast.className = 'alerta-tiempo-toast alerta-fiesta mb-2';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+
+        const icono = document.createElement('div');
+        icono.className = 'alerta-tiempo-icono';
+        icono.innerHTML = '<i class="bi bi-balloon-heart-fill"></i>';
+
+        const contenido = document.createElement('div');
+        const titulo = document.createElement('div');
+        titulo.className = 'alerta-tiempo-titulo';
+        titulo.textContent = 'Tiempo cumplido';
+
+        const nombre = document.createElement('div');
+        nombre.className = 'alerta-tiempo-nombre';
+        nombre.textContent = 'Fiesta: ' + nombreFiesta;
+
+        const detalle = document.createElement('div');
+        detalle.className = 'alerta-tiempo-detalle';
+        detalle.textContent = 'La fiesta llegó a su tiempo límite.';
+
+        contenido.appendChild(titulo);
+        contenido.appendChild(nombre);
+        contenido.appendChild(detalle);
+        toast.appendChild(icono);
+        toast.appendChild(contenido);
         cont.appendChild(toast);
         setTimeout(function () { toast.remove(); }, 20000);
     }
 
     function alertaAmigable() {
-        const mensaje = 'Fiesta: ' + nombreFiesta;
+        const puede45 = totalSeg + 45 * 60 <= MAX_SEG;
+        const puede90 = totalSeg + 90 * 60 <= MAX_SEG;
         if (window.Swal) {
             Swal.fire({
-                icon: 'warning',
-                title: '¡El tiempo se agotó!',
-                text: mensaje,
+                icon: 'info',
+                title: '¡La fiesta terminó!',
+                text: 'La fiesta "' + nombreFiesta + '" llegó a su tiempo límite. ¿Deseas agregar más tiempo?',
+                showDenyButton: puede45,
+                showCancelButton: puede90,
                 confirmButtonText: 'Entendido',
-                confirmButtonColor: '#6f42c1',
+                denyButtonText: 'Agregar 45 min',
+                cancelButtonText: 'Agregar 90 min',
                 allowOutsideClick: false,
+                allowEscapeKey: false,
+                customClass: {
+                    popup: 'alerta-tiempo-popup',
+                    actions: 'gap-2 flex-wrap',
+                    confirmButton: 'btn btn-outline-secondary px-3',
+                    denyButton: 'btn btn-primary px-3',
+                    cancelButton: 'btn btn-success px-3',
+                },
+                buttonsStyling: false,
+            }).then(function (result) {
+                if (result.isDenied && puede45) agregarTiempo(45);
+                else if (result.isDismissed && puede90) agregarTiempo(90);
             });
         } else {
-            alert('¡El tiempo se agotó!\n\n' + mensaje);
+            alert('¡Tiempo cumplido!\n\nFiesta: ' + nombreFiesta);
         }
     }
 
@@ -172,18 +340,30 @@
         panel.classList.remove('estado-verde', 'estado-amarillo', 'estado-rojo');
         panel.classList.add('estado-' + estado);
         badge.className = 'badge estado-badge badge-' + estado;
-        badge.textContent = estado === 'rojo' ? 'Tiempo agotado' : (estado === 'verde' ? 'Activo' : 'Por vencer');
+        badge.textContent = estado === 'rojo' ? 'Tiempo cumplido' : (estado === 'verde' ? 'Activo' : 'Por vencer');
 
+        const clave = claveActual();
         if (restante <= 0 && !alertadosSet.has(clave)) {
             alertadosSet.add(clave);
             try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
+            chime();
             mostrarToast();
             alertaAmigable();
         }
     }
 
-    actualizar();
-    setInterval(actualizar, 1000);
+    actualizarBotonesTiempo();
+
+    function iniciarContador() {
+        actualizar();
+        setInterval(actualizar, 1000);
+    }
+
+    if (document.readyState === 'complete') {
+        iniciarContador();
+    } else {
+        window.addEventListener('load', iniciarContador);
+    }
 })();
 </script>
 {% endblock %}

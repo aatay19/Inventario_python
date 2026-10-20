@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container-fluid" id="controlesNinos" data-now="{{ ahora_ms }}" data-medianoche="{{ ms_hasta_medianoche }}">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">Control Niño</h1>
             <p class="text-muted small mb-0">
@@ -10,7 +10,7 @@
                 {% if historico_total %}<a href="{% url 'control_nino:historial_control_ninos' %}" class="ms-1">Ver historial ({{ historico_total }})</a>{% endif %}
             </p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-outline-dark shadow-sm" onclick="location.reload()" title="Actualizar">
                 <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
             </button>
@@ -35,7 +35,7 @@
     <div class="d-flex flex-wrap gap-3 mb-3 small">
         <span class="badge bg-success bg-opacity-75 px-3 py-2"><i class="bi bi-circle-fill me-1"></i> Más de 45 min</span>
         <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-circle-fill me-1"></i> 45 min o menos</span>
-        <span class="badge bg-danger px-3 py-2"><i class="bi bi-circle-fill me-1"></i> Tiempo agotado</span>
+        <span class="badge bg-danger px-3 py-2"><i class="bi bi-circle-fill me-1"></i> Tiempo cumplido</span>
     </div>
 
     <div class="row g-4 align-items-stretch">
@@ -83,7 +83,7 @@
                                     <span>Salida est.: {{ nino.fecha_fin|date:"H:i" }}</span>
                                     {% endif %}
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                                     {% if nino.salio %}
                                     <form method="post" action="{% url 'control_nino:deshacer_salida' nino.pk %}" class="d-inline">
                                         {% csrf_token %}
@@ -144,6 +144,7 @@
                              data-salida="{% if fiesta.salio %}1{% else %}0{% endif %}"
                              data-salida-ms="{% if fiesta.salio %}{{ fiesta.hora_salida|date:'U' }}000{% endif %}"
                              data-iniciada="{% if fiesta.iniciada %}1{% else %}0{% endif %}"
+                             data-agregar-tiempo="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}"
                              data-tipo="fiesta">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
@@ -152,7 +153,25 @@
                                     </h5>
                                     <span class="badge estado-badge badge-{{ fiesta.color_estado }}">—</span>
                                 </div>
-                                <p class="card-text small text-muted mb-3">{{ fiesta.resumen_brazaletes }}</p>
+                                <div class="lista-brazaletes-fiesta small mb-3">
+                                    <div class="d-flex justify-content-between text-uppercase fw-bold mb-1">
+                                        <span>Niños / brazaletes</span>
+                                        <span>{{ fiesta.cantidad_brazaletes }}</span>
+                                    </div>
+                                    <div class="lista-brazaletes-scroll">
+                                        {% for b in fiesta.brazaletes.all %}
+                                        <div class="d-flex align-items-center border-bottom py-1">
+                                            <span class="badge bg-primary rounded-pill px-2 me-2">{{ b.numero }}</span>
+                                            <span class="fw-bold">{{ b.nombre|default:"Sin nombre" }}</span>
+                                            {% if b.descripcion %}
+                                            <span class="ms-2 text-truncate">{{ b.descripcion }}</span>
+                                            {% endif %}
+                                        </div>
+                                        {% empty %}
+                                        <div>Sin brazaletes.</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
                                 <div class="d-flex justify-content-between align-items-end">
                                     <div>
                                         <div class="text-muted small text-uppercase tiempo-label">Tiempo restante</div>
@@ -160,7 +179,7 @@
                                     </div>
                                     <div class="text-end">
                                         <div class="text-muted small text-uppercase">Total</div>
-                                        <div class="fw-bold">{{ fiesta.tiempo }} min</div>
+                                        <div class="fw-bold total-tiempo" data-minutos="{{ fiesta.tiempo }}">{{ fiesta.tiempo }} min</div>
                                     </div>
                                 </div>
                             </div>
@@ -169,7 +188,7 @@
                                     <span><i class="bi bi-ticket-perforated me-1"></i>{{ fiesta.cantidad_brazaletes }} brazaletes</span>
                                     <span>Ingreso: {{ fiesta.fecha_registro|date:"H:i" }}</span>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
                                     {% if fiesta.salio %}
                                     <form method="post" action="{% url 'control_nino:deshacer_salida_fiesta' fiesta.pk %}" class="d-inline">
                                         {% csrf_token %}
@@ -178,25 +197,52 @@
                                         </button>
                                     </form>
                                     {% else %}
-                                    <form method="post" action="{% url 'control_nino:marcar_salida_fiesta' fiesta.pk %}" class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-success">
-                                            <i class="bi bi-box-arrow-right"></i> Confirmar salida
-                                        </button>
-                                    </form>
+                                        {% if not fiesta.iniciada %}
+                                        <form method="post" action="{% url 'control_nino:iniciar_fiesta' fiesta.pk %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-dark">
+                                                <i class="bi bi-play-fill"></i> Iniciar tiempo
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                        <form method="post" action="{% url 'control_nino:marcar_salida_fiesta' fiesta.pk %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-box-arrow-right"></i> Confirmar salida
+                                            </button>
+                                        </form>
                                     {% endif %}
                                     <div class="d-flex gap-1">
                                         <a href="{% url 'control_nino:reporte_fiesta_pdf' fiesta.pk %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Reporte de la fiesta">
                                             <i class="bi bi-file-earmark-pdf"></i>
-                                        </a>
-                                        <a href="{% url 'control_nino:detalle_fiesta' fiesta.pk %}" class="btn btn-sm btn-outline-primary" title="Ver lista">
-                                            <i class="bi bi-list-ol"></i>
                                         </a>
                                         <a href="{% url 'control_nino:eliminar_fiesta' fiesta.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
                                             <i class="bi bi-trash"></i>
                                         </a>
                                     </div>
                                 </div>
+                                {% if not fiesta.salio and fiesta.tiempo < 90 %}
+                                <div class="d-flex align-items-center flex-wrap gap-1 border-top pt-2 bloque-agregar-tiempo">
+                                    <span class="small text-muted me-1">Agregar tiempo:</span>
+                                    {% if fiesta.tiempo <= 45 %}
+                                    <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="45">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="minutos" value="45">
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary py-0">+45 min</button>
+                                    </form>
+                                    {% endif %}
+                                    {% if fiesta.tiempo <= 0 %}
+                                    <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="90">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="minutos" value="90">
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary py-0">+90 min</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -300,6 +346,37 @@
     .grid-scroll::-webkit-scrollbar { width: 8px; }
     .grid-scroll::-webkit-scrollbar-thumb { background: #c7ccd1; border-radius: 10px; }
 
+    @media (max-width: 991.98px) {
+        .panel-columna {
+            height: auto;
+            min-height: 0;
+        }
+        .grid-scroll {
+            max-height: 65vh;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .tarjeta-nino .card-title { font-size: 1.25rem; }
+        .tarjeta-nino .tiempo-restante { font-size: 2rem !important; }
+        .alerta-toast { min-width: 0; width: calc(100vw - 2rem); }
+    }
+
+    /* Lista de brazaletes dentro de la tarjeta de la fiesta */
+    .lista-brazaletes-scroll {
+        max-height: 140px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: rgba(0, 0, 0, 0.14);
+        border-radius: 6px;
+        padding: 2px 6px;
+    }
+    .lista-brazaletes-scroll::-webkit-scrollbar { width: 6px; }
+    .lista-brazaletes-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.45); border-radius: 10px; }
+    .lista-brazaletes-fiesta .badge { background: rgba(0, 0, 0, 0.45) !important; }
+    .tarjeta-nino.estado-amarillo .lista-brazaletes-scroll { background: rgba(255, 255, 255, 0.35); }
+    .tarjeta-nino.estado-amarillo .lista-brazaletes-fiesta .badge { background: rgba(0, 0, 0, 0.35) !important; }
+
     /* Evita que el navegador calcule pintado de las tarjetas fuera de pantalla */
     .tarjeta-nino {
         content-visibility: auto;
@@ -315,9 +392,36 @@
 
     const serverNow = parseInt(contenedor.dataset.now, 10) || Date.now();
     const offset = Date.now() - serverNow;
+    const MAX_SEG = 90 * 60;
     let alertados = [];
     try { alertados = JSON.parse(localStorage.getItem('alertas_control_nino') || '[]'); } catch (e) { alertados = []; }
     const alertadosSet = new Set(alertados);
+
+    const colaAlertas = [];
+    let alertaEnCurso = false;
+
+    function encolarAlerta(opciones, alCerrar) {
+        if (!window.Swal) {
+            alert((opciones.title || 'Tiempo cumplido') + '\n\n' + (opciones.text || ''));
+            if (alCerrar) alCerrar({ isDenied: false, isDismissed: false });
+            return;
+        }
+        colaAlertas.push({ opciones: opciones, alCerrar: alCerrar });
+        if (!alertaEnCurso) mostrarSiguienteAlerta();
+    }
+
+    function mostrarSiguienteAlerta() {
+        if (!colaAlertas.length) {
+            alertaEnCurso = false;
+            return;
+        }
+        alertaEnCurso = true;
+        const item = colaAlertas.shift();
+        Swal.fire(item.opciones).then(function (result) {
+            if (item.alCerrar) item.alCerrar(result);
+            mostrarSiguienteAlerta();
+        });
+    }
 
     function formato(seg) {
         if (seg < 0) seg = 0;
@@ -329,65 +433,173 @@
     function beep() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.value = 880;
-            gain.gain.setValueAtTime(0.2, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.6);
+            [[659.25, 0], [783.99, 0.18]].forEach(function (nota) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = nota[0];
+                const inicio = ctx.currentTime + nota[1];
+                gain.gain.setValueAtTime(0.0001, inicio);
+                gain.gain.exponentialRampToValueAtTime(0.12, inicio + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.38);
+                osc.start(inicio);
+                osc.stop(inicio + 0.4);
+            });
         } catch (e) { /* silencio si el navegador lo bloquea */ }
     }
 
     function mostrarToast(tipo, nombre, descripcion) {
         const cont = document.getElementById('alertasControl');
+        const esFiesta = tipo === 'Fiesta';
         const toast = document.createElement('div');
-        toast.className = 'alert alert-danger shadow alerta-toast mb-2';
+        toast.className = 'alerta-tiempo-toast mb-2' + (esFiesta ? ' alerta-fiesta' : '');
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
 
-        const titulo = document.createElement('strong');
-        const icono = document.createElement('i');
-        icono.className = 'bi bi-exclamation-triangle-fill me-1';
-        titulo.appendChild(icono);
-        titulo.appendChild(document.createTextNode(' ¡Tiempo agotado!'));
+        const icono = document.createElement('div');
+        icono.className = 'alerta-tiempo-icono';
+        icono.innerHTML = esFiesta
+            ? '<i class="bi bi-balloon-heart-fill"></i>'
+            : '<i class="bi bi-emoji-smile-fill"></i>';
+
+        const contenido = document.createElement('div');
+        const titulo = document.createElement('div');
+        titulo.className = 'alerta-tiempo-titulo';
+        titulo.textContent = 'Tiempo cumplido';
 
         const lineaNombre = document.createElement('div');
+        lineaNombre.className = 'alerta-tiempo-nombre';
         lineaNombre.textContent = tipo + ': ' + nombre;
 
-        const lineaDesc = document.createElement('div');
-        lineaDesc.textContent = 'Descripción: ' + descripcion;
+        contenido.appendChild(titulo);
+        contenido.appendChild(lineaNombre);
 
-        toast.appendChild(titulo);
-        toast.appendChild(lineaNombre);
-        toast.appendChild(lineaDesc);
+        if (descripcion) {
+            const lineaDesc = document.createElement('div');
+            lineaDesc.className = 'alerta-tiempo-detalle';
+            lineaDesc.textContent = 'Detalle: ' + descripcion;
+            contenido.appendChild(lineaDesc);
+        }
+
+        toast.appendChild(icono);
+        toast.appendChild(contenido);
         cont.appendChild(toast);
         setTimeout(function () { toast.remove(); }, 20000);
     }
 
-    function alertaAmigable(tipo, nombre, descripcion) {
-        const mensaje = tipo + ': ' + nombre + '\nDescripción: ' + descripcion;
-        if (window.Swal) {
-            Swal.fire({
-                icon: 'warning',
-                title: '¡El tiempo se agotó!',
-                text: mensaje,
+    function getCookie(name) {
+        const parts = ('; ' + document.cookie).split('; ' + name + '=');
+        return parts.length === 2 ? parts.pop().split(';').shift() : '';
+    }
+
+    function agregarTiempo(it, minutos) {
+        const datos = new URLSearchParams({ minutos: String(minutos) });
+        fetch(it.card.dataset.agregarTiempo, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: datos.toString(),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (!data || !data.ok) {
+                if (data && typeof data.tiempo !== 'undefined') {
+                    it.totalSeg = data.tiempo * 60;
+                    if (it.totalEl) it.totalEl.textContent = data.tiempo + ' min';
+                    actualizarBotonera(it);
+                }
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No se pudo agregar tiempo',
+                        text: (data && data.error) || 'Intenta de nuevo.',
+                    });
+                }
+                return;
+            }
+            const claveVieja = it.id + '-' + it.inicioRaw + '-' + it.totalSeg;
+            it.totalSeg = (data.tiempo || 0) * 60;
+            if (it.totalEl) it.totalEl.textContent = data.tiempo + ' min';
+            alertadosSet.delete(claveVieja);
+            try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
+            actualizarBotonera(it);
+        }).catch(function () { });
+    }
+
+    function actualizarBotonera(it) {
+        const bloque = it.card.querySelector('.bloque-agregar-tiempo');
+        if (!bloque) return;
+        if (it.totalSeg >= MAX_SEG) {
+            bloque.classList.add('d-none');
+            return;
+        }
+        bloque.classList.remove('d-none');
+        bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
+            const minutos = parseInt(form.dataset.minutos, 10) || 0;
+            form.classList.toggle('d-none', it.totalSeg + minutos * 60 > MAX_SEG);
+        });
+    }
+
+    function alertaAmigable(it) {
+        const card = it.card;
+        const esFiesta = card.dataset.tipo === 'fiesta';
+        const nombre = card.dataset.nombre || 'Sin nombre';
+        if (esFiesta) {
+            const puede45 = it.totalSeg + 45 * 60 <= MAX_SEG;
+            const puede90 = it.totalSeg + 90 * 60 <= MAX_SEG;
+            encolarAlerta({
+                icon: 'info',
+                title: '¡La fiesta terminó!',
+                text: 'La fiesta "' + nombre + '" llegó a su tiempo límite. ¿Deseas agregar más tiempo?',
+                showDenyButton: puede45,
+                showCancelButton: puede90,
                 confirmButtonText: 'Entendido',
-                confirmButtonColor: '#6f42c1',
+                denyButtonText: 'Agregar 45 min',
+                cancelButtonText: 'Agregar 90 min',
                 allowOutsideClick: false,
+                allowEscapeKey: false,
+                customClass: {
+                    popup: 'alerta-tiempo-popup',
+                    actions: 'gap-2 flex-wrap',
+                    confirmButton: 'btn btn-outline-secondary px-3',
+                    denyButton: 'btn btn-primary px-3',
+                    cancelButton: 'btn btn-success px-3',
+                },
+                buttonsStyling: false,
+            }, function (result) {
+                if (result.isDenied && puede45) agregarTiempo(it, 45);
+                else if (result.isDismissed && puede90) agregarTiempo(it, 90);
             });
         } else {
-            alert('¡El tiempo se agotó!\n\n' + mensaje);
+            encolarAlerta({
+                icon: 'info',
+                title: '¡Tiempo cumplido!',
+                text: 'El tiempo de ' + nombre + ' ha terminado. Recuerda marcar su salida.',
+                confirmButtonText: 'Entendido',
+                allowOutsideClick: false,
+                timer: 8000,
+                timerProgressBar: true,
+                customClass: {
+                    popup: 'alerta-tiempo-popup',
+                    actions: 'gap-2 flex-wrap',
+                    confirmButton: 'btn btn-primary px-4',
+                },
+                buttonsStyling: false,
+            });
         }
     }
 
-    function lanzarAlerta(card) {
+    function lanzarAlerta(it) {
+        const card = it.card;
         const tipo = card.dataset.tipo === 'fiesta' ? 'Fiesta' : 'Niño';
         const nombre = card.dataset.nombre || 'Sin nombre';
         const descripcion = card.dataset.descripcion || 'Sin descripción';
         mostrarToast(tipo, nombre, descripcion);
         beep();
-        alertaAmigable(tipo, nombre, descripcion);
+        alertaAmigable(it);
     }
 
     // Cacheamos las referencias a los nodos y los valores para soportar cientos de tarjetas.
@@ -405,6 +617,7 @@
             badge: card.querySelector('.estado-badge'),
             tiempoEl: card.querySelector('.tiempo-restante'),
             label: card.querySelector('.tiempo-label'),
+            totalEl: card.querySelector('.total-tiempo'),
             lastTime: null,
             lastBadge: null,
             lastLabel: null,
@@ -442,9 +655,10 @@
                     }
                     it.lastBadge = 'salio';
                 }
-                const txtSalida = (it.salidaMs && Number.isFinite(it.inicio))
-                    ? formato(Math.floor((it.salidaMs - it.inicio) / 1000))
-                    : '--:--';
+                const segundosEstancia = (it.salidaMs && Number.isFinite(it.inicio))
+                    ? Math.min(it.totalSeg, Math.max(0, Math.floor((it.salidaMs - it.inicio) / 1000)))
+                    : null;
+                const txtSalida = segundosEstancia === null ? '--:--' : formato(segundosEstancia);
                 if (it.lastTime !== txtSalida) {
                     if (it.tiempoEl) it.tiempoEl.textContent = txtSalida;
                     it.lastTime = txtSalida;
@@ -474,21 +688,29 @@
                 it.lastClass = estado;
                 if (it.badge) {
                     it.badge.className = 'badge estado-badge badge-' + estado;
-                    it.badge.textContent = estado === 'rojo' ? 'Tiempo agotado' : (estado === 'verde' ? 'Activo' : 'Por vencer');
+                    it.badge.textContent = estado === 'rojo' ? 'Tiempo cumplido' : (estado === 'verde' ? 'Activo' : 'Por vencer');
                 }
             }
 
-            const clave = it.id + '-' + it.inicioRaw;
+            const clave = it.id + '-' + it.inicioRaw + '-' + it.totalSeg;
             if (restante <= 0 && !alertadosSet.has(clave)) {
                 alertadosSet.add(clave);
                 try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
-                lanzarAlerta(card);
+                lanzarAlerta(it);
             }
         }
     }
 
-    actualizar();
-    setInterval(actualizar, 1000);
+    function iniciarContadores() {
+        actualizar();
+        setInterval(actualizar, 1000);
+    }
+
+    if (document.readyState === 'complete') {
+        iniciarContadores();
+    } else {
+        window.addEventListener('load', iniciarContadores);
+    }
 
     // Al cambiar el día, recarga la página para dejarla limpia con la nueva jornada.
     const msMedianoche = parseInt(contenedor.dataset.medianoche, 10);

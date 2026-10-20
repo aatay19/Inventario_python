@@ -2,12 +2,12 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">Estadísticas Mensuales</h1>
-            <p class="text-muted small mb-0">Cierre de mes: niños atendidos, fiestas y brazaletes usados.</p>
+            <p class="text-muted small mb-0">Cierre de mes: niños atendidos, fiestas y brazaletes de fiesta usados.</p>
         </div>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
             <form method="get" class="d-flex gap-2 align-items-center">
                 <label class="form-label small fw-bold mb-0">Año</label>
                 <select name="anio" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -51,7 +51,7 @@
         <div class="col">
             <div class="card shadow-sm border-0 h-100" style="border-left: 6px solid #6f42c1 !important;">
                 <div class="card-body">
-                    <div class="text-muted small text-uppercase fw-bold">Brazaletes</div>
+                    <div class="text-muted small text-uppercase fw-bold">Brazaletes de fiesta</div>
                     <div class="display-6 fw-bold" style="color:#6f42c1;">{{ total_brazaletes }}</div>
                 </div>
             </div>
@@ -85,7 +85,7 @@
                             <th class="text-center" style="color:#5eead4;">45 min</th>
                             <th class="text-center" style="color:#9ec5fe;">90 min</th>
                             <th class="text-center">Fiestas</th>
-                            <th class="text-center">Brazaletes</th>
+                            <th class="text-center">Brazaletes de fiesta</th>
                             <th class="text-center">T. prom. fiestas</th>
                             <th style="width: 20%;">Distribución de niños</th>
                         </tr>

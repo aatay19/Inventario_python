@@ -7,7 +7,7 @@
             <h1 class="h3 mb-0 text-gray-800">Dashboard del Parque</h1>
             <p class="text-muted small">{{ fecha_hoy|date:"l, d \d\e F \d\e Y" }}</p>
         </div>
-        <div class="col-md-4 text-end">
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
             <a href="{% url 'parque:crear_evento' %}" class="btn btn-primary shadow-sm">
                 <i class="bi bi-plus-circle me-1"></i> Nueva Reserva/Evento
             </a>
@@ -18,13 +18,13 @@
     <!-- Asistente de Cierre de Eventos -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="alert alert-warning shadow-sm border-0 d-flex align-items-center p-4">
-                <i class="bi bi-clock-history fs-1 me-4"></i>
+            <div class="alert alert-warning shadow-sm border-0 d-flex flex-column flex-lg-row align-items-lg-center gap-3 p-4">
+                <i class="bi bi-clock-history fs-1"></i>
                 <div class="flex-grow-1">
                     <h5 class="alert-heading fw-bold">Asistente de Cierre</h5>
                     <p class="mb-0">Tienes <strong>{{ eventos_por_finalizar.count }}</strong> evento(s) que ya deberían haber terminado. ¿Deseas marcarlos como finalizados?</p>
                 </div>
-                <div class="ms-auto text-end" style="min-width: 300px;">
+                <div class="ms-lg-auto text-end w-100" style="max-width: 340px;">
                     {% for ev in eventos_por_finalizar %}
                     <div class="bg-white rounded p-2 mb-2 border d-flex justify-content-between align-items-center">
                         <span class="small fw-bold">{{ ev.titulo }}</span>
@@ -144,6 +144,28 @@
                                            title="{% if evento.monto_abono2 or evento.metodo_pago2 %}Actualizar Abono 2{% else %}Pagar Abono 2{% endif %}">
                                             <i class="bi bi-cash-coin"></i> {% if evento.monto_abono2 or evento.metodo_pago2 %}Act.{% else %}Pagar{% endif %}
                                         </a>
+                                        {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
+                                            {% if evento.monto_abono1 %}
+                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 1 %}" class="d-inline m-0 p-0">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="btn btn-sm {% if evento.confirmado == 'Sí' %}btn-success{% else %}btn-outline-danger{% endif %} rounded-pill"
+                                                        title="{% if evento.confirmado == 'Sí' %}Abono 1 confirmado (clic para quitar){% else %}Confirmar Abono 1{% endif %}">
+                                                    <i class="bi bi-check2-circle"></i> A1
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                            {% if evento.monto_abono2 or evento.metodo_pago2 %}
+                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 2 %}" class="d-inline m-0 p-0">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="btn btn-sm {% if evento.confirmado2 == 'Sí' %}btn-success{% else %}btn-outline-danger{% endif %} rounded-pill"
+                                                        title="{% if evento.confirmado2 == 'Sí' %}Abono 2 confirmado (clic para quitar){% else %}Confirmar Abono 2{% endif %}">
+                                                    <i class="bi bi-check2-circle"></i> A2
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        {% endif %}
                                         <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-sm btn-outline-secondary rounded-pill">
                                             <i class="bi bi-pencil"></i>
                                         </a>

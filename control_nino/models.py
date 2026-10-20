@@ -3,6 +3,9 @@ from django.db import models
 from django.utils import timezone
 
 
+TIEMPO_MAXIMO = 90
+
+
 class ControlNino(models.Model):
     TIEMPO_CHOICES = [
         (45, '45 minutos'),
@@ -11,8 +14,8 @@ class ControlNino(models.Model):
 
     nombre = models.CharField(max_length=100, verbose_name="Nombre")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
-    tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=45, verbose_name="Tiempo")
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Hora de ingreso")
+    tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=90, verbose_name="Tiempo")
+    fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Hora de ingreso")
     hora_salida = models.DateTimeField(null=True, blank=True, verbose_name="Hora de salida")
 
     def __str__(self):
@@ -28,9 +31,10 @@ class ControlNino(models.Model):
 
     @property
     def minutos_estancia(self):
-        """Minutos que el niño permaneció (real si ya salió, transcurrido si no)."""
+        """Minutos que el niño permaneció, sin superar el tiempo contratado."""
         fin = self.hora_salida or timezone.now()
-        return max(0, int((fin - self.fecha_registro).total_seconds() // 60))
+        transcurridos = max(0, int((fin - self.fecha_registro).total_seconds() // 60))
+        return min(self.tiempo, transcurridos)
 
     @property
     def salio(self):
@@ -67,8 +71,8 @@ class Fiesta(models.Model):
     TIEMPO_CHOICES = ControlNino.TIEMPO_CHOICES
 
     nombre = models.CharField(max_length=100, verbose_name="Nombre de la fiesta")
-    tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=45, verbose_name="Tiempo general (min)")
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Hora de ingreso")
+    tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=90, verbose_name="Tiempo general (min)")
+    fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Hora de ingreso")
     hora_inicio = models.DateTimeField(null=True, blank=True, verbose_name="Hora de inicio del tiempo")
     hora_salida = models.DateTimeField(null=True, blank=True, verbose_name="Hora de salida")
 

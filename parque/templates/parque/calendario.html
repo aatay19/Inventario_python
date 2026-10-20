@@ -16,7 +16,7 @@
             </h1>
             <p class="text-muted small mb-0">Vista general de todas las reservas y eventos registrados.</p>
         </div>
-        <div class="col-md-4 text-end">
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
             <a href="{% url 'parque:crear_evento' %}" class="btn btn-success shadow-sm">
                 <i class="bi bi-plus-circle me-1"></i> Nueva Reserva/Evento
             </a>
@@ -58,7 +58,7 @@
 
 <!-- Modal de detalle del evento -->
 <div class="modal fade" id="modalEvento" tabindex="-1" aria-labelledby="modalEventoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header border-0 pb-0" id="modalHeader">
                 <h5 class="modal-title fw-bold" id="modalEventoLabel">—</h5>
@@ -90,11 +90,38 @@
                     </tbody>
                 </table>
             </div>
-            <div class="modal-footer border-0 pt-0">
+            <div class="modal-footer border-0 pt-0 flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-                <a id="modalLinkDetalle" href="#" class="btn btn-primary btn-sm">
-                    <i class="bi bi-eye me-1"></i>Ver Detalles
-                </a>
+                <div class="d-flex flex-wrap justify-content-end gap-2 ms-auto" id="modalAcciones">
+                    {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
+                    <form method="post" id="modalFormA1" action="#" class="d-none m-0 p-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" id="modalBtnA1" class="btn btn-sm btn-outline-danger rounded-pill" title="Confirmar Abono 1">
+                            <i class="bi bi-check2-circle"></i> A1
+                        </button>
+                    </form>
+                    <form method="post" id="modalFormA2" action="#" class="d-none m-0 p-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" id="modalBtnA2" class="btn btn-sm btn-outline-danger rounded-pill" title="Confirmar Abono 2">
+                            <i class="bi bi-check2-circle"></i> A2
+                        </button>
+                    </form>
+                    {% endif %}
+                    <a id="modalLinkPagar" href="#" class="btn btn-sm btn-outline-primary rounded-pill">
+                        <i class="bi bi-cash-coin"></i> Pagar Abono 2
+                    </a>
+                    <a id="modalLinkPdf" href="#" class="btn btn-sm btn-outline-secondary rounded-pill" title="Recibo Abono 2">
+                        <i class="bi bi-printer"></i> PDF
+                    </a>
+                    <a id="modalLinkEditar" href="#" class="btn btn-sm btn-outline-secondary rounded-pill">
+                        <i class="bi bi-pencil"></i> Editar
+                    </a>
+                    <a id="modalLinkDetalle" href="#" class="btn btn-primary btn-sm rounded-pill">
+                        <i class="bi bi-eye me-1"></i>Ver Detalles
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -131,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function () {
             hour12: false
         },
         height: 'auto',
-        aspectRatio: 1.8,
+        aspectRatio: window.innerWidth < 768 ? 0.9 : 1.8,
         eventDisplay: 'block',
         dayMaxEvents: 3,
         eventClick: function (info) {
@@ -147,6 +174,8 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('modalReserva').textContent = props.nombre_reserva || '—';
             document.getElementById('modalZona').textContent = props.zona || '—';
 
+            document.getElementById('modalStart').textContent = '—';
+            document.getElementById('modalHora').textContent = '—';
             const start = ev.start;
             if (start) {
                 const fechaStr = start.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -159,7 +188,44 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
+            // Acciones del evento
             document.getElementById('modalLinkDetalle').href = props.url_detalle;
+            document.getElementById('modalLinkEditar').href = props.url_editar;
+
+            const linkPagar = document.getElementById('modalLinkPagar');
+            linkPagar.href = props.url_pagar_abono2;
+            linkPagar.className = 'btn btn-sm rounded-pill ' + (props.tiene_abono2 ? 'btn-outline-warning' : 'btn-outline-primary');
+            linkPagar.title = props.tiene_abono2 ? 'Actualizar Abono 2' : 'Pagar Abono 2';
+            linkPagar.innerHTML = '<i class="bi bi-cash-coin"></i> ' + (props.tiene_abono2 ? 'Actualizar Abono 2' : 'Pagar Abono 2');
+
+            const linkPdf = document.getElementById('modalLinkPdf');
+            linkPdf.href = props.url_pdf_abono2;
+            linkPdf.className = 'btn btn-sm rounded-pill ' + (props.tiene_abono2 ? 'btn-outline-warning' : 'btn-outline-secondary');
+            linkPdf.title = props.tiene_abono2 ? 'Imprimir Recibo Abono 2' : 'Recibo Abono 2 (sin datos aún)';
+
+            const formA1 = document.getElementById('modalFormA1');
+            if (formA1) {
+                const mostrarA1 = props.puede_confirmar && props.tiene_abono1;
+                formA1.classList.toggle('d-none', !mostrarA1);
+                if (mostrarA1) {
+                    formA1.action = props.url_toggle_1;
+                    const btnA1 = document.getElementById('modalBtnA1');
+                    btnA1.className = 'btn btn-sm rounded-pill ' + (props.confirmado1 ? 'btn-success' : 'btn-outline-danger');
+                    btnA1.title = props.confirmado1 ? 'Abono 1 confirmado (clic para quitar)' : 'Confirmar Abono 1';
+                }
+            }
+
+            const formA2 = document.getElementById('modalFormA2');
+            if (formA2) {
+                const mostrarA2 = props.puede_confirmar && props.tiene_abono2;
+                formA2.classList.toggle('d-none', !mostrarA2);
+                if (mostrarA2) {
+                    formA2.action = props.url_toggle_2;
+                    const btnA2 = document.getElementById('modalBtnA2');
+                    btnA2.className = 'btn btn-sm rounded-pill ' + (props.confirmado2 ? 'btn-success' : 'btn-outline-danger');
+                    btnA2.title = props.confirmado2 ? 'Abono 2 confirmado (clic para quitar)' : 'Confirmar Abono 2';
+                }
+            }
 
             const modal = new bootstrap.Modal(document.getElementById('modalEvento'));
             modal.show();
@@ -205,6 +271,36 @@ document.addEventListener('DOMContentLoaded', function () {
     .fc-list-event:hover td {
         background: rgba(25,135,84,0.07);
         cursor: pointer;
+    }
+
+    @media (max-width: 575.98px) {
+        .fc .fc-toolbar {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .fc .fc-toolbar-chunk {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.25rem;
+        }
+        .fc .fc-toolbar-title {
+            font-size: 1rem;
+        }
+        .fc .fc-button {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .fc .fc-col-header-cell-cushion {
+            font-size: 0.75rem;
+            padding: 4px 2px;
+        }
+        .fc .fc-daygrid-day-number {
+            font-size: 0.75rem;
+        }
+        .fc-event {
+            font-size: 0.7rem;
+        }
     }
 </style>
 {% endblock %}

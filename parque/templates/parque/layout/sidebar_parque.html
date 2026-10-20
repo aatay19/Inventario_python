@@ -14,12 +14,14 @@
             </a>
         </li>
 
+        {% comment %}
         <!-- Dashboard -->
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'dashboard' %}active-park{% endif %}" href="{% url 'parque:dashboard' %}">
                 <i class="bi bi-speedometer2 me-3 opacity-75"></i> Dashboard
             </a>
         </li>
+        {% endcomment %}
 
         <!-- Gestión de Eventos -->
         <li class="nav-item mb-1">
@@ -64,7 +66,7 @@
 </div>
 
 <style>
-    .sidebar { min-width: 260px; transition: 0.3s; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .sidebar { width: 250px; min-width: 250px; transition: 0.3s; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
     .nav-link { border-radius: 8px !important; margin: 0 4px; transition: all 0.2s; color: #d1d5db; }
     .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; transform: translateX(4px); }
     

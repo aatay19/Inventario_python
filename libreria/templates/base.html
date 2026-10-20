@@ -32,6 +32,8 @@
     {% include 'includes/sidebar.html' %}
     {% endblock %}
 
+    <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
     <!-- Contenido principal -->
     <div class="main-content flex-grow-1">
 
@@ -123,14 +125,31 @@
     document.addEventListener("DOMContentLoaded", function () {
         const toggleButton = document.getElementById('toggleSidebar');
         const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
         const body = document.body;
+
+        if (!toggleButton || !sidebar) return;
+
+        function closeSidebar() {
+            sidebar.classList.remove('sidebar-open');
+            if (backdrop) backdrop.classList.remove('show');
+        }
 
         toggleButton.addEventListener('click', function () {
             if (window.innerWidth < 992) {
-                sidebar.classList.toggle('sidebar-open');
+                const open = sidebar.classList.toggle('sidebar-open');
+                if (backdrop) backdrop.classList.toggle('show', open);
             } else {
                 body.classList.toggle('sidebar-collapsed');
             }
+        });
+
+        if (backdrop) {
+            backdrop.addEventListener('click', closeSidebar);
+        }
+
+        window.addEventListener('resize', function () {
+            if (window.innerWidth >= 992) closeSidebar();
         });
     });
 </script>

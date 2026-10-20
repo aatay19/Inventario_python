@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
 from django.http import HttpResponse
+from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
 from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEvento, ProductoEnCombo
 from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm, Abono2Form
@@ -203,7 +204,8 @@ def finalizar_evento(request, pk):
     evento.estado = 'FINALIZADO'
     evento.save()
     messages.success(request, f"El evento {evento.titulo} ha sido finalizado con éxito.")
-    return redirect('parque:dashboard')
+    # return redirect('parque:dashboard')
+    return redirect('parque:calendario')
 
 # ... Resto de CRUD de productos y combos se mantiene igual ...
 @login_required
@@ -499,10 +501,15 @@ def borrar_foto_abono2(request, pk):
 @login_required
 def toggle_confirmado(request, pk, abono_num):
     evento = get_object_or_404(Evento, pk=pk)
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = None
+    destino = next_url or None
+
     if not hasattr(request.user, 'perfilusuario') or request.user.perfilusuario.rol not in ['admin', 'soporte']:
         messages.error(request, "No tienes permisos para confirmar abonos.")
-        return redirect('parque:detalle_evento', pk=pk)
-        
+        return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
+
     if request.method == 'POST':
         if abono_num == 1:
             if evento.confirmado == 'Sí':
@@ -516,8 +523,8 @@ def toggle_confirmado(request, pk, abono_num):
                 evento.confirmado2 = 'Sí'
         evento.save()
         messages.success(request, f"Estado de confirmación de Abono {abono_num} actualizado.")
-        
-    return redirect('parque:detalle_evento', pk=pk)
+
+    return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
 
 @login_required
 def lista_productos(request):

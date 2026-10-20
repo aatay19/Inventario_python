@@ -153,27 +153,59 @@ body {
 /* ============================
    RESPONSIVE
 ============================ */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1999;
+}
+
+.sidebar-backdrop.show {
+    display: block;
+}
+
 @media (max-width: 991.98px) {
     .sidebar {
-        transform: translateX(-250px);
+        transform: translateX(-100%);
         position: fixed;
         z-index: 2000;
+        max-width: 85vw;
     }
 
-    .sidebar-open {
+    .sidebar.sidebar-open {
         transform: translateX(0);
     }
-    
+
     .main-content {
         margin-left: 0 !important;
         transition: margin-left 0.3s ease, width 0.3s ease;
-        width: 100%;
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .main-content {
+        padding: 10px;
     }
 
-    /* Empujar y contraer el contenido cuando el sidebar está abierto en móvil */
-    .sidebar.sidebar-open ~ .main-content {
-        margin-left: 250px !important;
-        width: calc(100% - 250px) !important;
+    .main-content > .container-fluid {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .navbar {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    .navbar h5 {
+        font-size: 1.05rem;
+    }
+
+    .navbar #toggleSidebar {
+        padding: 0.25rem 0.5rem;
+        margin-right: 0.5rem !important;
     }
 }
 
@@ -197,4 +229,101 @@ body {
 .submenu.open {
     display: block;
     max-height: 500px;
+}
+
+/* ============================
+   ALERTAS AGRADABLES - CONTROL NIÑO
+============================ */
+.alerta-tiempo-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 320px;
+    max-width: 390px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+    border-left: 6px solid #3b82f6;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+    color: #0f172a;
+    animation: alertaTiempoEntrada 0.35s ease-out;
+}
+
+.alerta-tiempo-toast.alerta-fiesta {
+    border-color: #ede9fe;
+    border-left-color: #8b5cf6;
+}
+
+.alerta-tiempo-icono {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 1.25rem;
+}
+
+.alerta-tiempo-toast.alerta-fiesta .alerta-tiempo-icono {
+    background: #f5f3ff;
+    color: #7c3aed;
+}
+
+.alerta-tiempo-titulo {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e3a8a;
+}
+
+.alerta-tiempo-toast.alerta-fiesta .alerta-tiempo-titulo {
+    color: #5b21b6;
+}
+
+.alerta-tiempo-nombre {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.alerta-tiempo-detalle {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+@keyframes alertaTiempoEntrada {
+    from { opacity: 0; transform: translateY(14px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.alerta-tiempo-popup {
+    border-radius: 24px !important;
+    padding: 1.75rem 1.5rem 1.25rem !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
+}
+
+.alerta-tiempo-popup .swal2-title {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.alerta-tiempo-popup .swal2-html-container,
+.alerta-tiempo-popup .swal2-content {
+    color: #475569;
+    font-size: 1rem !important;
+}
+
+.alerta-tiempo-popup .swal2-actions {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 575.98px) {
+    .alerta-tiempo-toast {
+        min-width: 0;
+        width: 100%;
+        max-width: calc(100vw - 2rem);
+    }
 }
