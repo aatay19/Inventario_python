@@ -3,11 +3,12 @@ from django.db import models
 from django.utils import timezone
 
 
-TIEMPO_MAXIMO = 90
+TIEMPO_MAXIMO = 180
 
 
 class ControlNino(models.Model):
     TIEMPO_CHOICES = [
+        (1, '1 minuto (prueba)'),
         (45, '45 minutos'),
         (90, '90 minutos'),
     ]
@@ -90,6 +91,18 @@ class Fiesta(models.Model):
     @property
     def salio(self):
         return self.hora_salida is not None
+
+    @property
+    def puede_agregar_45(self):
+        return not self.salio and self.tiempo + 45 <= TIEMPO_MAXIMO
+
+    @property
+    def puede_agregar_90(self):
+        return not self.salio and self.tiempo + 90 <= TIEMPO_MAXIMO
+
+    @property
+    def tiempo_maximo_alcanzado(self):
+        return not self.salio and self.tiempo >= TIEMPO_MAXIMO
 
     @property
     def todos_brazaletes_completos(self):

@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Case, IntegerField, Value, When
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -67,10 +68,22 @@ def lista_control_ninos(request):
 
     ninos = ControlNino.objects.filter(
         fecha_registro__gte=inicio, fecha_registro__lt=fin
-    ).order_by('fecha_registro')
+    ).annotate(
+        orden_activo=Case(
+            When(hora_salida__isnull=True, then=Value(0)),
+            default=Value(1),
+            output_field=IntegerField(),
+        )
+    ).order_by('orden_activo', 'fecha_registro')
     fiestas = Fiesta.objects.filter(
         fecha_registro__gte=inicio, fecha_registro__lt=fin
-    ).prefetch_related('brazaletes').order_by('-fecha_registro')
+    ).prefetch_related('brazaletes').annotate(
+        orden_activo=Case(
+            When(hora_salida__isnull=True, then=Value(0)),
+            default=Value(1),
+            output_field=IntegerField(),
+        )
+    ).order_by('orden_activo', '-fecha_registro')
 
     historico_ninos = ControlNino.objects.exclude(
         fecha_registro__gte=inicio, fecha_registro__lt=fin
@@ -88,6 +101,7 @@ def lista_control_ninos(request):
         'hoy': hoy,
         'ms_hasta_medianoche': ms_hasta_medianoche,
         'historico_total': historico_ninos + historico_fiestas,
+        'tiempo_maximo': TIEMPO_MAXIMO,
     })
 
 
@@ -98,6 +112,9 @@ def crear_control_nino(request):
         form = ControlNinoForm(request.POST)
         if form.is_valid():
             nino = form.save()
+            if request.POST.get('agregar_otro'):
+                messages.success(request, f"Niño '{nino.nombre}' registrado con {nino.tiempo} minutos. Puedes agregar otro.")
+                return redirect('control_nino:crear_control_nino')
             messages.success(request, f"Niño '{nino.nombre}' registrado con {nino.tiempo} minutos.")
             return redirect('control_nino:lista_control_ninos')
     else:
@@ -554,6 +571,7 @@ def detalle_fiesta(request, pk):
     return render(request, 'control_nino/fiesta_detalle.html', {
         'fiesta': fiesta,
         'ahora_ms': int(timezone.now().timestamp() * 1000),
+        'tiempo_maximo': TIEMPO_MAXIMO,
     })
 
 
@@ -614,6 +632,8 @@ def agregar_tiempo_fiesta(request, pk):
     error = None
     if minutos not in (45, 90):
         error = 'Solo se permiten 45 o 90 minutos.'
+    elif fiesta.salio:
+        error = 'La fiesta ya finalizó.'
     elif fiesta.tiempo >= TIEMPO_MAXIMO:
         error = f"La fiesta ya alcanzó el máximo de {TIEMPO_MAXIMO} minutos."
     elif fiesta.tiempo + minutos > TIEMPO_MAXIMO:

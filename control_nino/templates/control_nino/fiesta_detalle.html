@@ -48,12 +48,11 @@
                     </form>
                     {% endif %}
 
-                    {% if not fiesta.salio %}
+                    {% if fiesta.puede_agregar_45 or fiesta.puede_agregar_90 %}
                     <hr>
-                    {% if fiesta.tiempo < 90 %}
                     <div class="d-flex align-items-center flex-wrap gap-2" id="bloqueAgregarTiempo">
                         <span class="small text-muted">Agregar tiempo:</span>
-                        {% if fiesta.tiempo <= 45 %}
+                        {% if fiesta.puede_agregar_45 %}
                         <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="45">
                             {% csrf_token %}
                             <input type="hidden" name="minutos" value="45">
@@ -61,7 +60,7 @@
                             <button type="submit" class="btn btn-sm btn-light">+45 min</button>
                         </form>
                         {% endif %}
-                        {% if fiesta.tiempo <= 0 %}
+                        {% if fiesta.puede_agregar_90 %}
                         <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="90">
                             {% csrf_token %}
                             <input type="hidden" name="minutos" value="90">
@@ -70,11 +69,11 @@
                         </form>
                         {% endif %}
                     </div>
-                    {% else %}
+                    {% elif fiesta.tiempo_maximo_alcanzado %}
+                    <hr>
                     <div class="small text-muted">
-                        <i class="bi bi-info-circle me-1"></i> Tiempo máximo alcanzado (90 min).
+                        <i class="bi bi-info-circle me-1"></i> Tiempo máximo alcanzado ({{ tiempo_maximo }} min).
                     </div>
-                    {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -156,7 +155,7 @@
     const offset = Date.now() - serverNow;
     const inicio = parseInt(contenedor.dataset.inicio, 10);
     let totalSeg = {{ fiesta.tiempo }} * 60;
-    const MAX_SEG = 90 * 60;
+    const MAX_SEG = {{ tiempo_maximo }} * 60;
     const nombreFiesta = "{{ fiesta.nombre|escapejs }}";
     const fiestaPk = {{ fiesta.pk }};
     let alertadosIniciales = [];
@@ -302,7 +301,9 @@
             Swal.fire({
                 icon: 'info',
                 title: '¡La fiesta terminó!',
-                text: 'La fiesta "' + nombreFiesta + '" llegó a su tiempo límite. ¿Deseas agregar más tiempo?',
+                text: (puede45 || puede90)
+                    ? 'La fiesta "' + nombreFiesta + '" llegó a su tiempo límite. ¿Deseas agregar más tiempo?'
+                    : 'La fiesta "' + nombreFiesta + '" alcanzó el máximo de {{ tiempo_maximo }} minutos.',
                 showDenyButton: puede45,
                 showCancelButton: puede90,
                 confirmButtonText: 'Entendido',
