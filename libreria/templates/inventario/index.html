@@ -23,6 +23,7 @@
     <div class="btn-group shadow-sm">
       {% if user.perfilusuario.rol|lower != 'consulta' %}
       <a href="{% url 'inventario.crear' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Crear</a>
+      <a href="{% url 'inventario.ajuste_existencia' %}" class="btn btn-outline-primary"><i class="fas fa-sliders-h me-2"></i>Ajuste</a>
       {% endif %}
       <a href="{% url 'movimientos.traslado_vencido' %}" class="btn btn-warning"><i class="fas fa-exchange-alt me-2"></i>Traslado</a>
       <a href="{% url 'inventario.exportar_excel' %}" class="btn btn-success"><i class="fas fa-file-excel me-2"></i>Excel</a>

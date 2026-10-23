@@ -4,7 +4,7 @@ from django.db import transaction
 
 # Nueva fecha de vencimiento para los lotes iniciales (enero 2027).
 # Cambia este valor si necesitas mover los lotes a otra fecha.
-NUEVA_FECHA = date(2027, 1, 20)
+NUEVA_FECHA = date(2027, 3, 19)
 
 
 def crear_lotes_iniciales():
