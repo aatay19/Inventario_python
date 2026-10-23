@@ -6,7 +6,8 @@ app_name = 'parque'
 urlpatterns = [
     path('', views.calendario, name='inicio'),
     path('calendario/', views.calendario, name='calendario'),
-    path('dashboard/', views.dashboard, name='dashboard'),
+    path('proximos-eventos/', views.proximo_eventos, name='proximo_eventos'),
+    # path('dashboard/', views.dashboard, name='dashboard'),
     
     # Eventos CRUD
     path('eventos/', views.lista_eventos, name='lista_eventos'),

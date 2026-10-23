@@ -9,17 +9,25 @@
     <ul class="nav flex-column px-2">
         <!-- Calendario -->
         <li class="nav-item mb-1">
-            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'calendario' or request.resolver_match.url_name == 'inicio' %}active-park{% endif %}" href="{% url 'parque:calendario' %}">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'calendario' %}active-park{% endif %}" href="{% url 'parque:calendario' %}">
                 <i class="bi bi-calendar3 me-3 opacity-75"></i> Calendario
             </a>
         </li>
 
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'proximo_eventos' %}active-park{% endif %}" href="{% url 'parque:proximo_eventos' %}">
+                <i class="bi bi-calendar-week me-3 opacity-75"></i> Próximo Eventos
+            </a>
+        </li>
+
+        {% comment %}
         <!-- Dashboard -->
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'dashboard' %}active-park{% endif %}" href="{% url 'parque:dashboard' %}">
                 <i class="bi bi-speedometer2 me-3 opacity-75"></i> Dashboard
             </a>
         </li>
+        {% endcomment %}
 
         <!-- Gestión de Eventos -->
         <li class="nav-item mb-1">

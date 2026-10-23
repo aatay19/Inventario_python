@@ -38,6 +38,23 @@ def dashboard(request):
 
 
 @login_required
+def proximo_eventos(request):
+    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol.lower() in ['soporte', 'parque', 'admin']:
+        actualizar_estados_eventos()
+        ahora = timezone.now()
+        eventos_proximos = Evento.objects.filter(
+            fecha_inicio__gte=ahora, estado='PROGRAMADO'
+        ).order_by('fecha_inicio')
+        return render(request, 'parque/proximo_eventos.html', {
+            'fecha_hoy': ahora,
+            'eventos_proximos': eventos_proximos,
+        })
+    else:
+        messages.error(request, "No tienes permisos para acceder a la sección del Parque.")
+        return redirect('index')
+
+
+@login_required
 def calendario(request):
     """Vista del calendario con todos los eventos registrados."""
     if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol.lower() in ['soporte', 'parque', 'admin']:

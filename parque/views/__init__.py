@@ -1,4 +1,4 @@
-from .dashboard_views import dashboard, calendario
+from .dashboard_views import dashboard, calendario, proximo_eventos
 from .registros_views import (
     lista_eventos, crear_evento, editar_evento, eliminar_evento, detalle_evento,
     finalizar_evento, generar_pdf_evento, generar_pdf_abono1, generar_pdf_abono2, pagar_abono2,
