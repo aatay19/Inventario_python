@@ -51,7 +51,10 @@ def index(request):
     ).values('nombre_producto', 'cantidad', 'stock_minimo')
 
     threshold_date = timezone.now().date() + timedelta(days=45)
-    lotes_por_vencer = Lote.objects.filter(fecha_vencimiento__lte=threshold_date).order_by('fecha_vencimiento')
+    lotes_por_vencer = Lote.objects.filter(
+        fecha_vencimiento__lte=threshold_date,
+        cantidad_actual__gt=0,
+    ).select_related('producto').order_by('fecha_vencimiento')
 
     hace_6_dias = timezone.now() - timedelta(days=6)
     

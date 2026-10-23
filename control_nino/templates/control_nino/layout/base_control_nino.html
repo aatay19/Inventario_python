@@ -2,8 +2,20 @@
 
 {% block title %}Control Niño{% endblock %}
 
+{% block extra_css %}
+    {% if not request.user.is_superuser and request.user.perfilusuario.rol == 'control_nino' %}
+    <style>
+        @media (min-width: 992px) {
+            .main-content { margin-left: 0 !important; width: 100% !important; }
+        }
+    </style>
+    {% endif %}
+{% endblock %}
+
 {% block sidebar %}
-    {% include 'control_nino/layout/sidebar_control_nino.html' %}
+    {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
+        {% include 'control_nino/layout/sidebar_control_nino.html' %}
+    {% endif %}
 {% endblock %}
 
 {% block navbar %}

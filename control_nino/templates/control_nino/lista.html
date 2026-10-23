@@ -7,10 +7,15 @@
             <h1 class="h3 mb-0 text-gray-800">Control Niño</h1>
             <p class="text-muted small mb-0">
                 Monitoreo de hoy <strong>{{ hoy|date:"d/m/Y" }}</strong> (se limpia solo cada día).
-                {% if historico_total %}<a href="{% url 'control_nino:historial_control_ninos' %}" class="ms-1">Ver historial ({{ historico_total }})</a>{% endif %}
+                {% if historico_total %}
+                    {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
+                    <a href="{% url 'control_nino:historial_control_ninos' %}" class="ms-1">Ver historial ({{ historico_total }})</a>
+                    {% endif %}
+                {% endif %}
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
             <button type="button" class="btn btn-outline-dark shadow-sm" onclick="location.reload()" title="Actualizar">
                 <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
             </button>
@@ -23,18 +28,24 @@
             <a href="{% url 'control_nino:estadisticas_control_ninos' %}" class="btn btn-outline-dark shadow-sm">
                 <i class="bi bi-bar-chart-line me-1"></i> Estadísticas
             </a>
+            {% endif %}
             <a href="{% url 'control_nino:crear_fiesta' %}" class="btn btn-primary shadow-sm">
                 <i class="bi bi-balloon-fill me-1"></i> Agregar Fiesta
             </a>
             <a href="{% url 'control_nino:crear_control_nino' %}" class="btn btn-success shadow-sm">
                 <i class="bi bi-person-plus-fill me-1"></i> Agregar Niño
             </a>
+            {% if request.user.perfilusuario.rol == 'control_nino' and not request.user.is_superuser %}
+            <a href="{% url 'logout' %}" class="btn btn-outline-danger shadow-sm" id="btnCerrarSesionControl">
+                <i class="bi bi-box-arrow-right me-1"></i> Cerrar Sesión
+            </a>
+            {% endif %}
         </div>
     </div>
 
     <div class="d-flex flex-wrap gap-3 mb-3 small">
-        <span class="badge bg-success bg-opacity-75 px-3 py-2"><i class="bi bi-circle-fill me-1"></i> Más de 45 min</span>
-        <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-circle-fill me-1"></i> 45 min o menos</span>
+        <span class="badge bg-success bg-opacity-75 px-3 py-2"><i class="bi bi-circle-fill me-1"></i> 90 min</span>
+        <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-circle-fill me-1"></i> 45 min</span>
         <span class="badge bg-danger px-3 py-2"><i class="bi bi-circle-fill me-1"></i> Tiempo cumplido</span>
     </div>
 
@@ -112,9 +123,11 @@
                                     </form>
                                     {% endif %}
                                     <div class="d-flex gap-1">
+                                        {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
                                         <a href="{% url 'control_nino:reporte_control_nino_pdf' nino.pk %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Reporte del niño">
                                             <i class="bi bi-file-earmark-pdf"></i>
                                         </a>
+                                        {% endif %}
                                         <a href="{% url 'control_nino:eliminar_control_nino' nino.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
                                             <i class="bi bi-trash"></i>
                                         </a>
@@ -233,9 +246,11 @@
                                         </form>
                                     {% endif %}
                                     <div class="d-flex gap-1">
+                                        {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
                                         <a href="{% url 'control_nino:reporte_fiesta_pdf' fiesta.pk %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Reporte de la fiesta">
                                             <i class="bi bi-file-earmark-pdf"></i>
                                         </a>
+                                        {% endif %}
                                         <a href="{% url 'control_nino:eliminar_fiesta' fiesta.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
                                             <i class="bi bi-trash"></i>
                                         </a>
@@ -289,7 +304,7 @@
             </div>
         </div>
 
-<div id="alertasControl" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;"></div>
+<div id="alertasControl" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080; pointer-events: none;"></div>
 
 <style>
     .tarjeta-nino { transition: all 0.3s; border-left: 10px solid #64748b !important; color: #fff; }
@@ -424,31 +439,8 @@
     try { alertados = JSON.parse(localStorage.getItem('alertas_control_nino') || '[]'); } catch (e) { alertados = []; }
     const alertadosSet = new Set(alertados);
 
-    const colaAlertas = [];
-    let alertaEnCurso = false;
-
-    function encolarAlerta(opciones, alCerrar) {
-        if (!window.Swal) {
-            alert((opciones.title || 'Tiempo cumplido') + '\n\n' + (opciones.text || ''));
-            if (alCerrar) alCerrar({ isDenied: false, isDismissed: false });
-            return;
-        }
-        colaAlertas.push({ opciones: opciones, alCerrar: alCerrar });
-        if (!alertaEnCurso) mostrarSiguienteAlerta();
-    }
-
-    function mostrarSiguienteAlerta() {
-        if (!colaAlertas.length) {
-            alertaEnCurso = false;
-            return;
-        }
-        alertaEnCurso = true;
-        const item = colaAlertas.shift();
-        Swal.fire(item.opciones).then(function (result) {
-            if (item.alCerrar) item.alCerrar(result);
-            mostrarSiguienteAlerta();
-        });
-    }
+    const pendientesAlerta = { ninos: 0, fiestas: 0 };
+    let resumenAbierto = false;
 
     function formato(seg) {
         if (seg < 0) seg = 0;
@@ -570,65 +562,54 @@
         });
     }
 
-    function alertaAmigable(it) {
-        const card = it.card;
-        const esFiesta = card.dataset.tipo === 'fiesta';
-        const nombre = card.dataset.nombre || 'Sin nombre';
-        if (esFiesta) {
-            const puede45 = it.totalSeg + 45 * 60 <= MAX_SEG;
-            const puede90 = it.totalSeg + 90 * 60 <= MAX_SEG;
-            encolarAlerta({
-                icon: 'info',
-                title: '¡La fiesta terminó!',
-                text: (puede45 || puede90)
-                    ? 'La fiesta "' + nombre + '" llegó a su tiempo límite. ¿Deseas agregar más tiempo?'
-                    : 'La fiesta "' + nombre + '" alcanzó el máximo de {{ tiempo_maximo }} minutos.',
-                showDenyButton: puede45,
-                showCancelButton: puede90,
-                confirmButtonText: 'Entendido',
-                denyButtonText: 'Agregar 45 min',
-                cancelButtonText: 'Agregar 90 min',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                customClass: {
-                    popup: 'alerta-tiempo-popup',
-                    actions: 'gap-2 flex-wrap',
-                    confirmButton: 'btn btn-outline-secondary px-3',
-                    denyButton: 'btn btn-primary px-3',
-                    cancelButton: 'btn btn-success px-3',
-                },
-                buttonsStyling: false,
-            }, function (result) {
-                if (result.isDenied && puede45) agregarTiempo(it, 45);
-                else if (result.isDismissed && puede90) agregarTiempo(it, 90);
-            });
-        } else {
-            encolarAlerta({
-                icon: 'info',
-                title: '¡Tiempo cumplido!',
-                text: 'El tiempo de ' + nombre + ' ha terminado. Recuerda marcar su salida.',
-                confirmButtonText: 'Entendido',
-                allowOutsideClick: false,
-                timer: 8000,
-                timerProgressBar: true,
-                customClass: {
-                    popup: 'alerta-tiempo-popup',
-                    actions: 'gap-2 flex-wrap',
-                    confirmButton: 'btn btn-primary px-4',
-                },
-                buttonsStyling: false,
-            });
-        }
-    }
+    function mostrarAlertaResumen() {
+        const ninos = pendientesAlerta.ninos;
+        const fiestas = pendientesAlerta.fiestas;
+        const total = ninos + fiestas;
+        if (total <= 0) return;
 
-    function lanzarAlerta(it) {
-        const card = it.card;
-        const tipo = card.dataset.tipo === 'fiesta' ? 'Fiesta' : 'Niño';
-        const nombre = card.dataset.nombre || 'Sin nombre';
-        const descripcion = card.dataset.descripcion || 'Sin descripción';
-        mostrarToast(tipo, nombre, descripcion);
-        beep();
-        alertaAmigable(it);
+        const partes = [];
+        if (ninos) partes.push(ninos + (ninos === 1 ? ' niño' : ' niños'));
+        if (fiestas) partes.push(fiestas + (fiestas === 1 ? ' fiesta' : ' fiestas'));
+        const verbo = total === 1 ? ' alcanzó' : ' alcanzaron';
+        const texto = 'El tiempo de ' + partes.join(' y ') + verbo + ' su límite. Recuerda marcar la salida.';
+
+        if (!window.Swal) {
+            if (!resumenAbierto) {
+                resumenAbierto = true;
+                alert('¡Tiempo cumplido!\n\n' + texto);
+                resumenAbierto = false;
+                pendientesAlerta.ninos = 0;
+                pendientesAlerta.fiestas = 0;
+            }
+            return;
+        }
+
+        if (resumenAbierto && Swal.isVisible()) {
+            const contenedorHtml = Swal.getHtmlContainer();
+            if (contenedorHtml) contenedorHtml.textContent = texto;
+            return;
+        }
+
+        resumenAbierto = true;
+        Swal.fire({
+            icon: 'info',
+            title: '¡Tiempo cumplido!',
+            text: texto,
+            confirmButtonText: 'Entendido',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            customClass: {
+                popup: 'alerta-tiempo-popup',
+                actions: 'gap-2 flex-wrap',
+                confirmButton: 'btn btn-primary px-4',
+            },
+            buttonsStyling: false,
+        }).then(function () {
+            resumenAbierto = false;
+            pendientesAlerta.ninos = 0;
+            pendientesAlerta.fiestas = 0;
+        });
     }
 
     // Cacheamos las referencias a los nodos y los valores para soportar cientos de tarjetas.
@@ -656,6 +637,8 @@
 
     function actualizar() {
         const ahoraServidor = Date.now() - offset;
+        let vencidosNinos = 0;
+        let vencidosFiestas = 0;
         for (let i = 0; i < items.length; i++) {
             const it = items[i];
             const card = it.card;
@@ -725,8 +708,22 @@
             if (restante <= 0 && !alertadosSet.has(clave)) {
                 alertadosSet.add(clave);
                 try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
-                lanzarAlerta(it);
+                const esFiesta = card.dataset.tipo === 'fiesta';
+                mostrarToast(
+                    esFiesta ? 'Fiesta' : 'Niño',
+                    card.dataset.nombre || 'Sin nombre',
+                    card.dataset.descripcion || 'Sin descripción'
+                );
+                if (esFiesta) vencidosFiestas += 1;
+                else vencidosNinos += 1;
             }
+        }
+
+        if (vencidosNinos || vencidosFiestas) {
+            pendientesAlerta.ninos += vencidosNinos;
+            pendientesAlerta.fiestas += vencidosFiestas;
+            beep();
+            mostrarAlertaResumen();
         }
     }
 

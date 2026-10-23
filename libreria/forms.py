@@ -5,6 +5,7 @@ from django.db import transaction
 import re
 from django.forms import ModelChoiceField
 from django.utils import timezone
+from .servicios_lotes import aplicar_movimiento, aplicar_entrada_existente, revertir_movimiento
 
 class ProductoModelChoiceField(ModelChoiceField):
     """
@@ -225,13 +226,28 @@ class MovimientosInventarioForm(forms.ModelForm):
         
         cantidad = cleaned_data.get("cantidad")
 
+        # Las entradas se registran desde su flujo propio porque necesitan crear el lote.
+        if tipo_movimiento == 'ENTRADA':
+            if not self.instance.pk:
+                self.add_error('tipo_movimiento', 'Las entradas se registran desde el flujo de Entrada.')
+            elif self.instance.tipo_movimiento != 'ENTRADA':
+                self.add_error('tipo_movimiento', 'No se puede convertir un movimiento en Entrada. Use el flujo de Entrada.')
+
         # Validación 1: Si es una SALIDA o TRASLADO_VENCIDO, verificar que haya stock suficiente.
         if tipo_movimiento in ['SALIDA', 'TRASLADO_VENCIDO'] and producto and cantidad is not None:
-            if cantidad > producto.cantidad:
+            disponible = producto.cantidad
+            if self.instance.pk:
+                anterior = MovimientosInventario.objects.get(pk=self.instance.pk)
+                if anterior.producto_id == producto.id_producto:
+                    if anterior.tipo_movimiento == 'ENTRADA':
+                        disponible -= anterior.cantidad
+                    elif anterior.tipo_movimiento in ('SALIDA', 'TRASLADO_VENCIDO'):
+                        disponible += anterior.cantidad
+            if cantidad > disponible:
                 tipo_str = 'salida' if tipo_movimiento == 'SALIDA' else 'traslado'
                 raise forms.ValidationError(
                     f"No se puede registrar la {tipo_str}. Stock insuficiente para '{producto.nombre_producto}'. "
-                    f"Disponibles: {producto.cantidad}, se intentó mover: {cantidad}."
+                    f"Disponibles: {disponible}, se intentó mover: {cantidad}."
                 )
 
         # Validación 2: Si es una ENTRADA, el proveedor es obligatorio.
@@ -241,69 +257,43 @@ class MovimientosInventarioForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
-        # Usamos una transacción para asegurar que ambas operaciones (guardar movimiento y actualizar stock)
-        # se completen con éxito o ninguna lo haga.
+        # Usamos una transacción para asegurar que todas las operaciones
+        # (movimiento, stock y lotes) se completen con éxito o ninguna lo haga.
         with transaction.atomic():
             movimiento = super().save(commit=False)
-            producto = movimiento.producto
-            cantidad_nueva = movimiento.cantidad
 
-            # self.instance.pk será None si es un nuevo movimiento
             if not self.instance.pk:
-                # Es un nuevo movimiento
                 if movimiento.tipo_movimiento == 'ENTRADA':
-                    producto.cantidad += cantidad_nueva
-                    # AGREGAR PROVEEDOR A LA LISTA DEL PRODUCTO SI ES ENTRADA
-                    if movimiento.proveedor:
-                        producto.proveedores.add(movimiento.proveedor)
-                elif movimiento.tipo_movimiento == 'SALIDA':
-                    # La validación ya ocurrió en clean(), aquí solo operamos
-                    producto.cantidad -= cantidad_nueva
-                elif movimiento.tipo_movimiento == 'TRASLADO_VENCIDO':
-                    producto.cantidad -= cantidad_nueva
-                    producto.cantidad_vencido += cantidad_nueva
-                elif movimiento.tipo_movimiento == 'CARGA_VENCIDO':
-                    producto.cantidad_vencido += cantidad_nueva
-            else:
-                # Es una edición de un movimiento existente
-                # Recuperamos los datos originales de la BD porque self.instance ya tiene los cambios en memoria
-                movimiento_anterior = MovimientosInventario.objects.get(pk=self.instance.pk)
-                cantidad_original = movimiento_anterior.cantidad
-                tipo_original = movimiento_anterior.tipo_movimiento
-
-                # 1. Revertir el efecto del movimiento original
-                if tipo_original == 'ENTRADA':
-                    producto.cantidad -= cantidad_original
-                elif tipo_original == 'SALIDA':
-                    producto.cantidad += cantidad_original
-                elif tipo_original == 'TRASLADO_VENCIDO':
-                    producto.cantidad += cantidad_original
-                    producto.cantidad_vencido -= cantidad_original
-                elif tipo_original == 'CARGA_VENCIDO':
-                    producto.cantidad_vencido -= cantidad_original
-
-                # 2. Aplicar el efecto del nuevo movimiento
-                if movimiento.tipo_movimiento == 'ENTRADA':
-                    producto.cantidad += cantidad_nueva
-                    if movimiento.proveedor:
-                        producto.proveedores.add(movimiento.proveedor)
-                elif movimiento.tipo_movimiento == 'SALIDA':
-                    if producto.cantidad < cantidad_nueva:
-                        # Esta validación es una segunda capa de seguridad por si acaso.
-                        # El método clean() ya debería haberlo prevenido.
-                        raise forms.ValidationError(f"Stock insuficiente para actualizar la salida de '{producto.nombre_producto}'.")
-                    producto.cantidad -= cantidad_nueva
-                elif movimiento.tipo_movimiento == 'TRASLADO_VENCIDO':
-                    if producto.cantidad < cantidad_nueva:
-                        raise forms.ValidationError(f"Stock insuficiente para actualizar el traslado de '{producto.nombre_producto}'.")
-                    producto.cantidad -= cantidad_nueva
-                    producto.cantidad_vencido += cantidad_nueva
-                elif movimiento.tipo_movimiento == 'CARGA_VENCIDO':
-                    producto.cantidad_vencido += cantidad_nueva
-            
-            if commit:
-                producto.save()
+                    raise forms.ValidationError(
+                        "Las entradas de inventario deben registrarse desde el flujo de Entrada."
+                    )
                 movimiento.save()
+                aplicar_movimiento(movimiento)
+                if movimiento.proveedor:
+                    movimiento.producto.proveedores.add(movimiento.proveedor)
+            else:
+                anterior = MovimientosInventario.objects.get(pk=self.instance.pk)
+                lote_entrada = None
+                if anterior.tipo_movimiento == 'ENTRADA':
+                    detalle = anterior.lotes_afectados.select_related('lote').first()
+                    lote_entrada = detalle.lote if detalle else None
+
+                revertir_movimiento(anterior)
+                movimiento.producto.refresh_from_db()
+                if lote_entrada is not None:
+                    lote_entrada.refresh_from_db()
+
+                if movimiento.tipo_movimiento == 'ENTRADA':
+                    if lote_entrada is None:
+                        raise forms.ValidationError(
+                            "No se puede convertir este movimiento en Entrada; use el flujo de Entrada."
+                        )
+                    movimiento.save()
+                    aplicar_entrada_existente(movimiento, lote_entrada)
+                else:
+                    movimiento.save()
+                    aplicar_movimiento(movimiento)
+
             return movimiento
 
 class UserForm(forms.ModelForm):

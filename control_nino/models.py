@@ -8,7 +8,6 @@ TIEMPO_MAXIMO = 180
 
 class ControlNino(models.Model):
     TIEMPO_CHOICES = [
-        (1, '1 minuto (prueba)'),
         (45, '45 minutos'),
         (90, '90 minutos'),
     ]
@@ -55,6 +54,8 @@ class ControlNino(models.Model):
 
     @property
     def color_estado(self):
+        if self.salio:
+            return 'gris'
         restante = self.minutos_restantes
         if restante <= 0:
             return 'rojo'

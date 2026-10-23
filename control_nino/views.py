@@ -14,7 +14,7 @@ from fpdf import FPDF
 
 from .models import ControlNino, Fiesta, BrazaleteFiesta, TIEMPO_MAXIMO
 from .forms import ControlNinoForm, FiestaForm
-from .permissions import control_nino_required
+from .permissions import control_nino_required, control_nino_gestion_required
 
 
 def _rango_dia(dia):
@@ -174,6 +174,7 @@ def _control_ninos_queryset(fecha_str):
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def reporte_control_ninos(request):
     _finalizar_vencidos()
     fecha_str = request.GET.get('fecha', '').strip()
@@ -191,6 +192,7 @@ def reporte_control_ninos(request):
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def reporte_control_ninos_pdf(request):
     _finalizar_vencidos()
     fecha_str = request.GET.get('fecha', '').strip()
@@ -265,6 +267,7 @@ def _pdf_response(pdf, filename):
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def reporte_control_nino_pdf(request, pk):
     """Reporte PDF individual de un niño."""
     _finalizar_vencidos()
@@ -296,6 +299,7 @@ def reporte_control_nino_pdf(request, pk):
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def reporte_fiesta_pdf(request, pk):
     """Reporte PDF individual de una fiesta con su lista de brazaletes."""
     _finalizar_vencidos()
@@ -349,6 +353,7 @@ def _parse_fecha(valor):
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def historial_control_ninos(request):
     """Historial de niños y fiestas agrupado por día."""
     _finalizar_vencidos()
@@ -436,6 +441,7 @@ MESES_ES = [
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def estadisticas_control_ninos(request):
     """Estadísticas mensuales: niños, fiestas y brazaletes por mes."""
     _finalizar_vencidos()
@@ -539,7 +545,9 @@ def crear_fiesta(request):
                         for i in range(cantidad)
                     ])
                 messages.success(request, f"Fiesta '{fiesta.nombre}' creada con {cantidad} brazaletes.")
-                return redirect('control_nino:detalle_fiesta', pk=fiesta.pk)
+                if request.user.is_superuser or getattr(getattr(request.user, 'perfilusuario', None), 'rol', None) != 'control_nino':
+                    return redirect('control_nino:detalle_fiesta', pk=fiesta.pk)
+                return redirect('control_nino:lista_control_ninos')
             except Exception as e:
                 messages.error(request, f"Error al crear la fiesta: {str(e)}")
 
@@ -565,6 +573,7 @@ def crear_fiesta(request):
 
 @login_required
 @control_nino_required
+@control_nino_gestion_required
 def detalle_fiesta(request, pk):
     _finalizar_vencidos()
     fiesta = get_object_or_404(Fiesta.objects.prefetch_related('brazaletes'), pk=pk)

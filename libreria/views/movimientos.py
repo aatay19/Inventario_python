@@ -11,6 +11,14 @@ from django import forms
 from .auth import es_inventario_acceso, es_pleno_acceso, es_almacenista_o_superior
 from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra, Lote
 from ..forms import MovimientosInventarioForm, HistorialProveedoresNotasForm
+from ..servicios_lotes import (
+    consumir_lotes_fefo,
+    registrar_consumo,
+    registrar_entrada,
+    revertir_movimiento,
+    aplicar_movimiento,
+    aplicar_entrada_existente,
+)
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
@@ -197,15 +205,13 @@ def lotes_index(request):
 def movimientos_inventario_eliminar(request, id_movimiento):
     movimiento = MovimientosInventario.objects.select_related('producto').get(id_movimiento=id_movimiento)
     if request.method == 'POST':
-        with transaction.atomic():
-            producto = movimiento.producto
-            if movimiento.tipo_movimiento == 'ENTRADA':
-                producto.cantidad -= movimiento.cantidad
-            elif movimiento.tipo_movimiento == 'SALIDA':
-                producto.cantidad += movimiento.cantidad
-            producto.save()
-            movimiento.delete()
-        messages.success(request, 'Movimiento eliminado exitosamente.')
+        try:
+            with transaction.atomic():
+                revertir_movimiento(movimiento)
+                movimiento.delete()
+            messages.success(request, 'Movimiento eliminado exitosamente.')
+        except forms.ValidationError as e:
+            messages.error(request, str(e))
         return redirect('movimientos.index')
     return render(request, 'movimientos/eliminar.html', {'movimiento': movimiento})
 
@@ -296,8 +302,8 @@ def movimientos_salida_procesar(request):
                     if cant_salida > 0:
                         if producto.cantidad < cant_salida:
                             raise forms.ValidationError(f"Stock insuficiente para {producto.nombre_producto}. Disponible: {producto.cantidad}")
-                        # (Lógica existente para crear el movimiento de salida)
-                        MovimientosInventario.objects.create(
+                        # Crear el movimiento y descontar de forma consistente
+                        movimiento = MovimientosInventario.objects.create(
                             producto=producto,
                             tipo_movimiento='SALIDA',
                             cantidad=cant_salida,
@@ -307,33 +313,11 @@ def movimientos_salida_procesar(request):
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
                         )
+                        usados = consumir_lotes_fefo(producto, cant_salida)
                         producto.cantidad -= cant_salida
-                        producto.save()
+                        producto.save(update_fields=['cantidad'])
+                        registrar_consumo(movimiento, usados)
                         salidas_creadas += 1
-
-                        # Lógica transaccional para descontar de lotes
-                        lotes_vigentes = Lote.objects.filter(
-                            producto=producto,
-                            cantidad_actual__gt=0
-                        ).order_by('fecha_vencimiento')
-
-                        cantidad_por_descontar = cant_salida
-                        for lote in lotes_vigentes:
-                            if cantidad_por_descontar <= 0:
-                                break
-                            
-                            if lote.cantidad_actual <= cantidad_por_descontar:
-                                cantidad_por_descontar -= lote.cantidad_actual
-                                lote.cantidad_actual = 0
-                                lote.save()
-                            else:
-                                lote.cantidad_actual -= cantidad_por_descontar
-                                cantidad_por_descontar = 0
-                                lote.save()
-
-                        if cantidad_por_descontar > 0:
-                            # Opcional: manejar caso donde no hay stock suficiente en lotes
-                            pass
             
             if proveedor:
                 razon_social = proveedor.razonsocial
@@ -456,7 +440,7 @@ def movimientos_traslado_vencido_procesar(request):
                         if producto.cantidad < cant_traslado:
                             raise forms.ValidationError(f"Stock insuficiente para {producto.nombre_producto}. Disponible: {producto.cantidad}")
                         
-                        MovimientosInventario.objects.create(
+                        movimiento = MovimientosInventario.objects.create(
                             producto=producto,
                             tipo_movimiento='TRASLADO_VENCIDO',
                             cantidad=cant_traslado,
@@ -465,46 +449,11 @@ def movimientos_traslado_vencido_procesar(request):
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
                         )
+                        usados = consumir_lotes_fefo(producto, cant_traslado)
                         producto.cantidad -= cant_traslado
                         producto.cantidad_vencido += cant_traslado
-                        producto.save()
-
-                        # Descontar de los lotes vencidos del producto
-                        lotes_vencidos = Lote.objects.filter(
-                            producto=producto,
-                            fecha_vencimiento__lte=ahora.date(),
-                            cantidad_actual__gt=0
-                        ).order_by('fecha_vencimiento')
-
-                        cant_restante = cant_traslado
-                        for lote in lotes_vencidos:
-                            if cant_restante <= 0:
-                                break
-                            if lote.cantidad_actual <= cant_restante:
-                                cant_restante -= lote.cantidad_actual
-                                lote.cantidad_actual = 0
-                                lote.save()
-                            else:
-                                lote.cantidad_actual -= cant_restante
-                                cant_restante = 0
-                                lote.save()
-
-                        if cant_restante > 0:
-                            lotes_resto = Lote.objects.filter(
-                                producto=producto,
-                                cantidad_actual__gt=0
-                            ).order_by('fecha_vencimiento')
-                            for lote in lotes_resto:
-                                if cant_restante <= 0:
-                                    break
-                                if lote.cantidad_actual <= cant_restante:
-                                    cant_restante -= lote.cantidad_actual
-                                    lote.cantidad_actual = 0
-                                    lote.save()
-                                else:
-                                    lote.cantidad_actual -= cant_restante
-                                    cant_restante = 0
-                                    lote.save()
+                        producto.save(update_fields=['cantidad', 'cantidad_vencido'])
+                        registrar_consumo(movimiento, usados)
 
                         traslados_creados += 1
             messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al deposito de vencidos.')
@@ -722,7 +671,7 @@ def movimientos_entrada_procesar(request):
                     producto = Inventario.objects.get(id_producto=producto_ids[i])
                     cant_entrada = int(totales[i])
                     if cant_entrada > 0:
-                        MovimientosInventario.objects.create(
+                        movimiento = MovimientosInventario.objects.create(
                             producto=producto,
                             tipo_movimiento='ENTRADA',
                             cantidad=cant_entrada,
@@ -734,13 +683,14 @@ def movimientos_entrada_procesar(request):
                         )
                         from datetime import datetime
                         fecha_ven = datetime.strptime(fechas_vencimiento[i], '%Y-%m-%d').date()
-                        Lote.objects.create(
+                        lote = Lote.objects.create(
                             producto=producto,
                             codigo_lote=lote_ids[i],
                             fecha_vencimiento=fecha_ven,
                             fecha_llegada=ahora.date(),
                             cantidad_actual=cant_entrada
                         )
+                        registrar_entrada(movimiento, lote)
                         producto.cantidad += cant_entrada
                         producto.proveedores.add(proveedor)
                         producto.save()
@@ -1116,12 +1066,7 @@ def movimientos_lote_eliminar(request):
 
                 count = 0
                 for mov in movs:
-                    producto = mov.producto
-                    if mov.tipo_movimiento == 'ENTRADA':
-                        producto.cantidad -= mov.cantidad
-                    elif mov.tipo_movimiento == 'SALIDA':
-                        producto.cantidad += mov.cantidad
-                    producto.save()
+                    revertir_movimiento(mov)
                     count += 1
                 
                 movs.delete()
@@ -1153,45 +1098,47 @@ def movimientos_lote_editar(request, lote_id):
                     nueva_cantidad = request.POST.get(f'cantidad_{mov.id_movimiento}')
                     nueva_unidad = request.POST.get(f'unidad_{mov.id_movimiento}')
                     nueva_cant_por_empaque = request.POST.get(f'cant_por_empaque_{mov.id_movimiento}')
-                    
-                    if nueva_cantidad and str(nueva_cantidad).isdigit():
-                        nueva_cantidad = int(nueva_cantidad)
-                        if nueva_cantidad == 0:
-                            producto = mov.producto
-                            if mov.tipo_movimiento == 'ENTRADA':
-                                producto.cantidad -= mov.cantidad
-                            elif mov.tipo_movimiento == 'SALIDA':
-                                producto.cantidad += mov.cantidad
-                            producto.save()
-                            mov.delete()
-                            eliminados += 1
-                            continue
 
-                        nueva_cant_empaques = nueva_cantidad
-                        if nueva_cant_por_empaque and str(nueva_cant_por_empaque).isdigit() and int(nueva_cant_por_empaque) > 0:
-                            nueva_cant_por_empaque_int = int(nueva_cant_por_empaque)
-                            nueva_cant_empaques = round(nueva_cantidad / float(nueva_cant_por_empaque_int), 2)
+                    if not (nueva_cantidad and str(nueva_cantidad).isdigit()):
+                        continue
+                    nueva_cantidad = int(nueva_cantidad)
 
-                        if nueva_cantidad != mov.cantidad or nueva_unidad != mov.unidad_empaque or nueva_cant_empaques != mov.cantidad_empaques:
-                            producto = mov.producto
-                            if tipo == 'SALIDA' and nueva_cantidad > mov.cantidad:
-                                diff = nueva_cantidad - mov.cantidad
-                                if producto.cantidad < diff:
-                                    raise Exception(f"Stock insuficiente para {producto.nombre_producto}. Faltan {diff - producto.cantidad} unid.")
-                            if mov.tipo_movimiento == 'ENTRADA':
-                                producto.cantidad -= mov.cantidad
-                            elif mov.tipo_movimiento == 'SALIDA':
-                                producto.cantidad += mov.cantidad
-                            if mov.tipo_movimiento == 'ENTRADA':
-                                producto.cantidad += nueva_cantidad
-                            elif mov.tipo_movimiento == 'SALIDA':
-                                producto.cantidad -= nueva_cantidad
-                            producto.save()
-                            mov.cantidad = nueva_cantidad
-                            mov.cantidad_empaques = nueva_cant_empaques
-                            mov.unidad_empaque = nueva_unidad
-                            mov.save()
-                            cambios += 1
+                    if nueva_cantidad == 0:
+                        revertir_movimiento(mov)
+                        mov.delete()
+                        eliminados += 1
+                        continue
+
+                    nueva_cant_empaques = nueva_cantidad
+                    if nueva_cant_por_empaque and str(nueva_cant_por_empaque).isdigit() and int(nueva_cant_por_empaque) > 0:
+                        nueva_cant_por_empaque_int = int(nueva_cant_por_empaque)
+                        nueva_cant_empaques = round(nueva_cantidad / float(nueva_cant_por_empaque_int), 2)
+
+                    if nueva_cantidad == mov.cantidad and nueva_unidad == mov.unidad_empaque and nueva_cant_empaques == mov.cantidad_empaques:
+                        continue
+
+                    lote_entrada = None
+                    if mov.tipo_movimiento == 'ENTRADA':
+                        detalle = mov.lotes_afectados.select_related('lote').first()
+                        lote_entrada = detalle.lote if detalle else None
+
+                    revertir_movimiento(mov)
+                    mov.producto.refresh_from_db()
+                    if lote_entrada is not None:
+                        lote_entrada.refresh_from_db()
+
+                    mov.cantidad = nueva_cantidad
+                    mov.cantidad_empaques = nueva_cant_empaques
+                    mov.unidad_empaque = nueva_unidad
+                    mov.save()
+
+                    if mov.tipo_movimiento == 'ENTRADA':
+                        if lote_entrada is None:
+                            raise Exception("No se puede editar una entrada sin lote asociado; regístrela de nuevo desde el flujo de Entrada.")
+                        aplicar_entrada_existente(mov, lote_entrada)
+                    else:
+                        aplicar_movimiento(mov)
+                    cambios += 1
                             
                 nuevos_prods_ids = request.POST.getlist('nuevo_producto_id[]')
                 nuevas_cantidades = request.POST.getlist('nueva_cantidad_prod[]')
@@ -1210,16 +1157,11 @@ def movimientos_lote_editar(request, lote_id):
                             nueva_cant_empaques_prod = round(nueva_cant_prod / float(nueva_cant_por_empaque_prod), 2)
                             
                         if nueva_cant_prod > 0:
+                            if tipo == 'ENTRADA':
+                                raise Exception("Las entradas deben registrarse desde el flujo de Entrada para asociar su lote.")
                             prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)
                             info = movimientos.first()
-                            if tipo == 'SALIDA' and prod_nuevo.cantidad < nueva_cant_prod:
-                                raise Exception(f"Stock insuficiente para {prod_nuevo.nombre_producto}. Disponibles: {prod_nuevo.cantidad}")
-                            if tipo == 'ENTRADA':
-                                prod_nuevo.cantidad += nueva_cant_prod
-                            elif tipo == 'SALIDA':
-                                prod_nuevo.cantidad -= nueva_cant_prod
-                            prod_nuevo.save()
-                            MovimientosInventario.objects.create(
+                            nuevo_mov = MovimientosInventario.objects.create(
                                 producto=prod_nuevo,
                                 tipo_movimiento=tipo,
                                 cantidad=nueva_cant_prod,
@@ -1229,6 +1171,7 @@ def movimientos_lote_editar(request, lote_id):
                                 fecha_movimiento=info.fecha_movimiento,
                                 codigo_lote=lote_id
                             )
+                            aplicar_movimiento(nuevo_mov)
                             nuevos_agregados += 1
                 msg = f"Lote actualizado correctamente. {cambios} modificados."
                 if eliminados > 0: msg += f" {eliminados} eliminados."

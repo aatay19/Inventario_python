@@ -1,9 +1,11 @@
 <nav class="navbar navbar-expand navbar-light bg-white shadow-sm px-3">
     <div class="container-fluid">
         <div class="d-flex align-items-center">
+            {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
             <button class="btn btn-light me-3" id="toggleSidebar">
                 <i class="bi bi-list fs-3"></i>
             </button>
+            {% endif %}
             <a href="{% url 'control_nino:lista_control_ninos' %}" class="text-decoration-none text-dark">
                 <h5 class="m-0">Control Niño</h5>
             </a>
@@ -29,8 +31,10 @@
                     </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end text-small shadow" aria-labelledby="dropdownUser1">
+                    {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
                     <li><a class="dropdown-item" href="{% url 'index' %}">Ir al Inventario</a></li>
                     <li><hr class="dropdown-divider"></li>
+                    {% endif %}
                     <li><a class="dropdown-item text-danger" href="{% url 'logout' %}">Cerrar Sesión</a></li>
                 </ul>
             </div>
