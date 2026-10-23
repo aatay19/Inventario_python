@@ -154,22 +154,29 @@
                                             {{ form.referencia_bancaria }}
                                         </div>
                                         <div class="col-md-3">
-                                            <label class="form-label fw-bold small text-muted">Confirmado</label>
+                                            <label class="form-label fw-bold small text-muted">Confirmado (automático)</label>
                                             {{ form.confirmado }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label fw-bold small">Confirmado por</label>
+                                            {{ form.confirmado_por }}
                                         </div>
                                         <!-- Foto Comprobante Abono 1 -->
                                         <div class="col-12 mt-2">
                                             <label class="form-label fw-bold small"><i class="bi bi-image me-1"></i>Foto Comprobante Abono 1</label>
                                             {{ form.foto_abono1 }}
-                                            {% if evento.foto_abono1 %}
-                                            <div class="mt-2 d-flex align-items-center gap-3">
-                                                <img src="{{ evento.foto_abono1.url }}" alt="Comprobante Abono 1" class="img-thumbnail" style="max-height:120px;">
-                                                <form method="post" action="{% url 'parque:borrar_foto_abono1' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar la foto del Abono 1? Los datos del abono no se borrarán.')">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar foto</button>
-                                                </form>
-                                            </div>
-                                            {% endif %}
+                                             {% if evento.foto_abono1 %}
+                                             <div class="mt-2 d-flex align-items-center gap-3">
+                                                 <div class="position-relative d-inline-block">
+                                                     <span class="badge bg-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Foto de factura</span>
+                                                     <img src="{{ evento.foto_abono1.url }}" alt="Comprobante Abono 1" class="img-thumbnail" style="max-height:120px;">
+                                                 </div>
+                                                 <form method="post" action="{% url 'parque:borrar_foto_abono1' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar la foto del Abono 1? Los datos del abono no se borrarán.')">
+                                                     {% csrf_token %}
+                                                     <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar foto</button>
+                                                 </form>
+                                             </div>
+                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
@@ -205,22 +212,29 @@
                                             {{ form.referencia_bancaria2 }}
                                         </div>
                                         <div class="col-md-3">
-                                            <label class="form-label fw-bold small text-muted">Confirmado</label>
+                                            <label class="form-label fw-bold small text-muted">Confirmado (automático)</label>
                                             {{ form.confirmado2 }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label fw-bold small">Confirmado por</label>
+                                            {{ form.confirmado_por2 }}
                                         </div>
                                         <!-- Foto Comprobante Abono 2 -->
                                         <div class="col-12 mt-2">
                                             <label class="form-label fw-bold small"><i class="bi bi-image me-1"></i>Foto Comprobante Abono 2</label>
                                             {{ form.foto_abono2 }}
-                                            {% if evento.foto_abono2 %}
-                                            <div class="mt-2 d-flex align-items-center gap-3">
-                                                <img src="{{ evento.foto_abono2.url }}" alt="Comprobante Abono 2" class="img-thumbnail" style="max-height:120px;">
-                                                <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar la foto del Abono 2? Los datos del abono no se borrarán.')">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar foto</button>
-                                                </form>
-                                            </div>
-                                            {% endif %}
+                                             {% if evento.foto_abono2 %}
+                                             <div class="mt-2 d-flex align-items-center gap-3">
+                                                 <div class="position-relative d-inline-block">
+                                                     <span class="badge bg-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Foto de factura</span>
+                                                     <img src="{{ evento.foto_abono2.url }}" alt="Comprobante Abono 2" class="img-thumbnail" style="max-height:120px;">
+                                                 </div>
+                                                 <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar la foto del Abono 2? Los datos del abono no se borrarán.')">
+                                                     {% csrf_token %}
+                                                     <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar foto</button>
+                                                 </form>
+                                             </div>
+                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
