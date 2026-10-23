@@ -410,3 +410,61 @@ class AjusteCantidadExactaTest(BaseInventarioTest):
         lote.refresh_from_db()
         self.assertEqual(p.cantidad, 10)
         self.assertEqual(lote.cantidad_actual, 10)
+
+
+class ProximoVencimientoIndexTest(BaseInventarioTest):
+    def _producto_index(self):
+        response = self.client.get(reverse('inventario.index'))
+        self.assertEqual(response.status_code, 200)
+        return response.context['page_obj'].object_list[0]
+
+    def test_ignora_lote_que_fue_trasladado_a_vencido(self):
+        p = self.crear_producto(cantidad=5)
+        self.crear_lote(p, 0, 10, 'L-TRASLADADO')
+        vigente = self.crear_lote(p, 5, 100, 'L-VIGENTE')
+
+        producto = self._producto_index()
+
+        self.assertEqual(producto.fecha_vencimiento_min, vigente.fecha_vencimiento)
+
+    def test_lote_con_existencia_parcial_sigue_siendo_el_proximo(self):
+        p = self.crear_producto(cantidad=6)
+        parcial = self.crear_lote(p, 1, 10, 'L-PARCIAL')
+        self.crear_lote(p, 5, 100, 'L-VIGENTE')
+
+        producto = self._producto_index()
+
+        self.assertEqual(producto.fecha_vencimiento_min, parcial.fecha_vencimiento)
+
+    def test_sin_lotes_con_existencia_no_muestra_fecha(self):
+        p = self.crear_producto(cantidad=0)
+        self.crear_lote(p, 0, 10, 'L-TRASLADADO')
+
+        producto = self._producto_index()
+
+        self.assertIsNone(producto.fecha_vencimiento_min)
+
+
+class LotesIndexBusquedaTest(BaseInventarioTest):
+    def test_busca_por_nombre_de_producto(self):
+        p = self.crear_producto(cantidad=5)
+        lote = self.crear_lote(p, 5, 30, 'LOTE-ABC')
+
+        response = self.client.get(reverse('lotes.index'), {'lote_q': 'Producto 1'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item.id_lote for item in response.context['page_obj'].object_list],
+            [lote.id_lote],
+        )
+
+    def test_busca_por_codigo_de_lote(self):
+        p = self.crear_producto(cantidad=5)
+        lote = self.crear_lote(p, 5, 30, 'LOTE-ABC')
+
+        response = self.client.get(reverse('lotes.index'), {'lote_q': 'ABC'})
+
+        self.assertEqual(
+            [item.id_lote for item in response.context['page_obj'].object_list],
+            [lote.id_lote],
+        )

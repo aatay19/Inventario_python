@@ -12,7 +12,7 @@
                 <option value="estado" {% if sort == 'estado' %}selected{% endif %}>Ordenar por: Estado</option>
                 <option value="vencimiento" {% if sort == 'vencimiento' %}selected{% endif %}>Ordenar por: Vencimiento</option>
             </select>
-            <input type="text" name="lote_q" class="form-control me-2" placeholder="Buscar lote..." value="{{ lote_q|default:'' }}">
+            <input type="text" name="lote_q" class="form-control me-2" placeholder="Buscar por lote, producto o código..." value="{{ lote_q|default:'' }}">
             <button type="submit" class="btn btn-primary">Buscar</button>
             {% if producto_id %}<input type="hidden" name="producto" value="{{ producto_id }}">{% endif %}
         </form>

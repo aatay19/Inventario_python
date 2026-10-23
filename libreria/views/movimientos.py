@@ -177,7 +177,11 @@ def lotes_index(request):
     if producto_id:
         lotes = lotes.filter(producto_id=producto_id)
     if lote_q:
-        lotes = lotes.filter(codigo_lote__icontains=lote_q)
+        lotes = lotes.filter(
+            Q(codigo_lote__icontains=lote_q) |
+            Q(producto__nombre_producto__icontains=lote_q) |
+            Q(producto__codigo_producto__icontains=lote_q)
+        )
         
     # Ordenamiento
     if sort == 'estado':

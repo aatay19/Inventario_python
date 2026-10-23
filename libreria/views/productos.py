@@ -19,7 +19,10 @@ from ..forms import InventarioForm, ImportarArchivoForm
 @user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_index(request):
     qs = Inventario.objects.all().annotate(
-        fecha_vencimiento_min=Min('lote__fecha_vencimiento')
+        fecha_vencimiento_min=Min(
+            'lote__fecha_vencimiento',
+            filter=Q(lote__cantidad_actual__gt=0),
+        )
     )
     q = request.GET.get('q', '').strip()
     categoria = request.GET.get('categoria', '').strip()
