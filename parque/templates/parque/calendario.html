@@ -40,6 +40,15 @@
                 <span class="badge rounded-pill px-3 py-2" style="background:#dc3545;">
                     <i class="bi bi-circle-fill me-1 small"></i>Cancelado
                 </span>
+
+                <span class="text-muted ms-md-3">|</span>
+                <span class="fw-semibold small text-muted">Abonos:</span>
+                <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                    <span class="badge rounded-circle p-1 bg-success me-1 d-inline-block" style="width:9px;height:9px;"></span> A1 confirmado
+                </span>
+                <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                    <span class="badge rounded-circle p-1 bg-success me-1 d-inline-block" style="width:9px;height:9px;"></span><span class="badge rounded-circle p-1 bg-success me-1 d-inline-block" style="width:9px;height:9px;"></span> A1 y A2 confirmados
+                </span>
             </div>
         </div>
     </div>
@@ -275,9 +284,33 @@ document.addEventListener('DOMContentLoaded', function () {
             modal.show();
         },
         eventDidMount: function(info) {
-            info.el.style.borderRadius = '5px';
+            info.el.style.borderRadius = '6px';
             info.el.style.border = 'none';
             info.el.style.cursor = 'pointer';
+
+            const props = info.event.extendedProps;
+            const c1 = props.confirmado1;
+            const c2 = props.confirmado2;
+
+            if (c1 || c2) {
+                const badgeContainer = document.createElement('span');
+                badgeContainer.className = 'confirm-dots ms-auto ps-1 d-inline-flex align-items-center gap-1';
+
+                if (c1 && c2) {
+                    badgeContainer.title = 'Abonos 1 y 2 confirmados';
+                    badgeContainer.innerHTML = '<span class="dot-confirmed dot-double">●●</span>';
+                } else if (c1) {
+                    badgeContainer.title = 'Abono 1 confirmado';
+                    badgeContainer.innerHTML = '<span class="dot-confirmed">●</span>';
+                } else if (c2) {
+                    badgeContainer.title = 'Abono 2 confirmado';
+                    badgeContainer.innerHTML = '<span class="dot-confirmed">●</span>';
+                }
+
+                // Intentar añadir el badge dentro del contenedor del título o del evento
+                const titleEl = info.el.querySelector('.fc-event-title') || info.el;
+                titleEl.appendChild(badgeContainer);
+            }
         }
     });
 
@@ -341,6 +374,17 @@ document.addEventListener('DOMContentLoaded', function () {
     .fc-event {
         font-size: 0.82rem;
         padding: 1px 4px;
+    }
+    .dot-confirmed {
+        color: #20c997;
+        font-size: 0.85rem;
+        line-height: 1;
+        letter-spacing: -1px;
+        text-shadow: 0 0 4px rgba(0,0,0,0.4);
+        font-weight: bold;
+    }
+    .dot-double {
+        letter-spacing: -2px;
     }
     .fc-day-today {
         background: rgba(25,135,84,0.06) !important;
