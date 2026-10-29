@@ -75,7 +75,7 @@ class EventoForm(forms.ModelForm):
             'tasa_dia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Tasa del día'}),
             'referencia_bancaria': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia bancaria'}),
             'banco': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Banco'}),
-            'confirmado': forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': 'Confirmación (automática)'}),
+            'confirmado': forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': 'Confirmación Abono 1'}),
             'confirmado_por': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre y apellido de quien revisa la cuenta'}),
             'tasa_dia2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Tasa del día 2'}),
             'referencia_bancaria2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Referencia bancaria 2'}),

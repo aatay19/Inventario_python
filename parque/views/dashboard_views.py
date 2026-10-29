@@ -105,6 +105,8 @@ def calendario(request):
                     'tiene_abono2': tiene_abono2,
                     'confirmado1': ev.confirmado == 'Sí',
                     'confirmado2': ev.confirmado2 == 'Sí',
+                    'confirmado_por1': ev.confirmado_usuario or '',
+                    'confirmado_por2': ev.confirmado_usuario2 or '',
                     'puede_confirmar': puede_confirmar,
                 },
             })

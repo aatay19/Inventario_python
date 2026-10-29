@@ -540,21 +540,29 @@ def toggle_confirmado(request, pk, abono_num):
         messages.error(request, "No tienes permisos para confirmar abonos.")
         return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
 
+    nombre_usuario = request.user.get_full_name() or request.user.username
+
     if request.method == 'POST':
         if abono_num == 1:
-            if evento.confirmado == 'SÃƒÂ­':
+            if evento.confirmado == 'Sí':
                 evento.confirmado = ''
+                evento.confirmado_usuario = ''
             else:
-                evento.confirmado = 'SÃƒÂ­'
+                evento.confirmado = 'Sí'
+                evento.confirmado_usuario = nombre_usuario
         elif abono_num == 2:
-            if evento.confirmado2 == 'SÃƒÂ­':
+            if evento.confirmado2 == 'Sí':
                 evento.confirmado2 = ''
+                evento.confirmado_usuario2 = ''
             else:
-                evento.confirmado2 = 'SÃƒÂ­'
+                evento.confirmado2 = 'Sí'
+                evento.confirmado_usuario2 = nombre_usuario
         evento.save()
-        messages.success(request, f"Estado de confirmaciÃƒÂ³n de Abono {abono_num} actualizado.")
+        messages.success(request, f"Estado de confirmación de Abono {abono_num} actualizado.")
 
     return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
+
+
 
 @login_required
 def lista_productos(request):

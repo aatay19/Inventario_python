@@ -247,7 +247,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     formA1.action = props.url_toggle_1;
                     const btnA1 = document.getElementById('modalBtnA1');
                     btnA1.className = 'btn btn-sm rounded-pill ' + (props.confirmado1 ? 'btn-success' : 'btn-outline-danger');
-                    btnA1.title = props.confirmado1 ? 'Abono 1 confirmado (clic para quitar)' : 'Confirmar Abono 1';
+                    const textoPor1 = props.confirmado_por1 ? ` (por: ${props.confirmado_por1})` : '';
+                    btnA1.title = props.confirmado1 ? `Abono 1 confirmado${textoPor1} - clic para quitar` : 'Confirmar Abono 1';
                     // Guardar estado en el formulario para el interceptor
                     formA1.dataset.estaConfirmado = props.confirmado1 ? '1' : '0';
                     formA1.dataset.label = 'Abono 1';
@@ -262,7 +263,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     formA2.action = props.url_toggle_2;
                     const btnA2 = document.getElementById('modalBtnA2');
                     btnA2.className = 'btn btn-sm rounded-pill ' + (props.confirmado2 ? 'btn-success' : 'btn-outline-danger');
-                    btnA2.title = props.confirmado2 ? 'Abono 2 confirmado (clic para quitar)' : 'Confirmar Abono 2';
+                    const textoPor2 = props.confirmado_por2 ? ` (por: ${props.confirmado_por2})` : '';
+                    btnA2.title = props.confirmado2 ? `Abono 2 confirmado${textoPor2} - clic para quitar` : 'Confirmar Abono 2';
                     // Guardar estado en el formulario para el interceptor
                     formA2.dataset.estaConfirmado = props.confirmado2 ? '1' : '0';
                     formA2.dataset.label = 'Abono 2';
