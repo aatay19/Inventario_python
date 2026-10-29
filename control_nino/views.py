@@ -573,6 +573,84 @@ def crear_fiesta(request):
 
 @login_required
 @control_nino_required
+def editar_fiesta(request, pk):
+    fiesta = get_object_or_404(Fiesta.objects.prefetch_related('brazaletes'), pk=pk)
+    brazaletes_existentes = list(fiesta.brazaletes.all().order_by('numero'))
+    
+    if request.method == 'POST':
+        form = FiestaForm(request.POST, instance=fiesta)
+        nombres = request.POST.getlist('brazalete_nombre')
+        descripciones = request.POST.getlist('brazalete_descripcion')
+
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    fiesta = form.save()
+                    cantidad = form.cleaned_data['cantidad_brazaletes']
+                    
+                    # Actualizar existentes o crear nuevos
+                    for i in range(cantidad):
+                        nombre_val = nombres[i].strip() if i < len(nombres) and nombres[i].strip() else None
+                        desc_val = descripciones[i].strip() if i < len(descripciones) and descripciones[i].strip() else None
+                        numero_val = i + 1
+                        
+                        if i < len(brazaletes_existentes):
+                            b = brazaletes_existentes[i]
+                            b.numero = numero_val
+                            b.nombre = nombre_val
+                            b.descripcion = desc_val
+                            b.save()
+                        else:
+                            BrazaleteFiesta.objects.create(
+                                fiesta=fiesta,
+                                numero=numero_val,
+                                nombre=nombre_val,
+                                descripcion=desc_val
+                            )
+                    
+                    # Si se redujo la cantidad, eliminar los sobrantes
+                    if len(brazaletes_existentes) > cantidad:
+                        sobrantes_ids = [b.pk for b in brazaletes_existentes[cantidad:]]
+                        BrazaleteFiesta.objects.filter(pk__in=sobrantes_ids).delete()
+
+                messages.success(request, f"Fiesta '{fiesta.nombre}' actualizada exitosamente.")
+                return redirect('control_nino:lista_control_ninos')
+            except Exception as e:
+                messages.error(request, f"Error al actualizar la fiesta: {str(e)}")
+
+        try:
+            cantidad_int = int(request.POST.get('cantidad_brazaletes', len(brazaletes_existentes)))
+        except (TypeError, ValueError):
+            cantidad_int = len(brazaletes_existentes)
+            
+        brazaletes_data = [
+            {
+                'nombre': nombres[i] if i < len(nombres) else '',
+                'descripcion': descripciones[i] if i < len(descripciones) else '',
+            }
+            for i in range(max(0, cantidad_int))
+        ]
+    else:
+        form = FiestaForm(instance=fiesta, initial={'cantidad_brazaletes': len(brazaletes_existentes)})
+        brazaletes_data = [
+            {
+                'nombre': b.nombre or '',
+                'descripcion': b.descripcion or '',
+            }
+            for b in brazaletes_existentes
+        ]
+
+    return render(request, 'control_nino/fiesta_form.html', {
+        'form': form,
+        'titulo': f'Editar Fiesta: {fiesta.nombre}',
+        'brazaletes_data': brazaletes_data,
+        'es_edicion': True,
+        'fiesta': fiesta,
+    })
+
+
+@login_required
+@control_nino_required
 @control_nino_gestion_required
 def detalle_fiesta(request, pk):
     _finalizar_vencidos()

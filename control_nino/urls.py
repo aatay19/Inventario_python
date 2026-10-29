@@ -19,6 +19,7 @@ urlpatterns = [
     # Fiestas
     path('fiesta/nueva/', views.crear_fiesta, name='crear_fiesta'),
     path('fiesta/<int:pk>/', views.detalle_fiesta, name='detalle_fiesta'),
+    path('fiesta/<int:pk>/editar/', views.editar_fiesta, name='editar_fiesta'),
     path('fiesta/iniciar/<int:pk>/', views.iniciar_fiesta, name='iniciar_fiesta'),
     path('fiesta/salida/<int:pk>/', views.marcar_salida_fiesta, name='marcar_salida_fiesta'),
     path('fiesta/deshacer-salida/<int:pk>/', views.deshacer_salida_fiesta, name='deshacer_salida_fiesta'),

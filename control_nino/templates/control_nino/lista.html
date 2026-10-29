@@ -66,7 +66,12 @@
             <div class="panel-columna panel-ninos p-3 rounded-3 h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2 class="h5 mb-0 text-gray-800"><i class="bi bi-people-fill text-secondary me-2"></i>HAO PARK</h2>
-                    <span class="badge bg-secondary rounded-pill" id="contadorNinos" data-total="{{ ninos|length }}">{{ ninos|length }}</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnOcultarVencidos" title="Ocultar/mostrar niños con tiempo vencido o que ya salieron">
+                            <i class="bi bi-eye-slash me-1"></i><span id="lblOcultarVencidos">Ocultar vencidos</span>
+                        </button>
+                        <span class="badge bg-secondary rounded-pill" id="contadorNinos" data-total="{{ ninos|length }}">{{ ninos|length }}</span>
+                    </div>
                 </div>
                 <div class="row g-3 grid-scroll" id="contenedorNinos">
                     {% for nino in ninos %}
@@ -246,6 +251,9 @@
                                         </form>
                                     {% endif %}
                                     <div class="d-flex gap-1">
+                                        <a href="{% url 'control_nino:editar_fiesta' fiesta.pk %}" class="btn btn-sm btn-outline-primary" title="Editar fiesta y brazaletes">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
                                         {% if request.user.is_superuser or request.user.perfilusuario.rol != 'control_nino' %}
                                         <a href="{% url 'control_nino:reporte_fiesta_pdf' fiesta.pk %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Reporte de la fiesta">
                                             <i class="bi bi-file-earmark-pdf"></i>
@@ -402,6 +410,11 @@
         .tarjeta-nino .card-title { font-size: 1.25rem; }
         .tarjeta-nino .tiempo-restante { font-size: 2rem !important; }
         .alerta-toast { min-width: 0; width: calc(100vw - 2rem); }
+    }
+
+    /* Tarjetas ocultas por el filtro "Ocultar vencidos" */
+    .col-nino-oculto-vencido {
+        display: none !important;
     }
 
     /* Lista de brazaletes dentro de la tarjeta de la fiesta */
@@ -809,6 +822,77 @@
             input.focus();
         });
     }
+})();
+</script>
+
+<script>
+(function () {
+    const btn = document.getElementById('btnOcultarVencidos');
+    const lbl = document.getElementById('lblOcultarVencidos');
+    if (!btn) return;
+
+    let ocultoActivo = localStorage.getItem('control_nino_ocultar_vencidos') === '1';
+
+    // Determina si una tarjeta cuenta como "vencida" para el filtro.
+    function esVencida(card) {
+        // Ya salió (marcada manualmente)
+        if (card.dataset.salida === '1') return true;
+        // Estado rojo (tiempo cumplido sin marcar salida)
+        if (card.classList.contains('estado-rojo')) return true;
+        return false;
+    }
+
+    function actualizarBotonUI() {
+        if (ocultoActivo) {
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-secondary');
+            btn.querySelector('i').className = 'bi bi-eye me-1';
+            lbl.textContent = 'Mostrar vencidos';
+        } else {
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+            btn.querySelector('i').className = 'bi bi-eye-slash me-1';
+            lbl.textContent = 'Ocultar vencidos';
+        }
+    }
+
+    function aplicarOculto() {
+        let ocultadas = 0;
+        let totalNinos = 0;
+        document.querySelectorAll('#contenedorNinos .tarjeta-nino').forEach(function (card) {
+            const col = card.closest('.col-12, [class*="col-"]');
+            if (!col) return;
+            totalNinos += 1;
+            if (ocultoActivo && esVencida(card)) {
+                col.classList.add('col-nino-oculto-vencido');
+                ocultadas += 1;
+            } else {
+                col.classList.remove('col-nino-oculto-vencido');
+            }
+        });
+
+        // Actualizar contador con la cantidad visible
+        const contadorNinos = document.getElementById('contadorNinos');
+        if (contadorNinos) {
+            contadorNinos.textContent = totalNinos - ocultadas;
+        }
+    }
+
+    btn.addEventListener('click', function () {
+        ocultoActivo = !ocultoActivo;
+        localStorage.setItem('control_nino_ocultar_vencidos', ocultoActivo ? '1' : '0');
+        actualizarBotonUI();
+        aplicarOculto();
+    });
+
+    // Iniciar con el estado guardado
+    actualizarBotonUI();
+    aplicarOculto();
+
+    // Re-aplica el filtro continuamente para capturar tarjetas que vencen en tiempo real.
+    setInterval(function () {
+        if (ocultoActivo) aplicarOculto();
+    }, 1000);
 })();
 </script>
 {% endblock %}

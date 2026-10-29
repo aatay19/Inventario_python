@@ -39,15 +39,26 @@
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label fw-bold mb-0">Nombres y descripciones de los brazaletes</label>
-                                <span class="badge bg-secondary" id="brazaletesContador">0</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-secondary" id="brazaletesContador">0</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarBrazalete" title="Agregar un brazalete más">
+                                        <i class="bi bi-plus-circle me-1"></i>Añadir brazalete
+                                    </button>
+                                </div>
                             </div>
                             <div id="brazaletesContainer"></div>
-                            <small class="text-muted">Escribe el nombre y la descripción de cada niño/brazalete.</small>
+                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Los nombres y descripciones son <strong>opcionales</strong>. Puedes ingresar por ejemplo 20 brazaletes y llenar solo los que necesites.</small>
                         </div>
 
                         <div class="d-flex flex-wrap justify-content-between gap-2 border-top pt-3">
                             <a href="{% url 'control_nino:lista_control_ninos' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
-                            <button type="submit" class="btn btn-primary px-5">Crear Fiesta</button>
+                            <button type="submit" class="btn btn-primary px-5">
+                                {% if es_edicion %}
+                                <i class="bi bi-check2-circle me-1"></i>Guardar Cambios
+                                {% else %}
+                                <i class="bi bi-balloon-fill me-1"></i>Crear Fiesta
+                                {% endif %}
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -62,30 +73,46 @@
     const cantidadInput = document.getElementById('id_cantidad_brazaletes');
     const contenedor = document.getElementById('brazaletesContainer');
     const contador = document.getElementById('brazaletesContador');
+    const btnAgregar = document.getElementById('btnAgregarBrazalete');
     if (!cantidadInput || !contenedor) return;
 
-    const datosIniciales = JSON.parse(document.getElementById('brazaletesData').textContent || '[]');
+    let datosIniciales = JSON.parse(document.getElementById('brazaletesData').textContent || '[]');
 
     function crearFila(indice, datos) {
         const fila = document.createElement('div');
-        fila.className = 'brazalete-row border rounded p-2 mb-2 bg-light';
+        fila.className = 'brazalete-row border rounded p-2 mb-2 bg-light position-relative';
 
         const encabezado = document.createElement('div');
-        encabezado.className = 'small fw-bold mb-1 text-muted';
-        encabezado.textContent = 'Brazalete #' + (indice + 1);
+        encabezado.className = 'd-flex justify-content-between align-items-center mb-1';
+        
+        const etiqueta = document.createElement('span');
+        etiqueta.className = 'small fw-bold text-muted';
+        etiqueta.textContent = 'Brazalete #' + (indice + 1) + ' (opcional)';
+
+        const btnQuitar = document.createElement('button');
+        btnQuitar.type = 'button';
+        btnQuitar.className = 'btn btn-sm text-danger p-0 border-0';
+        btnQuitar.innerHTML = '<i class="bi bi-x-circle-fill"></i> Quitar';
+        btnQuitar.title = 'Quitar este brazalete';
+        btnQuitar.onclick = function () {
+            eliminarFila(indice);
+        };
+
+        encabezado.appendChild(etiqueta);
+        encabezado.appendChild(btnQuitar);
 
         const nombre = document.createElement('input');
         nombre.type = 'text';
         nombre.name = 'brazalete_nombre';
         nombre.className = 'form-control form-control-sm mb-1';
-        nombre.placeholder = 'Nombre del niño';
+        nombre.placeholder = 'Nombre del niño (opcional)';
         nombre.value = datos.nombre || '';
 
         const descripcion = document.createElement('input');
         descripcion.type = 'text';
         descripcion.name = 'brazalete_descripcion';
         descripcion.className = 'form-control form-control-sm';
-        descripcion.placeholder = 'Descripción / observación';
+        descripcion.placeholder = 'Descripción / observación (opcional)';
         descripcion.value = datos.descripcion || '';
 
         fila.appendChild(encabezado);
@@ -94,15 +121,20 @@
         return fila;
     }
 
-    function renderizar() {
-        const total = Math.max(0, Math.min(500, parseInt(cantidadInput.value, 10) || 0));
-        const anteriores = [];
+    function recolectarDatosActuales() {
+        const datos = [];
         contenedor.querySelectorAll('.brazalete-row').forEach(function (fila) {
-            anteriores.push({
+            datos.push({
                 nombre: fila.querySelector('input[name="brazalete_nombre"]').value,
                 descripcion: fila.querySelector('input[name="brazalete_descripcion"]').value,
             });
         });
+        return datos;
+    }
+
+    function renderizar() {
+        const total = Math.max(0, Math.min(500, parseInt(cantidadInput.value, 10) || 0));
+        const anteriores = recolectarDatosActuales();
 
         contenedor.innerHTML = '';
         for (let i = 0; i < total; i++) {
@@ -110,6 +142,24 @@
             contenedor.appendChild(crearFila(i, datos));
         }
         if (contador) contador.textContent = total;
+    }
+
+    function eliminarFila(indice) {
+        let actuales = recolectarDatosActuales();
+        actuales.splice(indice, 1);
+        datosIniciales = actuales;
+        cantidadInput.value = actuales.length;
+        renderizar();
+    }
+
+    if (btnAgregar) {
+        btnAgregar.addEventListener('click', function () {
+            let actual = parseInt(cantidadInput.value, 10) || 0;
+            if (actual < 500) {
+                cantidadInput.value = actual + 1;
+                renderizar();
+            }
+        });
     }
 
     cantidadInput.addEventListener('input', renderizar);
