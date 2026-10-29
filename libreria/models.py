@@ -115,17 +115,6 @@ class Inventario(models.Model):
         fila= "id: " + str(self.id_producto) + " - " + str(self.codigo_producto) + " - " + self.nombre_producto + " - " + str(self.cantidad) + " - " + str(self.costo_actual) + " - " + str(self.stock_minimo) + " - " + str(self.stock_maximo)
         return fila   
     
-class Lote(models.Model):
-    id_lote = models.AutoField(primary_key=True)
-    producto = models.ForeignKey(Inventario, on_delete=models.CASCADE, verbose_name="Producto")
-    codigo_lote = models.CharField(max_length=50, verbose_name="Código de Lote")
-    fecha_vencimiento = models.DateField(verbose_name="Fecha de Vencimiento")
-    fecha_llegada = models.DateField(verbose_name="Fecha de Llegada", default=timezone.now)
-    cantidad_actual = models.IntegerField(default=0, verbose_name="Cantidad Actual")
-
-    def __str__(self):
-        return f"{self.codigo_lote} - {self.producto.nombre_producto}"
-    
 class MovimientosInventario(models.Model):
     TIPO_MOVIMIENTO_CHOICES = [
         ('ENTRADA', 'Entrada'),
@@ -153,30 +142,6 @@ class MovimientosInventario(models.Model):
 
     def __str__(self):
         return f"{self.tipo_movimiento} - {self.producto.nombre_producto} - {self.cantidad} unidades el {self.fecha_movimiento:%Y-%m-%d}"
-
-class MovimientoLote(models.Model):
-    """Detalle de los lotes afectados por un movimiento (para poder revertirlo)."""
-    id_movimiento_lote = models.AutoField(primary_key=True)
-    movimiento = models.ForeignKey(
-        MovimientosInventario,
-        on_delete=models.CASCADE,
-        related_name='lotes_afectados',
-        verbose_name="Movimiento"
-    )
-    lote = models.ForeignKey(
-        Lote,
-        on_delete=models.CASCADE,
-        related_name='movimientos_afectados',
-        verbose_name="Lote"
-    )
-    cantidad = models.IntegerField(verbose_name="Cantidad")
-
-    def __str__(self):
-        return f"{self.movimiento_id} - {self.lote.codigo_lote} - {self.cantidad}"
-
-    class Meta:
-        verbose_name = "Lote afectado por movimiento"
-        verbose_name_plural = "Lotes afectados por movimiento"
 
 class PerfilUsuario(models.Model):
     ROL_CHOICES = [

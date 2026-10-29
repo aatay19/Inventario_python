@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.db import transaction
 from django import forms
 from .auth import es_inventario_acceso, es_pleno_acceso, es_almacenista_o_superior
-from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra, Lote
+from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra
 from ..forms import MovimientosInventarioForm, HistorialProveedoresNotasForm
 from ..servicios_lotes import (
     consumir_lotes_fefo,
@@ -160,49 +160,7 @@ def movimientos_inventario_editar(request, id_movimiento):
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
 def lotes_index(request):
-    producto_id = request.GET.get('producto')
-    lote_q = request.GET.get('lote_q')
-    sort = request.GET.get('sort', 'fecha_llegada')
-    
-    # Anotaciones
-    lotes = Lote.objects.select_related('producto').annotate(
-        estado_priority=Case(
-            When(fecha_vencimiento__lt=timezone.now().date(), then=Value(1)),
-            When(fecha_vencimiento__lte=timezone.now().date() + timedelta(days=45), then=Value(2)),
-            default=Value(3),
-            output_field=IntegerField(),
-        )
-    )
-    
-    if producto_id:
-        lotes = lotes.filter(producto_id=producto_id)
-    if lote_q:
-        lotes = lotes.filter(
-            Q(codigo_lote__icontains=lote_q) |
-            Q(producto__nombre_producto__icontains=lote_q) |
-            Q(producto__codigo_producto__icontains=lote_q)
-        )
-        
-    # Ordenamiento
-    if sort == 'estado':
-        lotes = lotes.order_by('estado_priority', 'fecha_vencimiento')
-    elif sort == 'vencimiento':
-        lotes = lotes.order_by('fecha_vencimiento')
-    else: # fecha_llegada
-        lotes = lotes.order_by(F('fecha_llegada').desc(nulls_last=True))
-        
-    paginator = Paginator(lotes, 10) 
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'movimientos/lotes_lista.html', {
-        'page_obj': page_obj, 
-        'now': timezone.now().date(),
-        'threshold_date': timezone.now().date() + timedelta(days=45),
-        'producto_id': producto_id,
-        'lote_q': lote_q,
-        'sort': sort
-    })
+    return redirect('movimientos.index')
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
@@ -620,8 +578,6 @@ def movimientos_entrada_confirmar(request):
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
         cants_por_empaque = request.POST.getlist('cant_por_empaque[]')
-        lote_ids = request.POST.getlist('lote_id[]')
-        fechas_vencimiento = request.POST.getlist('fecha_vencimiento[]')
         proveedor_id = request.POST.get('proveedor_id')
         items_resumen = []
         for i in range(len(producto_ids)):
@@ -634,8 +590,6 @@ def movimientos_entrada_confirmar(request):
                     'cant_por_empaque': cants_por_empaque[i] if cants_por_empaque and i < len(cants_por_empaque) else producto.cantidad_por_empaque,
                     'cant_empaques': cants_empaques[i],
                     'total': cant,
-                    'lote_id': lote_ids[i],
-                    'fecha_vencimiento': fechas_vencimiento[i],
                 })
         if not items_resumen:
             messages.warning(request, "Debe seleccionar al menos un producto con cantidad mayor a cero.")
@@ -659,8 +613,6 @@ def movimientos_entrada_procesar(request):
         unidades_empaque = request.POST.getlist('unidad_empaque[]')
         cants_empaques = request.POST.getlist('cant_empaques[]')
         totales = request.POST.getlist('total_unidades[]')
-        lote_ids = request.POST.getlist('lote_id[]')
-        fechas_vencimiento = request.POST.getlist('fecha_vencimiento[]')
         proveedor_id = request.POST.get('proveedor_id')
         if not proveedor_id:
             messages.error(request, 'Debe seleccionar un proveedor para el ingreso.')
@@ -685,16 +637,6 @@ def movimientos_entrada_procesar(request):
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
                         )
-                        from datetime import datetime
-                        fecha_ven = datetime.strptime(fechas_vencimiento[i], '%Y-%m-%d').date()
-                        lote = Lote.objects.create(
-                            producto=producto,
-                            codigo_lote=lote_ids[i],
-                            fecha_vencimiento=fecha_ven,
-                            fecha_llegada=ahora.date(),
-                            cantidad_actual=cant_entrada
-                        )
-                        registrar_entrada(movimiento, lote)
                         producto.cantidad += cant_entrada
                         producto.proveedores.add(proveedor)
                         producto.save()
@@ -1121,27 +1063,15 @@ def movimientos_lote_editar(request, lote_id):
                     if nueva_cantidad == mov.cantidad and nueva_unidad == mov.unidad_empaque and nueva_cant_empaques == mov.cantidad_empaques:
                         continue
 
-                    lote_entrada = None
-                    if mov.tipo_movimiento == 'ENTRADA':
-                        detalle = mov.lotes_afectados.select_related('lote').first()
-                        lote_entrada = detalle.lote if detalle else None
-
                     revertir_movimiento(mov)
                     mov.producto.refresh_from_db()
-                    if lote_entrada is not None:
-                        lote_entrada.refresh_from_db()
 
                     mov.cantidad = nueva_cantidad
                     mov.cantidad_empaques = nueva_cant_empaques
                     mov.unidad_empaque = nueva_unidad
                     mov.save()
 
-                    if mov.tipo_movimiento == 'ENTRADA':
-                        if lote_entrada is None:
-                            raise Exception("No se puede editar una entrada sin lote asociado; regístrela de nuevo desde el flujo de Entrada.")
-                        aplicar_entrada_existente(mov, lote_entrada)
-                    else:
-                        aplicar_movimiento(mov)
+                    aplicar_movimiento(mov)
                     cambios += 1
                             
                 nuevos_prods_ids = request.POST.getlist('nuevo_producto_id[]')

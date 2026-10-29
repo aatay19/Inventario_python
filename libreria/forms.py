@@ -257,8 +257,6 @@ class MovimientosInventarioForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
-        # Usamos una transacción para asegurar que todas las operaciones
-        # (movimiento, stock y lotes) se completen con éxito o ninguna lo haga.
         with transaction.atomic():
             movimiento = super().save(commit=False)
 
@@ -273,26 +271,11 @@ class MovimientosInventarioForm(forms.ModelForm):
                     movimiento.producto.proveedores.add(movimiento.proveedor)
             else:
                 anterior = MovimientosInventario.objects.get(pk=self.instance.pk)
-                lote_entrada = None
-                if anterior.tipo_movimiento == 'ENTRADA':
-                    detalle = anterior.lotes_afectados.select_related('lote').first()
-                    lote_entrada = detalle.lote if detalle else None
-
                 revertir_movimiento(anterior)
                 movimiento.producto.refresh_from_db()
-                if lote_entrada is not None:
-                    lote_entrada.refresh_from_db()
 
-                if movimiento.tipo_movimiento == 'ENTRADA':
-                    if lote_entrada is None:
-                        raise forms.ValidationError(
-                            "No se puede convertir este movimiento en Entrada; use el flujo de Entrada."
-                        )
-                    movimiento.save()
-                    aplicar_entrada_existente(movimiento, lote_entrada)
-                else:
-                    movimiento.save()
-                    aplicar_movimiento(movimiento)
+                movimiento.save()
+                aplicar_movimiento(movimiento)
 
             return movimiento
 

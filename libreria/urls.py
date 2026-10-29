@@ -50,9 +50,6 @@ urlpatterns = [
     path('inventario/importar', views.inventario_importar, name='inventario.importar'),
     path('inventario/deposito-vencido', views.inventario_deposito_vencido, name='inventario.deposito_vencido'),
     path('inventario/ajuste-existencia', views.inventario_ajuste_existencia, name='inventario.ajuste_existencia'),
-    path('inventario/ajuste-existencia/lote-inicial', views.inventario_ajuste_lote_inicial, name='inventario.ajuste_lote_inicial'),
-    path('inventario/ajuste-existencia/lote-inicial/confirmar', views.inventario_ajuste_lote_inicial_confirmar, name='inventario.ajuste_lote_inicial_confirmar'),
-    path('inventario/ajuste-existencia/lote-inicial/procesar', views.inventario_ajuste_lote_inicial_procesar, name='inventario.ajuste_lote_inicial_procesar'),
     path('inventario/ajuste-existencia/cantidad-exacta', views.inventario_ajuste_cantidad_exacta, name='inventario.ajuste_cantidad_exacta'),
 
     # MovimientosInventario urls

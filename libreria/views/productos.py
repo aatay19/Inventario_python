@@ -4,7 +4,7 @@ import io
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
-from django.db.models import Q, F, Sum, Min
+from django.db.models import Q, F, Sum
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -12,18 +12,13 @@ from django.http import HttpResponse, JsonResponse
 from datetime import timedelta, datetime
 from fpdf import FPDF
 from .auth import es_pleno_acceso
-from ..models import Inventario, Proveedor, Lote
+from ..models import Inventario, Proveedor
 from ..forms import InventarioForm, ImportarArchivoForm
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_index(request):
-    qs = Inventario.objects.all().annotate(
-        fecha_vencimiento_min=Min(
-            'lote__fecha_vencimiento',
-            filter=Q(lote__cantidad_actual__gt=0),
-        )
-    )
+    qs = Inventario.objects.all()
     q = request.GET.get('q', '').strip()
     categoria = request.GET.get('categoria', '').strip()
     proveedor_id = request.GET.get('proveedor_id', '').strip()
@@ -102,8 +97,6 @@ def inventario_index(request):
         'low': low,
         'proveedor_id': proveedor_id,
         'proveedor_obj': proveedor_obj,
-        'today': timezone.now().date(),
-        'threshold_date': timezone.now().date() + timedelta(days=45),
     }
     return render(request, 'inventario/index.html', context)
 
@@ -352,166 +345,9 @@ def inventario_deposito_vencido(request):
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_ajuste_existencia(request):
-    return render(request, 'inventario/ajuste_existencia/index.html')
+    return redirect('inventario.ajuste_cantidad_exacta')
 
 
-def _parse_ajuste_lote_inicial(request):
-    producto_ids = request.POST.getlist('producto_id[]')
-    lote_ids = request.POST.getlist('lote_inicial_id[]')
-    cantidades = request.POST.getlist('cantidad[]')
-    lote_nuevos = request.POST.getlist('lote_nuevo[]')
-    fechas = request.POST.getlist('fecha_vencimiento[]')
-
-    items = []
-    errores = []
-
-    for idx in range(len(producto_ids)):
-        try:
-            cantidad = int(cantidades[idx])
-        except (ValueError, IndexError):
-            continue
-        if cantidad <= 0:
-            continue
-
-        lote_id = lote_ids[idx] if idx < len(lote_ids) else ''
-        lote = Lote.objects.select_related('producto').filter(id_lote=lote_id).first()
-        if not lote:
-            errores.append('Uno de los lotes iniciales seleccionados ya no existe.')
-            continue
-        if not (lote.codigo_lote or '').startswith('LOTE-INICIAL-'):
-            errores.append(f'El lote {lote.codigo_lote} no es un lote inicial.')
-            continue
-        if cantidad > lote.cantidad_actual:
-            errores.append(
-                f'La cantidad para {lote.producto.nombre_producto} supera el stock '
-                f'disponible del lote inicial ({lote.cantidad_actual}).'
-            )
-            continue
-
-        fecha_str = fechas[idx] if idx < len(fechas) else ''
-        try:
-            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-        except (ValueError, TypeError):
-            errores.append(f'Fecha de vencimiento inválida para {lote.producto.nombre_producto}.')
-            continue
-
-        codigo_nuevo = (lote_nuevos[idx] if idx < len(lote_nuevos) else '').strip()
-        if not codigo_nuevo:
-            codigo_nuevo = f"AJ-{lote.producto_id}-{int(timezone.now().timestamp())}"
-
-        items.append({
-            'producto': lote.producto,
-            'lote_inicial': lote,
-            'cantidad': cantidad,
-            'stock_inicial_restante': lote.cantidad_actual - cantidad,
-            'lote_nuevo': codigo_nuevo,
-            'fecha_vencimiento': fecha,
-        })
-
-    return items, errores
-
-
-@login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
-def inventario_ajuste_lote_inicial(request):
-    lotes_iniciales = (
-        Lote.objects.filter(
-            codigo_lote__startswith='LOTE-INICIAL-',
-            cantidad_actual__gt=0,
-        )
-        .select_related('producto')
-        .order_by('producto__nombre_producto', 'fecha_vencimiento')
-    )
-
-    productos = {}
-    for lote in lotes_iniciales:
-        p = lote.producto
-        data = productos.setdefault(p.id_producto, {
-            'id': p.id_producto,
-            'nombre': p.nombre_producto or '',
-            'codigo': p.codigo_producto or '',
-            'stock': p.cantidad,
-            'lotes': [],
-        })
-        data['lotes'].append({
-            'id': lote.id_lote,
-            'codigo': lote.codigo_lote,
-            'cantidad': lote.cantidad_actual,
-            'fecha_vencimiento': lote.fecha_vencimiento.strftime('%Y-%m-%d') if lote.fecha_vencimiento else '',
-        })
-
-    return render(request, 'inventario/ajuste_existencia/lote_inicial.html', {
-        'productos_json': list(productos.values()),
-    })
-
-
-@login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
-def inventario_ajuste_lote_inicial_confirmar(request):
-    if request.method != 'POST':
-        return redirect('inventario.ajuste_lote_inicial')
-
-    items, errores = _parse_ajuste_lote_inicial(request)
-    if errores:
-        for error in errores:
-            messages.error(request, error)
-        return redirect('inventario.ajuste_lote_inicial')
-    if not items:
-        messages.warning(request, 'Debe seleccionar al menos un producto con una cantidad mayor a cero.')
-        return redirect('inventario.ajuste_lote_inicial')
-
-    return render(
-        request,
-        'inventario/ajuste_existencia/confirmar_lote_inicial.html',
-        {'items': items},
-    )
-
-
-@login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
-def inventario_ajuste_lote_inicial_procesar(request):
-    if request.method != 'POST':
-        return redirect('inventario.ajuste_lote_inicial')
-
-    items, errores = _parse_ajuste_lote_inicial(request)
-    if errores or not items:
-        for error in errores:
-            messages.error(request, error)
-        if not items and not errores:
-            messages.warning(request, 'Debe seleccionar al menos un producto con una cantidad mayor a cero.')
-        return redirect('inventario.ajuste_lote_inicial')
-
-    try:
-        with transaction.atomic():
-            for item in items:
-                lote = Lote.objects.select_for_update().get(id_lote=item['lote_inicial'].id_lote)
-                if item['cantidad'] > lote.cantidad_actual:
-                    raise ValueError(
-                        f'El stock del lote inicial de {lote.producto.nombre_producto} cambió. '
-                        'Vuelva a intentarlo.'
-                    )
-                lote.cantidad_actual -= item['cantidad']
-                lote.save(update_fields=['cantidad_actual'])
-                Lote.objects.create(
-                    producto=lote.producto,
-                    codigo_lote=item['lote_nuevo'],
-                    fecha_vencimiento=item['fecha_vencimiento'],
-                    fecha_llegada=timezone.now().date(),
-                    cantidad_actual=item['cantidad'],
-                )
-    except ValueError as exc:
-        messages.error(request, str(exc))
-        return redirect('inventario.ajuste_lote_inicial')
-
-    messages.success(
-        request,
-        f'Se reorganizaron {len(items)} lote(s) inicial(es). El stock total no cambió.',
-    )
-    return redirect('lotes.index')
-
-
-@login_required
-@user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_ajuste_cantidad_exacta(request):
     if request.method == 'POST':
         producto = Inventario.objects.filter(pk=request.POST.get('producto_id')).first()
@@ -531,43 +367,6 @@ def inventario_ajuste_cantidad_exacta(request):
 
         with transaction.atomic():
             producto = Inventario.objects.select_for_update().get(pk=producto.pk)
-            lotes = list(
-                Lote.objects.select_for_update()
-                .filter(producto=producto)
-                .order_by('fecha_vencimiento', 'id_lote')
-            )
-            total_lotes = sum(lote.cantidad_actual for lote in lotes)
-
-            if nueva_cantidad > total_lotes:
-                diferencia = nueva_cantidad - total_lotes
-                lote_destino = next(
-                    (lote for lote in lotes if (lote.codigo_lote or '').startswith('LOTE-INICIAL-')),
-                    None,
-                )
-                if lote_destino is None and lotes:
-                    lote_destino = lotes[-1]
-                if lote_destino is None:
-                    Lote.objects.create(
-                        producto=producto,
-                        codigo_lote=f"AJUSTE-{producto.codigo_producto}-{timezone.now():%Y%m%d%H%M%S}",
-                        fecha_vencimiento=timezone.now().date() + timedelta(days=365),
-                        fecha_llegada=timezone.now().date(),
-                        cantidad_actual=diferencia,
-                    )
-                else:
-                    lote_destino.cantidad_actual += diferencia
-                    lote_destino.save(update_fields=['cantidad_actual'])
-            elif nueva_cantidad < total_lotes:
-                restante = total_lotes - nueva_cantidad
-                for lote in lotes:
-                    if restante <= 0:
-                        break
-                    tomar = min(lote.cantidad_actual, restante)
-                    if tomar:
-                        lote.cantidad_actual -= tomar
-                        lote.save(update_fields=['cantidad_actual'])
-                        restante -= tomar
-
             producto.cantidad = nueva_cantidad
             producto.save(update_fields=['cantidad'])
 

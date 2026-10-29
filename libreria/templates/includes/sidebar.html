@@ -38,6 +38,13 @@
             </ul>
         </li>
 
+        <!-- AJUSTE DE EXISTENCIA -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2" href="{% url 'inventario.ajuste_existencia' %}">
+                <span><i class="bi bi-sliders me-3 opacity-75"></i> Ajuste de Existencia</span>
+            </a>
+        </li>
+
         {% elif user.perfilusuario.rol|lower in 'admin,inventario,consulta,soporte,supervisor' %}
         {# ===== SIDEBAR COMPLETO PARA OTROS ROLES ===== #}
 
@@ -50,8 +57,6 @@
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
                 <li><a class="nav-link small py-2" href="{% url 'inventario.index' %}">➤ Lista de productos</a></li>
-                <li><a class="nav-link small py-2" href="{% url 'lotes.index' %}">➤ Lotes Registrados</a></li>
-                <li><a class="nav-link small py-2" href="{% url 'inventario.ajuste_existencia' %}">➤ Ajuste de Existencia</a></li>
                 {% if user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small py-2" href="{% url 'inventario.crear' %}">➤ Crear producto</a></li>
                 {% endif %}
@@ -140,6 +145,15 @@
                         Salidas</a></li>
             </ul>
         </li>
+
+        <!-- AJUSTE DE EXISTENCIA -->
+        {% if user.perfilusuario.rol|lower != 'consulta' %}
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2" href="{% url 'inventario.ajuste_existencia' %}">
+                <span><i class="bi bi-sliders me-3 opacity-75"></i> Ajuste de Existencia</span>
+            </a>
+        </li>
+        {% endif %}
 
         <!-- MERMAS / VENCIDOS -->
         <li class="nav-item mb-1">

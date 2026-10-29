@@ -52,8 +52,7 @@
                                 <th style="width: 12%;">Cant. Unidades</th>
                                 <th style="width: 12%;">Unid. x Empaque</th>
                                 <th style="width: 12%;">Total Empaques</th>
-                                <th style="width: 12%;">Fecha Vencimiento</th>
-                                <th style="width: 12%;">Efecto en Inventario</th>
+                                                                <th style="width: 12%;">Efecto en Inventario</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -62,9 +61,7 @@
                                 <input type="hidden" name="unidad_empaque[]" value="{{ item.unidad }}">
                                 <input type="hidden" name="cant_empaques[]" value="{{ item.cant_empaques|stringformat:'s' }}">
                                 <input type="hidden" name="total_unidades[]" value="{{ item.total|stringformat:'s' }}">
-                                <input type="hidden" name="lote_id[]" value="{{ item.lote_id }}">
-                                <input type="hidden" name="fecha_vencimiento[]" value="{{ item.fecha_vencimiento }}">
-                                
+                                                                                                
                                 <tr>
                                     <td class="py-3">
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
@@ -79,9 +76,7 @@
                                     <td class="text-center align-middle">
                                         <span class="badge bg-light text-dark border">{{ item.cant_empaques }} {{ item.unidad }}</span>
                                     </td>
-                                    <td class="text-center align-middle">
-                                        <span class="badge bg-warning text-dark">{{ item.fecha_vencimiento }}</span>
-                                    </td>
+
                                     <td class="text-center align-middle">
                                         <small class="text-muted d-block">Stock Act: {{ item.producto.cantidad }}</small>
                                         <i class="bi bi-arrow-right mx-1"></i>
