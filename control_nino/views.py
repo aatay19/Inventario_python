@@ -83,7 +83,7 @@ def lista_control_ninos(request):
 
     ninos = ControlNino.objects.filter(
         fecha_registro__gte=inicio, fecha_registro__lt=fin
-    ).annotate(
+    ).prefetch_related('novedades').annotate(
         orden_activo=Case(
             When(hora_salida__isnull=True, then=Value(0)),
             default=Value(1),
@@ -145,6 +145,97 @@ def crear_control_nino(request):
 
 @login_required
 @control_nino_required
+def editar_control_nino(request, pk):
+    nino = get_object_or_404(ControlNino, pk=pk)
+    if request.method == 'POST':
+        prev_nombre = nino.nombre
+        prev_descripcion = nino.descripcion or ''
+        prev_tiempo = nino.tiempo
+
+        form = ControlNinoForm(request.POST, instance=nino)
+        if form.is_valid():
+            nino = form.save()
+            cambios = []
+            if prev_nombre != nino.nombre:
+                cambios.append(f"Nombre: '{prev_nombre}' ➜ '{nino.nombre}'")
+            if prev_descripcion != (nino.descripcion or ''):
+                cambios.append(f"Descripción: '{prev_descripcion or 'Sin descripción'}' ➜ '{nino.descripcion or 'Sin descripción'}'")
+            if prev_tiempo != nino.tiempo:
+                cambios.append(f"Tiempo: {prev_tiempo} min ➜ {nino.tiempo} min")
+
+            desc_novedad = " | ".join(cambios) if cambios else "Se guardó el registro sin cambios en sus campos principales."
+            registrar_novedad_sistema(
+                titulo=f"Niño editado: {nino.nombre}",
+                descripcion=desc_novedad,
+                usuario=request.user,
+                nino=nino
+            )
+            messages.success(request, f"Datos del niño '{nino.nombre}' actualizados correctamente.")
+            return redirect('control_nino:lista_control_ninos')
+    else:
+        form = ControlNinoForm(instance=nino)
+    return render(request, 'control_nino/form.html', {
+        'form': form,
+        'titulo': f'Editar Niño: {nino.nombre}',
+        'es_edicion': True,
+        'nino': nino,
+    })
+
+
+@login_required
+@control_nino_required
+def agregar_tiempo_nino(request, pk):
+    """Suma 1 o 45 minutos al tiempo total de un niño, sin superar el máximo."""
+    nino = get_object_or_404(ControlNino, pk=pk)
+    es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido.'}, status=405) if es_ajax else redirect('control_nino:lista_control_ninos')
+
+    try:
+        minutos = int(request.POST.get('minutos', 45))
+    except (TypeError, ValueError):
+        minutos = 45
+
+    error = None
+    if minutos not in (1, 45):
+        error = 'Solo se permite agregar 1 o 45 minutos.'
+    elif nino.salio:
+        error = 'El niño ya tiene salida registrada.'
+    elif nino.tiempo >= TIEMPO_MAXIMO:
+        error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO} minutos."
+    elif nino.tiempo + minutos > TIEMPO_MAXIMO:
+        error = f"No se pueden superar los {TIEMPO_MAXIMO} minutos en total."
+
+    if error:
+        if es_ajax:
+            return JsonResponse({'ok': False, 'error': error, 'tiempo': nino.tiempo}, status=400)
+        messages.error(request, error)
+    else:
+        tiempo_ant = nino.tiempo
+        nino.tiempo += minutos
+        nino.tiempo_adicional += minutos
+        nino.save(update_fields=['tiempo', 'tiempo_adicional'])
+        registrar_novedad_sistema(
+            titulo=f"Tiempo añadido a niño: {nino.nombre}",
+            descripcion=f"Se agregaron +{minutos} min al niño '{nino.nombre}'. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {nino.tiempo} min.",
+            usuario=request.user,
+            nino=nino
+        )
+        if not es_ajax:
+            messages.success(request, f"Se agregaron {minutos} minutos al niño '{nino.nombre}'.")
+
+    if es_ajax:
+        return JsonResponse({'ok': error is None, 'tiempo': nino.tiempo, 'error': error})
+
+    next_url = request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(next_url)
+    return redirect('control_nino:lista_control_ninos')
+
+
+@login_required
+@control_nino_required
 def eliminar_control_nino(request, pk):
     nino = get_object_or_404(ControlNino, pk=pk)
     if request.method == 'POST':
@@ -168,6 +259,12 @@ def marcar_salida(request, pk):
         if not nino.hora_salida:
             nino.hora_salida = timezone.now()
             nino.save(update_fields=['hora_salida'])
+            registrar_novedad_sistema(
+                titulo=f"Salida registrada: {nino.nombre}",
+                descripcion=f"Se marcó la salida de '{nino.nombre}'. Tiempo asignado: {nino.tiempo} min. Minutos transcurridos/estancia: {nino.minutos_estancia} min.",
+                usuario=request.user,
+                nino=nino
+            )
             messages.success(request, f"Salida registrada para '{nino.nombre}'.")
         else:
             messages.info(request, f"'{nino.nombre}' ya tenía salida registrada.")
@@ -181,6 +278,12 @@ def deshacer_salida(request, pk):
     if request.method == 'POST':
         nino.hora_salida = None
         nino.save(update_fields=['hora_salida'])
+        registrar_novedad_sistema(
+            titulo=f"Salida cancelada: {nino.nombre}",
+            descripcion=f"Se canceló la salida de '{nino.nombre}', reactivando su monitoreo en el parque.",
+            usuario=request.user,
+            nino=nino
+        )
         messages.success(request, f"Salida de '{nino.nombre}' eliminada.")
     return redirect('control_nino:lista_control_ninos')
 
@@ -466,71 +569,137 @@ MESES_ES = [
 ]
 
 
+PRECIO_NINO_45 = 4.50
+PRECIO_NINO_90 = 6.99
+
+
 @login_required
 @control_nino_required
 @control_nino_gestion_required
 def estadisticas_control_ninos(request):
-    """Estadísticas mensuales: niños, fiestas y brazaletes por mes."""
+    """Estadísticas agrupadas por periodo (día, semanal, mensual, anual) con recaudación estimada."""
     _finalizar_vencidos()
-    anio = request.GET.get('anio', '').strip()
 
+    periodo = request.GET.get('periodo', 'mensual').strip().lower()
+    if periodo not in ('dia', 'semanal', 'mensual', 'anual'):
+        periodo = 'mensual'
+
+    anio_filtro = request.GET.get('anio', '').strip()
+    mes_filtro = request.GET.get('mes', '').strip()
+
+    # Recolectar datos
     resumen = defaultdict(lambda: {
-        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0,
+        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'ninos_extra_45': 0,
         'fiestas': 0, 'brazaletes': 0, 'tiempo_fiestas': 0,
     })
 
-    for dt, tiempo in ControlNino.objects.values_list('fecha_registro', 'tiempo').iterator():
+    anios_set = set()
+
+    # Niños
+    for dt, tiempo, tiempo_adicional in ControlNino.objects.values_list('fecha_registro', 'tiempo', 'tiempo_adicional').iterator():
         if dt:
             local = timezone.localtime(dt)
-            datos = resumen[(local.year, local.month)]
+            anios_set.add(local.year)
+            clave = _obtener_clave_periodo(local, periodo)
+            datos = resumen[clave]
             datos['ninos'] += 1
-            if tiempo == 45:
+            tiempo_original = tiempo - (tiempo_adicional or 0)
+            if tiempo_original == 45:
                 datos['ninos_45'] += 1
-            elif tiempo == 90:
+            elif tiempo_original == 90:
                 datos['ninos_90'] += 1
+            # Contar extensiones de 45 min
+            extras = (tiempo_adicional or 0) // 45
+            datos['ninos_extra_45'] += extras
 
+    # Fiestas
     for dt, tiempo in Fiesta.objects.values_list('fecha_registro', 'tiempo').iterator():
         if dt:
             local = timezone.localtime(dt)
-            datos = resumen[(local.year, local.month)]
+            anios_set.add(local.year)
+            clave = _obtener_clave_periodo(local, periodo)
+            datos = resumen[clave]
             datos['fiestas'] += 1
             datos['tiempo_fiestas'] += min(tiempo or 0, TIEMPO_MAXIMO)
 
+    # Brazaletes de fiesta
     for dt in BrazaleteFiesta.objects.values_list('fiesta__fecha_registro', flat=True).iterator():
         if dt:
             local = timezone.localtime(dt)
-            resumen[(local.year, local.month)]['brazaletes'] += 1
+            anios_set.add(local.year)
+            clave = _obtener_clave_periodo(local, periodo)
+            resumen[clave]['brazaletes'] += 1
 
-    anios = sorted({clave[0] for clave in resumen}, reverse=True)
+    anios = sorted(anios_set, reverse=True)
 
-    if anio.isdigit():
-        claves = [k for k in resumen if k[0] == int(anio)]
-    else:
-        claves = list(resumen)
+    # Filtrar claves según año/mes si aplica
+    claves_filtradas = []
+    for k in resumen.keys():
+        anio_k = k[0]
+        if anio_filtro.isdigit() and anio_k != int(anio_filtro):
+            continue
+        if mes_filtro.isdigit() and periodo in ('dia', 'semanal', 'mensual'):
+            # k para dia: (year, month, day, date_obj)
+            # k para semanal: (year, week_num, monday_date, sunday_date)
+            # k para mensual: (year, month)
+            if periodo in ('dia', 'mensual') and k[1] != int(mes_filtro):
+                continue
+            if periodo == 'semanal' and k[2].month != int(mes_filtro) and k[3].month != int(mes_filtro):
+                continue
+        claves_filtradas.append(k)
+
+    claves_ordenadas = sorted(claves_filtradas, key=lambda c: _sort_clave_periodo(c, periodo), reverse=True)
 
     filas = []
     tot_ninos = tot_ninos_45 = tot_ninos_90 = tot_fiestas = tot_brazaletes = 0
+    tot_ninos_extra_45 = 0
     tot_tiempo_fiestas = 0
-    for clave in sorted(claves, reverse=True):
+    tot_cash_45 = 0.0
+    tot_cash_90 = 0.0
+    tot_cash_extra = 0.0
+    tot_cash_total = 0.0
+
+    for clave in claves_ordenadas:
         datos = resumen[clave]
         n = datos['ninos']
+        n45 = datos['ninos_45']
+        n90 = datos['ninos_90']
+        n_extra = datos['ninos_extra_45']
         f = datos['fiestas']
+        br = datos['brazaletes']
+
+        cash_45 = round(n45 * PRECIO_NINO_45, 2)
+        cash_90 = round(n90 * PRECIO_NINO_90, 2)
+        cash_extra = round(n_extra * PRECIO_NINO_45, 2)
+        cash_total = round(cash_45 + cash_90 + cash_extra, 2)
+
+        etiqueta_periodo = _formatear_etiqueta_periodo(clave, periodo)
+
         filas.append({
-            'anio': clave[0],
-            'mes_num': clave[1],
-            'mes': MESES_ES[clave[1] - 1],
+            'etiqueta': etiqueta_periodo,
             'ninos': n,
-            'ninos_45': datos['ninos_45'],
-            'ninos_90': datos['ninos_90'],
+            'ninos_45': n45,
+            'ninos_90': n90,
+            'ninos_extra_45': n_extra,
+            'cash_45': cash_45,
+            'cash_90': cash_90,
+            'cash_extra': cash_extra,
+            'cash_total': cash_total,
             'fiestas': f,
-            'brazaletes': datos['brazaletes'],
+            'brazaletes': br,
             'tiempo_prom_fiestas': round(datos['tiempo_fiestas'] / f, 1) if f else 0,
         })
+
         tot_ninos += n
-        tot_ninos_45 += datos['ninos_45']
-        tot_ninos_90 += datos['ninos_90']
+        tot_ninos_45 += n45
+        tot_ninos_90 += n90
+        tot_ninos_extra_45 += n_extra
+        tot_cash_45 += cash_45
+        tot_cash_90 += cash_90
+        tot_cash_extra += cash_extra
+        tot_cash_total += cash_total
         tot_fiestas += f
-        tot_brazaletes += datos['brazaletes']
+        tot_brazaletes += br
         tot_tiempo_fiestas += datos['tiempo_fiestas']
 
     prom_fiestas = round(tot_tiempo_fiestas / tot_fiestas, 1) if tot_fiestas else 0
@@ -538,14 +707,69 @@ def estadisticas_control_ninos(request):
     return render(request, 'control_nino/estadisticas.html', {
         'filas': filas,
         'anios': anios,
-        'anio': anio,
+        'anio': anio_filtro,
+        'mes_filtro': mes_filtro,
+        'meses_es': [{'num': i + 1, 'nombre': m} for i, m in enumerate(MESES_ES)],
+        'periodo': periodo,
         'total_ninos': tot_ninos,
         'total_ninos_45': tot_ninos_45,
         'total_ninos_90': tot_ninos_90,
+        'total_ninos_extra_45': tot_ninos_extra_45,
+        'total_cash_45': round(tot_cash_45, 2),
+        'total_cash_90': round(tot_cash_90, 2),
+        'total_cash_extra': round(tot_cash_extra, 2),
+        'total_cash_total': round(tot_cash_total, 2),
         'total_fiestas': tot_fiestas,
         'total_brazaletes': tot_brazaletes,
         'prom_fiestas': prom_fiestas,
+        'precio_45': PRECIO_NINO_45,
+        'precio_90': PRECIO_NINO_90,
     })
+
+
+def _obtener_clave_periodo(dt_local, periodo):
+    """Devuelve una tupla como clave según la granularidad."""
+    y = dt_local.year
+    m = dt_local.month
+    d = dt_local.date()
+
+    if periodo == 'dia':
+        return (y, m, d.day, d)
+    elif periodo == 'semanal':
+        # Lunes de la semana
+        lunes = d - timedelta(days=d.weekday())
+        domingo = lunes + timedelta(days=6)
+        num_semana = d.isocalendar()[1]
+        return (y, num_semana, lunes, domingo)
+    elif periodo == 'anual':
+        return (y,)
+    else:  # mensual
+        return (y, m)
+
+
+def _sort_clave_periodo(clave, periodo):
+    if periodo == 'dia':
+        return clave[3]  # fecha date
+    elif periodo == 'semanal':
+        return clave[2]  # lunes date
+    elif periodo == 'anual':
+        return clave[0]
+    else:  # mensual
+        return (clave[0], clave[1])
+
+
+def _formatear_etiqueta_periodo(clave, periodo):
+    if periodo == 'dia':
+        date_obj = clave[3]
+        return date_obj.strftime('%d/%m/%Y')
+    elif periodo == 'semanal':
+        lunes, domingo = clave[2], clave[3]
+        return f"Semana {clave[1]} ({lunes.strftime('%d/%m')} al {domingo.strftime('%d/%m/%Y')})"
+    elif periodo == 'anual':
+        return f"Año {clave[0]}"
+    else:  # mensual
+        nombre_mes = MESES_ES[clave[1] - 1]
+        return f"{nombre_mes} {clave[0]}"
 
 
 @login_required
@@ -742,6 +966,12 @@ def iniciar_fiesta(request, pk):
     if request.method == 'POST' and not fiesta.iniciada:
         fiesta.hora_inicio = timezone.now()
         fiesta.save(update_fields=['hora_inicio'])
+        registrar_novedad_sistema(
+            titulo=f"Fiesta iniciada: {fiesta.nombre}",
+            descripcion=f"Se inició el conteo de tiempo para la fiesta '{fiesta.nombre}' ({fiesta.tiempo} min).",
+            usuario=request.user,
+            fiesta=fiesta
+        )
         messages.success(request, "El tiempo de la fiesta ha iniciado.")
     next_url = request.POST.get('next')
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
@@ -757,6 +987,12 @@ def marcar_salida_fiesta(request, pk):
         if not fiesta.hora_salida:
             fiesta.hora_salida = timezone.now()
             fiesta.save(update_fields=['hora_salida'])
+            registrar_novedad_sistema(
+                titulo=f"Fiesta finalizada: {fiesta.nombre}",
+                descripcion=f"Se confirmó la salida de la fiesta '{fiesta.nombre}'.",
+                usuario=request.user,
+                fiesta=fiesta
+            )
             messages.success(request, f"Salida confirmada para la fiesta '{fiesta.nombre}'.")
         else:
             messages.info(request, f"La fiesta '{fiesta.nombre}' ya tenía salida confirmada.")
@@ -770,6 +1006,12 @@ def deshacer_salida_fiesta(request, pk):
     if request.method == 'POST':
         fiesta.hora_salida = None
         fiesta.save(update_fields=['hora_salida'])
+        registrar_novedad_sistema(
+            titulo=f"Salida de fiesta cancelada: {fiesta.nombre}",
+            descripcion=f"Se canceló la salida de la fiesta '{fiesta.nombre}', reactivándola en monitoreo.",
+            usuario=request.user,
+            fiesta=fiesta
+        )
         messages.success(request, f"Salida de la fiesta '{fiesta.nombre}' eliminada.")
     return redirect('control_nino:lista_control_ninos')
 
@@ -806,7 +1048,8 @@ def agregar_tiempo_fiesta(request, pk):
     else:
         tiempo_ant = fiesta.tiempo
         fiesta.tiempo += minutos
-        fiesta.save(update_fields=['tiempo'])
+        fiesta.tiempo_adicional += minutos
+        fiesta.save(update_fields=['tiempo', 'tiempo_adicional'])
         registrar_novedad_sistema(
             titulo=f"Tiempo añadido a fiesta: {fiesta.nombre}",
             descripcion=f"Se agregaron +{minutos} min a la fiesta '{fiesta.nombre}'. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {fiesta.tiempo} min.",
@@ -888,26 +1131,5 @@ def lista_novedades(request):
 @login_required
 @control_nino_required
 def crear_novedad_manual(request):
-    """Creación manual de una novedad."""
-    if request.method == 'POST':
-        form = NovedadManualForm(request.POST)
-        if form.is_valid():
-            novedad = form.save(commit=False)
-            novedad.tipo = 'MANUAL'
-            novedad.usuario = request.user
-            novedad.save()
-            messages.success(request, "Novedad registrada exitosamente.")
-            return redirect('control_nino:lista_novedades')
-    else:
-        # Pre-seleccionar si vienen parámetros GET opcionales
-        initial = {}
-        if request.GET.get('nino_id'):
-            initial['nino'] = request.GET.get('nino_id')
-        if request.GET.get('fiesta_id'):
-            initial['fiesta'] = request.GET.get('fiesta_id')
-        form = NovedadManualForm(initial=initial)
-
-    return render(request, 'control_nino/novedades/form.html', {
-        'form': form,
-        'titulo': 'Crear Novedad Manual',
-    })
+    """Las novedades se generan automáticamente por el sistema; redirige a la bitácora."""
+    return redirect('control_nino:lista_novedades')

@@ -12,7 +12,12 @@
             </h1>
             <p class="text-muted small mb-0">
                 {{ fiesta.cantidad_brazaletes }} brazaletes ·
-                Tiempo general: <span id="tiempoTotal">{{ fiesta.tiempo }}</span> min ·
+                Tiempo general: <span id="tiempoTotal">{{ fiesta.tiempo }}</span> min
+                {% if fiesta.tiempo_adicional > 0 %}
+                    <span class="badge bg-warning text-dark border px-2 ms-1 fw-bold">
+                        <i class="bi bi-plus-circle-fill me-1"></i>+{{ fiesta.tiempo_adicional }} min extra
+                    </span>
+                {% endif %} ·
                 Ingresó {{ fiesta.fecha_registro|date:"d/m/Y H:i" }}
                 {% if fiesta.salio %} · Salida {{ fiesta.hora_salida|date:"d/m/Y H:i" }}{% endif %}
             </p>

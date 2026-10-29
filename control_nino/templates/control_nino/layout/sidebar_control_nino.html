@@ -51,7 +51,7 @@
 
         <!-- Novedades -->
         <li class="nav-item mb-1">
-            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'lista_novedades' or request.resolver_match.url_name == 'crear_novedad_manual' %}active-park{% endif %}" href="{% url 'control_nino:lista_novedades' %}">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'lista_novedades' %}active-park{% endif %}" href="{% url 'control_nino:lista_novedades' %}">
                 <i class="bi bi-journal-text me-3 opacity-75"></i> Novedades
             </a>
         </li>

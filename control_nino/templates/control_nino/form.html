@@ -6,10 +6,17 @@
         <div class="col-md-6">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-success text-white py-3">
-                    <h5 class="mb-0"><i class="bi bi-person-plus-fill me-2"></i>{{ titulo }}</h5>
+                    <h5 class="mb-0">
+                        {% if es_edicion %}
+                        <i class="bi bi-pencil-square me-2"></i>
+                        {% else %}
+                        <i class="bi bi-person-plus-fill me-2"></i>
+                        {% endif %}
+                        {{ titulo }}
+                    </h5>
                 </div>
                 <div class="card-body p-3 p-md-4">
-                    <form method="post" action="{% url 'control_nino:crear_control_nino' %}" novalidate id="formNino">
+                    <form method="post" {% if es_edicion %}action="{% url 'control_nino:editar_control_nino' nino.pk %}"{% else %}action="{% url 'control_nino:crear_control_nino' %}"{% endif %} novalidate id="formNino">
                         {% csrf_token %}
                         <input type="hidden" name="agregar_otro" id="agregarOtroInput" value="">
 
@@ -33,7 +40,18 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold">Tiempo</label>
                             {{ form.tiempo }}
-                            <small class="text-muted">Selecciona 45 o 90 minutos.</small>
+                            <div class="mt-2 d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-warning text-dark btn-tiempo-rapido" data-tiempo="1">
+                                    <i class="bi bi-stopwatch me-1"></i>1 min (prueba)
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success btn-tiempo-rapido" data-tiempo="45">
+                                    <i class="bi bi-clock me-1"></i>45 minutos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success btn-tiempo-rapido" data-tiempo="90">
+                                    <i class="bi bi-clock me-1"></i>90 minutos
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mt-1">Selecciona 1 min (prueba), 45 o 90 minutos.</small>
                             {% if form.tiempo.errors %}<div class="text-danger small">{{ form.tiempo.errors }}</div>{% endif %}
                         </div>
 
@@ -41,9 +59,11 @@
                             <a href="{% url 'control_nino:lista_control_ninos' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
                             <div class="d-flex flex-wrap gap-2">
                                 <button type="submit" class="btn btn-success px-5" id="btnGuardarNino">Guardar</button>
+                                {% if not es_edicion %}
                                 <button type="submit" class="btn btn-outline-success px-4" id="btnAgregarOtroNino">
                                     <i class="bi bi-person-plus me-1"></i> Agregar otro niño
                                 </button>
+                                {% endif %}
                             </div>
                         </div>
                     </form>
@@ -72,6 +92,38 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (inputOtro && btnOtro) {
         btnOtro.addEventListener('click', function () { inputOtro.value = '1'; });
+    }
+
+    const selectTiempo = document.getElementById('id_tiempo');
+    const botonesTiempo = document.querySelectorAll('.btn-tiempo-rapido');
+
+    function actualizarBotonesTiempo() {
+        if (!selectTiempo) return;
+        const val = selectTiempo.value;
+        botonesTiempo.forEach(function (btn) {
+            const esPrueba = btn.dataset.tiempo === '1';
+            const claseActivo = esPrueba ? ['btn-warning', 'text-dark', 'fw-bold'] : ['btn-success', 'text-white'];
+            const claseInactivo = esPrueba ? ['btn-outline-warning', 'text-dark'] : ['btn-outline-success'];
+
+            if (btn.dataset.tiempo === val) {
+                btn.classList.remove(...claseInactivo);
+                btn.classList.add(...claseActivo);
+            } else {
+                btn.classList.remove(...claseActivo);
+                btn.classList.add(...claseInactivo);
+            }
+        });
+    }
+
+    if (selectTiempo && botonesTiempo.length) {
+        botonesTiempo.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                selectTiempo.value = this.dataset.tiempo;
+                actualizarBotonesTiempo();
+            });
+        });
+        selectTiempo.addEventListener('change', actualizarBotonesTiempo);
+        actualizarBotonesTiempo();
     }
 
     form.addEventListener('submit', function (e) {
