@@ -585,13 +585,39 @@ def historial_control_ninos(request):
         ninos_qs = ninos_qs.filter(fecha_registro__lt=fin)
         fiestas_qs = fiestas_qs.filter(fecha_registro__lt=fin)
 
-    dias = set()
+    # Recopilar todos los días que tienen datos
+    dias_con_datos = set()
     for dt in ninos_qs.values_list('fecha_registro', flat=True).iterator():
-        dias.add(timezone.localtime(dt).date())
+        dias_con_datos.add(timezone.localtime(dt).date())
     for dt in fiestas_qs.values_list('fecha_registro', flat=True).iterator():
-        dias.add(timezone.localtime(dt).date())
+        dias_con_datos.add(timezone.localtime(dt).date())
 
-    dias = sorted(dias, reverse=True)
+    # Si hay filtro de rango, rellenar también los días vacíos del rango
+    if desde and hasta and desde <= hasta:
+        from datetime import timedelta as _td
+        dia_iter = desde
+        while dia_iter <= hasta:
+            dias_con_datos.add(dia_iter)
+            dia_iter += _td(days=1)
+    elif desde and not hasta:
+        # Desde hasta hoy (localdate)
+        from datetime import timedelta as _td
+        hoy_local = timezone.localdate()
+        dia_iter = desde
+        while dia_iter <= hoy_local:
+            dias_con_datos.add(dia_iter)
+            dia_iter += _td(days=1)
+    elif hasta and not desde:
+        # Rellenar desde el mínimo existente hasta la fecha hasta
+        if dias_con_datos:
+            from datetime import timedelta as _td
+            fecha_min = min(dias_con_datos)
+            dia_iter = fecha_min
+            while dia_iter <= hasta:
+                dias_con_datos.add(dia_iter)
+                dia_iter += _td(days=1)
+
+    dias = sorted(dias_con_datos, reverse=True)
     paginator = Paginator(dias, 10)
     page = paginator.get_page(request.GET.get('page'))
     page_dias = list(page.object_list)
@@ -633,6 +659,7 @@ def historial_control_ninos(request):
                 'total_ninos': len(ninos),
                 'total_fiestas': len(fiestas),
                 'total_brazaletes': brazaletes_por_dia.get(dia, 0),
+                'sin_movimiento': len(ninos) == 0 and len(fiestas) == 0,
             })
 
     return render(request, 'control_nino/historial.html', {
