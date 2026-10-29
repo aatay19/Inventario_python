@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import ControlNino, Fiesta, BrazaleteFiesta
+from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad
 
 
 class ControlNinoForm(forms.ModelForm):
@@ -55,3 +55,21 @@ BrazaleteFiestaFormSet = inlineformset_factory(
     fields=['nombre', 'descripcion'],
     extra=0, can_delete=False
 )
+
+
+class NovedadManualForm(forms.ModelForm):
+    class Meta:
+        model = Novedad
+        fields = ['titulo', 'descripcion', 'nino', 'fiesta']
+        widgets = {
+            'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Incidente en área de juegos, objeto extraviado...'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Describe lo sucedido con el mayor detalle posible...'}),
+            'nino': forms.Select(attrs={'class': 'form-select'}),
+            'fiesta': forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'titulo': 'Título / Asunto',
+            'descripcion': 'Descripción de la novedad',
+            'nino': 'Niño involucrado (opcional)',
+            'fiesta': 'Fiesta involucrada (opcional)',
+        }

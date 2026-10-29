@@ -1,9 +1,10 @@
 from datetime import timedelta
 from django.db import models
+from django.contrib.auth.models import User
 from django.utils import timezone
 
 
-TIEMPO_MAXIMO = 180
+TIEMPO_MAXIMO = 210
 
 
 class ControlNino(models.Model):
@@ -70,10 +71,14 @@ class ControlNino(models.Model):
 
 
 class Fiesta(models.Model):
-    TIEMPO_CHOICES = ControlNino.TIEMPO_CHOICES
+    TIEMPO_CHOICES = [
+        (45, '45 minutos'),
+        (90, '90 minutos'),
+        (120, '120 minutos'),
+    ]
 
     nombre = models.CharField(max_length=100, verbose_name="Nombre de la fiesta")
-    tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=90, verbose_name="Tiempo general (min)")
+    tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=120, verbose_name="Tiempo general (min)")
     fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Hora de ingreso")
     hora_inicio = models.DateTimeField(null=True, blank=True, verbose_name="Hora de inicio del tiempo")
     hora_salida = models.DateTimeField(null=True, blank=True, verbose_name="Hora de salida")
@@ -170,3 +175,28 @@ class BrazaleteFiesta(models.Model):
         verbose_name = "Brazalete de Fiesta"
         verbose_name_plural = "Brazaletes de Fiesta"
         ordering = ['numero']
+
+
+class Novedad(models.Model):
+    TIPO_CHOICES = [
+        ('SISTEMA', 'Registro Automático'),
+        ('MANUAL', 'Nota Manual'),
+    ]
+
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='MANUAL', verbose_name="Tipo")
+    titulo = models.CharField(max_length=200, verbose_name="Título o Asunto")
+    descripcion = models.TextField(verbose_name="Descripción detallada")
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario responsable")
+    fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha y hora")
+
+    # Referencias opcionales
+    nino = models.ForeignKey(ControlNino, on_delete=models.SET_NULL, null=True, blank=True, related_name='novedades', verbose_name="Niño asociado")
+    fiesta = models.ForeignKey(Fiesta, on_delete=models.SET_NULL, null=True, blank=True, related_name='novedades', verbose_name="Fiesta asociada")
+
+    def __str__(self):
+        return f"[{self.get_tipo_display()}] {self.titulo} - {self.fecha_registro.strftime('%d/%m/%Y %H:%M')}"
+
+    class Meta:
+        verbose_name = "Novedad"
+        verbose_name_plural = "Novedades"
+        ordering = ['-fecha_registro']

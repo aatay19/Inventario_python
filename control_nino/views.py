@@ -12,8 +12,8 @@ from django.http import HttpResponse, JsonResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
 
-from .models import ControlNino, Fiesta, BrazaleteFiesta, TIEMPO_MAXIMO
-from .forms import ControlNinoForm, FiestaForm
+from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO
+from .forms import ControlNinoForm, FiestaForm, NovedadManualForm
 from .permissions import control_nino_required, control_nino_gestion_required
 
 
@@ -21,6 +21,21 @@ def _rango_dia(dia):
     """Devuelve el rango [inicio, fin) con zona horaria para un día dado."""
     inicio = timezone.make_aware(datetime.combine(dia, time.min))
     return inicio, inicio + timedelta(days=1)
+
+
+def registrar_novedad_sistema(titulo, descripcion, usuario=None, nino=None, fiesta=None):
+    """Registra automáticamente una novedad/log del sistema."""
+    try:
+        Novedad.objects.create(
+            tipo='SISTEMA',
+            titulo=titulo,
+            descripcion=descripcion,
+            usuario=usuario,
+            nino=nino,
+            fiesta=fiesta,
+        )
+    except Exception:
+        pass
 
 
 def _finalizar_vencidos():
@@ -112,6 +127,12 @@ def crear_control_nino(request):
         form = ControlNinoForm(request.POST)
         if form.is_valid():
             nino = form.save()
+            registrar_novedad_sistema(
+                titulo=f"Niño registrado: {nino.nombre}",
+                descripcion=f"Se ingresó al niño '{nino.nombre}' con un tiempo de {nino.tiempo} minutos. Descripción: {nino.descripcion or 'Ninguna'}.",
+                usuario=request.user,
+                nino=nino
+            )
             if request.POST.get('agregar_otro'):
                 messages.success(request, f"Niño '{nino.nombre}' registrado con {nino.tiempo} minutos. Puedes agregar otro.")
                 return redirect('control_nino:crear_control_nino')
@@ -127,7 +148,13 @@ def crear_control_nino(request):
 def eliminar_control_nino(request, pk):
     nino = get_object_or_404(ControlNino, pk=pk)
     if request.method == 'POST':
+        nombre_nino = nino.nombre
         nino.delete()
+        registrar_novedad_sistema(
+            titulo=f"Niño eliminado: {nombre_nino}",
+            descripcion=f"Se eliminó el registro del niño '{nombre_nino}' del sistema.",
+            usuario=request.user
+        )
         messages.success(request, "Registro de niño eliminado.")
         return redirect('control_nino:lista_control_ninos')
     return render(request, 'control_nino/eliminar.html', {'nino': nino})
@@ -544,6 +571,12 @@ def crear_fiesta(request):
                         )
                         for i in range(cantidad)
                     ])
+                    registrar_novedad_sistema(
+                        titulo=f"Fiesta registrada: {fiesta.nombre}",
+                        descripcion=f"Se creó la fiesta '{fiesta.nombre}' con tiempo general de {fiesta.tiempo} min y {cantidad} brazaletes.",
+                        usuario=request.user,
+                        fiesta=fiesta
+                    )
                 messages.success(request, f"Fiesta '{fiesta.nombre}' creada con {cantidad} brazaletes.")
                 if request.user.is_superuser or getattr(getattr(request.user, 'perfilusuario', None), 'rol', None) != 'control_nino':
                     return redirect('control_nino:detalle_fiesta', pk=fiesta.pk)
@@ -578,6 +611,12 @@ def editar_fiesta(request, pk):
     brazaletes_existentes = list(fiesta.brazaletes.all().order_by('numero'))
     
     if request.method == 'POST':
+        # Guardar valores previos para detallar cambios en la novedad
+        prev_nombre = fiesta.nombre
+        prev_tiempo = fiesta.tiempo
+        prev_cantidad = len(brazaletes_existentes)
+        prev_brazaletes = {b.numero: (b.nombre or '', b.descripcion or '') for b in brazaletes_existentes}
+
         form = FiestaForm(request.POST, instance=fiesta)
         nombres = request.POST.getlist('brazalete_nombre')
         descripciones = request.POST.getlist('brazalete_descripcion')
@@ -612,6 +651,40 @@ def editar_fiesta(request, pk):
                     if len(brazaletes_existentes) > cantidad:
                         sobrantes_ids = [b.pk for b in brazaletes_existentes[cantidad:]]
                         BrazaleteFiesta.objects.filter(pk__in=sobrantes_ids).delete()
+
+                    # Construir reporte detallado de cambios para la novedad
+                    cambios = []
+                    if prev_nombre != fiesta.nombre:
+                        cambios.append(f"Nombre: '{prev_nombre}' ➜ '{fiesta.nombre}'")
+                    if prev_tiempo != fiesta.tiempo:
+                        cambios.append(f"Tiempo: {prev_tiempo} min ➜ {fiesta.tiempo} min")
+                    if prev_cantidad != cantidad:
+                        cambios.append(f"Cantidad de brazaletes: {prev_cantidad} ➜ {cantidad}")
+
+                    braz_cambiados = []
+                    for i in range(cantidad):
+                        num = i + 1
+                        n_act = (nombres[i].strip() if i < len(nombres) and nombres[i].strip() else '')
+                        d_act = (descripciones[i].strip() if i < len(descripciones) and descripciones[i].strip() else '')
+                        n_ant, d_ant = prev_brazaletes.get(num, ('', ''))
+                        if num not in prev_brazaletes:
+                            braz_cambiados.append(f"Brazalete #{num} añadido ('{n_act or 'Sin nombre'}')")
+                        elif n_act != n_ant or d_act != d_ant:
+                            braz_cambiados.append(f"Brazalete #{num}: '{n_ant}' ➜ '{n_act}'" + (f" (desc: '{d_ant}' ➜ '{d_act}')" if d_act != d_ant else ""))
+
+                    if prev_cantidad > cantidad:
+                        braz_cambiados.append(f"Se eliminaron {prev_cantidad - cantidad} brazaletes sobrantes")
+
+                    if braz_cambiados:
+                        cambios.append("Brazaletes: " + "; ".join(braz_cambiados))
+
+                    desc_novedad = " | ".join(cambios) if cambios else "Se guardó la fiesta sin cambios en sus campos principales."
+                    registrar_novedad_sistema(
+                        titulo=f"Fiesta editada: {fiesta.nombre}",
+                        descripcion=desc_novedad,
+                        usuario=request.user,
+                        fiesta=fiesta
+                    )
 
                 messages.success(request, f"Fiesta '{fiesta.nombre}' actualizada exitosamente.")
                 return redirect('control_nino:lista_control_ninos')
@@ -731,8 +804,15 @@ def agregar_tiempo_fiesta(request, pk):
             return JsonResponse({'ok': False, 'error': error, 'tiempo': fiesta.tiempo}, status=400)
         messages.error(request, error)
     else:
+        tiempo_ant = fiesta.tiempo
         fiesta.tiempo += minutos
         fiesta.save(update_fields=['tiempo'])
+        registrar_novedad_sistema(
+            titulo=f"Tiempo añadido a fiesta: {fiesta.nombre}",
+            descripcion=f"Se agregaron +{minutos} min a la fiesta '{fiesta.nombre}'. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {fiesta.tiempo} min.",
+            usuario=request.user,
+            fiesta=fiesta
+        )
         if not es_ajax:
             messages.success(request, f"Se agregaron {minutos} minutos a la fiesta '{fiesta.nombre}'.")
 
@@ -750,7 +830,84 @@ def agregar_tiempo_fiesta(request, pk):
 def eliminar_fiesta(request, pk):
     fiesta = get_object_or_404(Fiesta, pk=pk)
     if request.method == 'POST':
+        nombre_fiesta = fiesta.nombre
         fiesta.delete()
+        registrar_novedad_sistema(
+            titulo=f"Fiesta eliminada: {nombre_fiesta}",
+            descripcion=f"Se eliminó la fiesta '{nombre_fiesta}' y sus brazaletes asociados del sistema.",
+            usuario=request.user
+        )
         messages.success(request, "Fiesta eliminada.")
         return redirect('control_nino:lista_control_ninos')
     return render(request, 'control_nino/fiesta_eliminar.html', {'fiesta': fiesta})
+
+
+@login_required
+@control_nino_required
+def lista_novedades(request):
+    """Listado de novedades/bitácora del área de control de niños y fiestas."""
+    tipo_filtro = request.GET.get('tipo', '').strip()
+    q = request.GET.get('q', '').strip()
+    fecha_str = request.GET.get('fecha', '').strip()
+
+    novedades_qs = Novedad.objects.select_related('usuario', 'nino', 'fiesta').all()
+
+    if tipo_filtro in ('SISTEMA', 'MANUAL'):
+        novedades_qs = novedades_qs.filter(tipo=tipo_filtro)
+
+    if q:
+        from django.db.models import Q
+        novedades_qs = novedades_qs.filter(
+            Q(titulo__icontains=q) |
+            Q(descripcion__icontains=q) |
+            Q(nino__nombre__icontains=q) |
+            Q(fiesta__nombre__icontains=q) |
+            Q(usuario__username__icontains=q)
+        )
+
+    if fecha_str:
+        try:
+            fecha_filtro = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+            ini_f, fin_f = _rango_dia(fecha_filtro)
+            novedades_qs = novedades_qs.filter(fecha_registro__gte=ini_f, fecha_registro__lt=fin_f)
+        except ValueError:
+            pass
+
+    paginator = Paginator(novedades_qs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'control_nino/novedades/lista.html', {
+        'page_obj': page_obj,
+        'tipo_filtro': tipo_filtro,
+        'q': q,
+        'fecha_str': fecha_str,
+    })
+
+
+@login_required
+@control_nino_required
+def crear_novedad_manual(request):
+    """Creación manual de una novedad."""
+    if request.method == 'POST':
+        form = NovedadManualForm(request.POST)
+        if form.is_valid():
+            novedad = form.save(commit=False)
+            novedad.tipo = 'MANUAL'
+            novedad.usuario = request.user
+            novedad.save()
+            messages.success(request, "Novedad registrada exitosamente.")
+            return redirect('control_nino:lista_novedades')
+    else:
+        # Pre-seleccionar si vienen parámetros GET opcionales
+        initial = {}
+        if request.GET.get('nino_id'):
+            initial['nino'] = request.GET.get('nino_id')
+        if request.GET.get('fiesta_id'):
+            initial['fiesta'] = request.GET.get('fiesta_id')
+        form = NovedadManualForm(initial=initial)
+
+    return render(request, 'control_nino/novedades/form.html', {
+        'form': form,
+        'titulo': 'Crear Novedad Manual',
+    })

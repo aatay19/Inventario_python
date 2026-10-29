@@ -25,4 +25,8 @@ urlpatterns = [
     path('fiesta/deshacer-salida/<int:pk>/', views.deshacer_salida_fiesta, name='deshacer_salida_fiesta'),
     path('fiesta/agregar-tiempo/<int:pk>/', views.agregar_tiempo_fiesta, name='agregar_tiempo_fiesta'),
     path('fiesta/eliminar/<int:pk>/', views.eliminar_fiesta, name='eliminar_fiesta'),
+
+    # Novedades
+    path('novedades/', views.lista_novedades, name='lista_novedades'),
+    path('novedades/nueva/', views.crear_novedad_manual, name='crear_novedad_manual'),
 ]
