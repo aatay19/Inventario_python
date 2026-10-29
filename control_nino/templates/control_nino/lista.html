@@ -178,7 +178,7 @@
                                     </div>
                                     {% elif nino.tiempo_maximo_alcanzado %}
                                     <div class="small text-muted border-top pt-2">
-                                        Tiempo máximo alcanzado ({{ tiempo_maximo }} min).
+                                        Tiempo máximo alcanzado ({{ tiempo_maximo_nino|default:90 }} min).
                                     </div>
                                     {% endif %}
                                 </div>
@@ -617,14 +617,15 @@
     function actualizarBotonera(it) {
         const bloque = it.card.querySelector('.bloque-agregar-tiempo');
         if (!bloque) return;
-        if (it.totalSeg >= MAX_SEG) {
+        const maxSegCard = it.card.dataset.tipo === 'fiesta' ? MAX_SEG : 90 * 60;
+        if (it.totalSeg >= maxSegCard) {
             bloque.classList.add('d-none');
             return;
         }
         bloque.classList.remove('d-none');
         bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
             const minutos = parseInt(form.dataset.minutos, 10) || 0;
-            form.classList.toggle('d-none', it.totalSeg + minutos * 60 > MAX_SEG);
+            form.classList.toggle('d-none', it.totalSeg + minutos * 60 > maxSegCard);
         });
     }
 

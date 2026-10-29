@@ -12,7 +12,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
 
-from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO
+from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO, TIEMPO_MAXIMO_NINO
 from .forms import ControlNinoForm, FiestaForm, NovedadManualForm
 from .permissions import control_nino_required, control_nino_gestion_required
 
@@ -117,6 +117,7 @@ def lista_control_ninos(request):
         'ms_hasta_medianoche': ms_hasta_medianoche,
         'historico_total': historico_ninos + historico_fiestas,
         'tiempo_maximo': TIEMPO_MAXIMO,
+        'tiempo_maximo_nino': TIEMPO_MAXIMO_NINO,
     })
 
 
@@ -185,7 +186,7 @@ def editar_control_nino(request, pk):
 @login_required
 @control_nino_required
 def agregar_tiempo_nino(request, pk):
-    """Suma 1 o 45 minutos al tiempo total de un niño, sin superar el máximo."""
+    """Suma 1 o 45 minutos al tiempo total de un niño, sin superar el máximo de 90 min."""
     nino = get_object_or_404(ControlNino, pk=pk)
     es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
@@ -202,10 +203,10 @@ def agregar_tiempo_nino(request, pk):
         error = 'Solo se permite agregar 1 o 45 minutos.'
     elif nino.salio:
         error = 'El niño ya tiene salida registrada.'
-    elif nino.tiempo >= TIEMPO_MAXIMO:
-        error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO} minutos."
-    elif nino.tiempo + minutos > TIEMPO_MAXIMO:
-        error = f"No se pueden superar los {TIEMPO_MAXIMO} minutos en total."
+    elif nino.tiempo >= TIEMPO_MAXIMO_NINO:
+        error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO_NINO} minutos."
+    elif nino.tiempo + minutos > TIEMPO_MAXIMO_NINO:
+        error = f"Los niños no pueden superar los {TIEMPO_MAXIMO_NINO} minutos en total."
 
     if error:
         if es_ajax:
@@ -213,12 +214,26 @@ def agregar_tiempo_nino(request, pk):
         messages.error(request, error)
     else:
         tiempo_ant = nino.tiempo
+        tiempo_culminado = nino.segundos_restantes <= 0
         nino.tiempo += minutos
         nino.tiempo_adicional += minutos
-        nino.save(update_fields=['tiempo', 'tiempo_adicional'])
+        update_fields = ['tiempo', 'tiempo_adicional']
+
+        # Si se añaden 45 min, se cuenta como un brazalete nuevo en la estadística
+        if minutos == 45:
+            nino.brazaletes_adicionales += 1
+            update_fields.append('brazaletes_adicionales')
+            # Si culminó su tiempo, reajustar el conteo para que tenga los 45 min completos desde ahora
+            if tiempo_culminado:
+                nino.fecha_registro = timezone.now() - timedelta(minutes=tiempo_ant)
+                update_fields.append('fecha_registro')
+
+        nino.save(update_fields=update_fields)
+
+        detalle_extra = " (nuevo brazalete de 45 min tras culminar tiempo)" if (minutos == 45 and tiempo_culminado) else (" (nuevo brazalete de 45 min)" if minutos == 45 else "")
         registrar_novedad_sistema(
             titulo=f"Tiempo añadido a niño: {nino.nombre}",
-            descripcion=f"Se agregaron +{minutos} min al niño '{nino.nombre}'. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {nino.tiempo} min.",
+            descripcion=f"Se agregaron +{minutos} min al niño '{nino.nombre}'{detalle_extra}. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {nino.tiempo} min.",
             usuario=request.user,
             nino=nino
         )
@@ -589,28 +604,40 @@ def estadisticas_control_ninos(request):
 
     # Recolectar datos
     resumen = defaultdict(lambda: {
-        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'ninos_extra_45': 0,
+        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'ninos_renovados_45': 0,
         'fiestas': 0, 'brazaletes': 0, 'tiempo_fiestas': 0,
     })
 
     anios_set = set()
 
     # Niños
-    for dt, tiempo, tiempo_adicional in ControlNino.objects.values_list('fecha_registro', 'tiempo', 'tiempo_adicional').iterator():
+    for dt, tiempo, tiempo_adicional, brazaletes_adicionales in ControlNino.objects.values_list(
+        'fecha_registro', 'tiempo', 'tiempo_adicional', 'brazaletes_adicionales'
+    ).iterator():
         if dt:
             local = timezone.localtime(dt)
             anios_set.add(local.year)
             clave = _obtener_clave_periodo(local, periodo)
             datos = resumen[clave]
-            datos['ninos'] += 1
-            tiempo_original = tiempo - (tiempo_adicional or 0)
-            if tiempo_original == 45:
-                datos['ninos_45'] += 1
-            elif tiempo_original == 90:
+
+            # Cada 45 min añadidos tras culminar cuenta como un brazalete nuevo de 45 min
+            braz_extra = max(brazaletes_adicionales or 0, (tiempo_adicional or 0) // 45)
+
+            if braz_extra > 0:
+                # 1 brazalete base de 45 min + braz_extra brazaletes nuevos de 45 min
+                cant_brazaletes_45 = 1 + braz_extra
+                datos['ninos_45'] += cant_brazaletes_45
+                datos['ninos'] += cant_brazaletes_45
+                datos['ninos_renovados_45'] += braz_extra
+            elif tiempo == 90:
                 datos['ninos_90'] += 1
-            # Contar extensiones de 45 min
-            extras = (tiempo_adicional or 0) // 45
-            datos['ninos_extra_45'] += extras
+                datos['ninos'] += 1
+            elif tiempo == 45:
+                datos['ninos_45'] += 1
+                datos['ninos'] += 1
+            else:
+                # Opciones de prueba (1 min)
+                datos['ninos'] += 1
 
     # Fiestas
     for dt, tiempo in Fiesta.objects.values_list('fecha_registro', 'tiempo').iterator():
@@ -639,9 +666,6 @@ def estadisticas_control_ninos(request):
         if anio_filtro.isdigit() and anio_k != int(anio_filtro):
             continue
         if mes_filtro.isdigit() and periodo in ('dia', 'semanal', 'mensual'):
-            # k para dia: (year, month, day, date_obj)
-            # k para semanal: (year, week_num, monday_date, sunday_date)
-            # k para mensual: (year, month)
             if periodo in ('dia', 'mensual') and k[1] != int(mes_filtro):
                 continue
             if periodo == 'semanal' and k[2].month != int(mes_filtro) and k[3].month != int(mes_filtro):
@@ -652,11 +676,10 @@ def estadisticas_control_ninos(request):
 
     filas = []
     tot_ninos = tot_ninos_45 = tot_ninos_90 = tot_fiestas = tot_brazaletes = 0
-    tot_ninos_extra_45 = 0
+    tot_ninos_renovados_45 = 0
     tot_tiempo_fiestas = 0
     tot_cash_45 = 0.0
     tot_cash_90 = 0.0
-    tot_cash_extra = 0.0
     tot_cash_total = 0.0
 
     for clave in claves_ordenadas:
@@ -664,14 +687,13 @@ def estadisticas_control_ninos(request):
         n = datos['ninos']
         n45 = datos['ninos_45']
         n90 = datos['ninos_90']
-        n_extra = datos['ninos_extra_45']
+        n_renovados = datos['ninos_renovados_45']
         f = datos['fiestas']
         br = datos['brazaletes']
 
         cash_45 = round(n45 * PRECIO_NINO_45, 2)
         cash_90 = round(n90 * PRECIO_NINO_90, 2)
-        cash_extra = round(n_extra * PRECIO_NINO_45, 2)
-        cash_total = round(cash_45 + cash_90 + cash_extra, 2)
+        cash_total = round(cash_45 + cash_90, 2)
 
         etiqueta_periodo = _formatear_etiqueta_periodo(clave, periodo)
 
@@ -680,10 +702,9 @@ def estadisticas_control_ninos(request):
             'ninos': n,
             'ninos_45': n45,
             'ninos_90': n90,
-            'ninos_extra_45': n_extra,
+            'ninos_renovados_45': n_renovados,
             'cash_45': cash_45,
             'cash_90': cash_90,
-            'cash_extra': cash_extra,
             'cash_total': cash_total,
             'fiestas': f,
             'brazaletes': br,
@@ -693,10 +714,9 @@ def estadisticas_control_ninos(request):
         tot_ninos += n
         tot_ninos_45 += n45
         tot_ninos_90 += n90
-        tot_ninos_extra_45 += n_extra
+        tot_ninos_renovados_45 += n_renovados
         tot_cash_45 += cash_45
         tot_cash_90 += cash_90
-        tot_cash_extra += cash_extra
         tot_cash_total += cash_total
         tot_fiestas += f
         tot_brazaletes += br
@@ -714,10 +734,9 @@ def estadisticas_control_ninos(request):
         'total_ninos': tot_ninos,
         'total_ninos_45': tot_ninos_45,
         'total_ninos_90': tot_ninos_90,
-        'total_ninos_extra_45': tot_ninos_extra_45,
+        'total_ninos_renovados_45': tot_ninos_renovados_45,
         'total_cash_45': round(tot_cash_45, 2),
         'total_cash_90': round(tot_cash_90, 2),
-        'total_cash_extra': round(tot_cash_extra, 2),
         'total_cash_total': round(tot_cash_total, 2),
         'total_fiestas': tot_fiestas,
         'total_brazaletes': tot_brazaletes,

@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 
+TIEMPO_MAXIMO_NINO = 90
 TIEMPO_MAXIMO = 210
 
 
@@ -12,15 +13,13 @@ class ControlNino(models.Model):
         (1, '1 minuto (prueba)'),
         (45, '45 minutos'),
         (90, '90 minutos'),
-        (135, '135 minutos'),
-        (180, '180 minutos'),
-        (210, '210 minutos'),
     ]
 
     nombre = models.CharField(max_length=100, verbose_name="Nombre")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
     tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=90, verbose_name="Tiempo")
     tiempo_adicional = models.PositiveIntegerField(default=0, verbose_name="Tiempo adicional agregado (min)")
+    brazaletes_adicionales = models.PositiveIntegerField(default=0, verbose_name="Brazaletes adicionales")
     fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Hora de ingreso")
     hora_salida = models.DateTimeField(null=True, blank=True, verbose_name="Hora de salida")
 
@@ -29,15 +28,15 @@ class ControlNino(models.Model):
 
     @property
     def puede_agregar_1(self):
-        return not self.salio and self.tiempo + 1 <= TIEMPO_MAXIMO
+        return not self.salio and self.tiempo + 1 <= TIEMPO_MAXIMO_NINO
 
     @property
     def puede_agregar_45(self):
-        return not self.salio and self.tiempo + 45 <= TIEMPO_MAXIMO
+        return not self.salio and self.tiempo + 45 <= TIEMPO_MAXIMO_NINO
 
     @property
     def tiempo_maximo_alcanzado(self):
-        return not self.salio and self.tiempo >= TIEMPO_MAXIMO
+        return not self.salio and self.tiempo >= TIEMPO_MAXIMO_NINO
 
     @property
     def fecha_fin(self):

@@ -18,6 +18,12 @@ class ControlNinoForm(forms.ModelForm):
             'tiempo': 'Tiempo',
         }
 
+    def clean_tiempo(self):
+        tiempo = self.cleaned_data.get('tiempo')
+        if tiempo and tiempo > 90:
+            raise forms.ValidationError("Los niños no pueden tener un tiempo mayor a 90 minutos.")
+        return tiempo
+
 
 class FiestaForm(forms.ModelForm):
     cantidad_brazaletes = forms.IntegerField(
