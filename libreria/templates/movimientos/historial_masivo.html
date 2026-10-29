@@ -54,7 +54,7 @@
                             </h5>
                         </div>
                         <div class="col-md-6 text-md-end text-white-50 small">
-                            Lote ID: {{ lote.info.codigo_lote }}
+                            {% if tipo == 'ENTRADA' %}Nº de Entrada: {{ lote.info.codigo_lote }}{% else %}Nº de Operación: {{ lote.info.codigo_lote }}{% endif %}
                         </div>
                     </div>
                 </div>
@@ -73,7 +73,7 @@
                         <div class="col-xl-6 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <a href="{% url 'movimientos.lote_editar' lote.info.codigo_lote %}" 
-                               class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Edición de Lote">
+                               class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="{% if tipo == 'ENTRADA' %}Editar Entrada{% else %}Editar Operación{% endif %}">
                                 <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
                             </a>
                             {% endif %}
@@ -82,13 +82,13 @@
                                 <i class="bi bi-file-earmark-pdf-fill fs-6 me-1"></i> PDF
                             </a>
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
-                            <form action="{% url 'movimientos.lote_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar TODO este lote? Se revertirá el stock de todos sus productos y no se puede deshacer.');">
+                            <form action="{% url 'movimientos.lote_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('{% if tipo == 'ENTRADA' %}¿Está seguro de eliminar esta entrada? Se revertirá el stock de todos sus productos y no se puede deshacer.{% else %}¿Está seguro de eliminar esta operación? Se revertirá el stock de todos sus productos y no se puede deshacer.{% endif %}');">
                                 {% csrf_token %}
                                 <input type="hidden" name="lote_id" value="{{ lote.info.codigo_lote }}">
                                 <input type="hidden" name="fecha" value="{{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s' }}">
                                 <input type="hidden" name="prov" value="{{ lote.info.proveedor__razonsocial }}">
                                 <input type="hidden" name="tipo" value="{{ tipo }}">
-                                <button type="submit" class="btn btn-danger shadow-sm rounded-pill px-3 text-nowrap" title="Eliminar Lote Completo">
+                                <button type="submit" class="btn btn-danger shadow-sm rounded-pill px-3 text-nowrap" title="{% if tipo == 'ENTRADA' %}Eliminar Entrada{% else %}Eliminar Operación Completa{% endif %}">
                                     <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
                                 </button>
                             </form>
@@ -106,7 +106,9 @@
                             <thead class="table-light">
                                 <tr class="small text-muted text-uppercase">
                                     <th class="ps-4">Producto</th>
-                                    <th class="text-center">Código Lote</th>
+                                    {% if tipo != 'ENTRADA' %}
+                                    <th class="text-center">Código</th>
+                                    {% endif %}
                                     <th class="text-center">{% if tipo == 'ENTRADA' %}Total Unid. Entrantes{% else %}Total Unid. Salientes{% endif %}</th>
                                     <th class="text-center">Unidad</th>
                                     <th class="text-center">Unid. x Empaque</th>
@@ -120,9 +122,11 @@
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
                                         <div class="x-small text-muted">{{ item.producto.codigo_producto }}</div>
                                     </td>
+                                    {% if tipo != 'ENTRADA' %}
                                     <td class="text-center">
                                         <span class="badge bg-secondary">{{ item.codigo_lote|default:"-" }}</span>
                                     </td>
+                                    {% endif %}
                                     <td class="text-center fw-bold {% if tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
                                         {{ item.cantidad }}
                                     </td>

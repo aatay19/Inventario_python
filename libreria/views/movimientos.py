@@ -308,40 +308,22 @@ def movimientos_salida_procesar(request):
 def movimientos_traslado_vencido_form(request):
     """
     Formulario de Traslado a Vencidos.
-    NOTA: Trae únicamente la cantidad exacta del lote vencido (fecha_vencimiento <= hoy y cantidad_actual > 0),
-    evitando cargar todo el stock existente del producto.
+    Permite seleccionar productos con stock disponible en inventario principal para trasladar a vencidos.
     """
     from ..models import UnidadEmpaqueChoices
-    hoy = timezone.now().date()
-    qs = Inventario.objects.filter(
-        lote__fecha_vencimiento__lte=hoy,
-        lote__cantidad_actual__gt=0
-    ).prefetch_related('lote_set').distinct().order_by('nombre_producto')
+    qs = Inventario.objects.all().order_by('nombre_producto')
     unidades_choices = UnidadEmpaqueChoices.choices
-    unidades_html = "".join([f'<option value="{v}">{l}</option>' for v, l in unidades_choices])
     
     productos_json = []
     for p in qs:
-        lotes_vencidos = [l for l in p.lote_set.all() if l.fecha_vencimiento and l.fecha_vencimiento <= hoy and l.cantidad_actual > 0]
-        if not lotes_vencidos:
-            continue
-        cant_vencida = sum(l.cantidad_actual for l in lotes_vencidos)
-        fechas_venc = sorted(list(set([l.fecha_vencimiento.strftime('%d/%m/%Y') for l in lotes_vencidos])))
-        fechas_str = ", ".join(fechas_venc) if fechas_venc else "Vencido"
-        lotes_detalles = ", ".join([f"{l.codigo_lote} ({l.cantidad_actual} un.)" for l in lotes_vencidos])
-        
         productos_json.append({
             'id': p.id_producto,
             'nombre': str(p.nombre_producto or ""),
             'codigo': str(p.codigo_producto or ""),
-            'stock': cant_vencida,
-            'stock_total': p.cantidad,
-            'unidades_html': unidades_html,
+            'stock': p.cantidad,
             'id_unidad_default': p.unidad_empaque,
-            'cant_por_empaque': p.cantidad_por_empaque,
-            'total_empaques': p.total_empaques,
-            'fecha_vencimiento': fechas_str,
-            'lotes_detalles': lotes_detalles
+            'cant_por_empaque': p.cantidad_por_empaque or 1,
+            'total_empaques': round(p.total_empaques, 2),
         })
     return render(request, 'movimientos/form_traslado_vencido.html', {
         'productos_json': productos_json,
@@ -411,11 +393,9 @@ def movimientos_traslado_vencido_procesar(request):
                             fecha_movimiento=ahora,
                             codigo_lote=lote_id
                         )
-                        usados = consumir_lotes_fefo(producto, cant_traslado)
                         producto.cantidad -= cant_traslado
                         producto.cantidad_vencido += cant_traslado
                         producto.save(update_fields=['cantidad', 'cantidad_vencido'])
-                        registrar_consumo(movimiento, usados)
 
                         traslados_creados += 1
             messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al deposito de vencidos.')
@@ -799,7 +779,7 @@ def _historial_agrupado(request, tipo, titulo):
         if movs_del_lote.exists():
             primero = movs_del_lote.first()
             info_lote = {
-                'codigo_lote': lid if not es_individual else "Individual (Sin Lote)",
+                'codigo_lote': lid if not es_individual else "Individual (Sin Código)",
                 'fecha_movimiento': primero.fecha_movimiento,
                 'proveedor__razonsocial': primero.proveedor.razonsocial if primero.proveedor else "S/P",
                 'proveedor__rif': primero.proveedor.rif if primero.proveedor else "-",
@@ -1017,10 +997,12 @@ def movimientos_lote_eliminar(request):
                 
                 movs.delete()
                 
-            messages.success(request, f'Lote eliminado exitosamente ({count} registros revertidos).')
+            tipo_txt = 'Entrada' if tipo == 'ENTRADA' else 'Operación'
+            messages.success(request, f'{tipo_txt} eliminada exitosamente ({count} registros revertidos).')
             
         except Exception as e:
-            messages.error(request, f'Error al eliminar el lote: {str(e)}')
+            tipo_txt = 'la entrada' if tipo == 'ENTRADA' else 'la operación'
+            messages.error(request, f'Error al eliminar {tipo_txt}: {str(e)}')
             
         return redirect(request.META.get('HTTP_REFERER', 'movimientos.index'))
     return redirect('movimientos.index')
@@ -1030,7 +1012,7 @@ def movimientos_lote_eliminar(request):
 def movimientos_lote_editar(request, lote_id):
     movimientos = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
     if not movimientos.exists():
-        messages.error(request, "Lote no encontrado.")
+        messages.error(request, "Registro no encontrado.")
         return redirect('movimientos.index')
 
     tipo = movimientos.first().tipo_movimiento
@@ -1107,13 +1089,15 @@ def movimientos_lote_editar(request, lote_id):
                             )
                             aplicar_movimiento(nuevo_mov)
                             nuevos_agregados += 1
-                msg = f"Lote actualizado correctamente. {cambios} modificados."
+                tipo_txt = "Entrada" if tipo == "ENTRADA" else "Operación"
+                msg = f"{tipo_txt} actualizada correctamente. {cambios} modificados."
                 if eliminados > 0: msg += f" {eliminados} eliminados."
                 if nuevos_agregados > 0: msg += f" {nuevos_agregados} agregados."
                 messages.success(request, msg)
                 return redirect('movimientos.historial_entradas' if tipo == 'ENTRADA' else 'movimientos.historial_salidas')
         except Exception as e:
-            messages.error(request, f"Error al actualizar lote: {str(e)}")
+            tipo_txt = "la entrada" if tipo == "ENTRADA" else "la operación"
+            messages.error(request, f"Error al actualizar {tipo_txt}: {str(e)}")
 
     from ..models import UnidadEmpaqueChoices
     info = movimientos.first()
