@@ -39,11 +39,25 @@
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Tiempo</label>
+                            {% if es_edicion %}
+                            <div class="alert alert-info py-2 px-3 mb-2 small d-flex align-items-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-info-circle-fill me-1"></i>
+                                    <strong>Tiempo actual guardado:</strong> {{ nino.tiempo }} min
+                                    {% if nino.tiempo_adicional %}
+                                    <span class="badge bg-primary ms-1">+{{ nino.tiempo_adicional }} min adicionales</span>
+                                    {% endif %}
+                                </div>
+                                <span class="text-muted">Máx: 90 min</span>
+                            </div>
+                            {% endif %}
                             {{ form.tiempo }}
                             <div class="mt-2 d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-warning text-dark btn-tiempo-rapido" data-tiempo="1">
-                                    <i class="bi bi-stopwatch me-1"></i>1 min (prueba)
+                                {% if es_edicion and nino.tiempo and nino.tiempo != 45 and nino.tiempo != 90 %}
+                                <button type="button" class="btn btn-sm btn-outline-primary btn-tiempo-rapido" data-tiempo="{{ nino.tiempo }}">
+                                    <i class="bi bi-clock-history me-1"></i>{{ nino.tiempo }} min (actual conservado)
                                 </button>
+                                {% endif %}
                                 <button type="button" class="btn btn-sm btn-outline-success btn-tiempo-rapido" data-tiempo="45">
                                     <i class="bi bi-clock me-1"></i>45 minutos
                                 </button>
@@ -51,7 +65,13 @@
                                     <i class="bi bi-clock me-1"></i>90 minutos
                                 </button>
                             </div>
-                            <small class="text-muted d-block mt-1">Selecciona 1 min (prueba), 45 o 90 minutos.</small>
+                            <small class="text-muted d-block mt-1">
+                                {% if es_edicion %}
+                                Conserva el tiempo actual ({{ nino.tiempo }} min) o cámbialo a 45 o 90 min (máx 90).
+                                {% else %}
+                                Selecciona 45 o 90 minutos (máximo 90).
+                                {% endif %}
+                            </small>
                             {% if form.tiempo.errors %}<div class="text-danger small">{{ form.tiempo.errors }}</div>{% endif %}
                         </div>
 
@@ -99,18 +119,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function actualizarBotonesTiempo() {
         if (!selectTiempo) return;
-        const val = selectTiempo.value;
+        const val = String(selectTiempo.value);
         botonesTiempo.forEach(function (btn) {
-            const esPrueba = btn.dataset.tiempo === '1';
-            const claseActivo = esPrueba ? ['btn-warning', 'text-dark', 'fw-bold'] : ['btn-success', 'text-white'];
-            const claseInactivo = esPrueba ? ['btn-outline-warning', 'text-dark'] : ['btn-outline-success'];
+            const tiempoBtn = String(btn.dataset.tiempo);
+            const esSeleccionado = (tiempoBtn === val);
+            const esCustom = !['45', '90'].includes(tiempoBtn);
 
-            if (btn.dataset.tiempo === val) {
-                btn.classList.remove(...claseInactivo);
-                btn.classList.add(...claseActivo);
+            btn.classList.remove(
+                'btn-success', 'btn-outline-success',
+                'btn-primary', 'btn-outline-primary',
+                'text-white', 'text-dark', 'fw-bold'
+            );
+
+            if (esCustom) {
+                if (esSeleccionado) {
+                    btn.classList.add('btn-primary', 'text-white', 'fw-bold');
+                } else {
+                    btn.classList.add('btn-outline-primary');
+                }
             } else {
-                btn.classList.remove(...claseActivo);
-                btn.classList.add(...claseInactivo);
+                if (esSeleccionado) {
+                    btn.classList.add('btn-success', 'text-white', 'fw-bold');
+                } else {
+                    btn.classList.add('btn-outline-success');
+                }
             }
         });
     }

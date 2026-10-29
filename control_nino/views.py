@@ -152,10 +152,19 @@ def editar_control_nino(request, pk):
         prev_nombre = nino.nombre
         prev_descripcion = nino.descripcion or ''
         prev_tiempo = nino.tiempo
+        prev_tiempo_adicional = nino.tiempo_adicional
+        prev_brazaletes_adicionales = nino.brazaletes_adicionales
 
         form = ControlNinoForm(request.POST, instance=nino)
         if form.is_valid():
-            nino = form.save()
+            nino = form.save(commit=False)
+            if nino.tiempo == prev_tiempo:
+                nino.tiempo_adicional = prev_tiempo_adicional
+                nino.brazaletes_adicionales = prev_brazaletes_adicionales
+            else:
+                if nino.tiempo < nino.tiempo_adicional:
+                    nino.tiempo_adicional = 0
+            nino.save()
             cambios = []
             if prev_nombre != nino.nombre:
                 cambios.append(f"Nombre: '{prev_nombre}' ➜ '{nino.nombre}'")
@@ -199,8 +208,8 @@ def agregar_tiempo_nino(request, pk):
         minutos = 45
 
     error = None
-    if minutos not in (1, 45):
-        error = 'Solo se permite agregar 1 o 45 minutos.'
+    if minutos != 45:
+        error = 'Solo se permite agregar 45 minutos.'
     elif nino.salio:
         error = 'El niño ya tiene salida registrada.'
     elif nino.tiempo >= TIEMPO_MAXIMO_NINO:
@@ -295,11 +304,68 @@ def deshacer_salida(request, pk):
         nino.save(update_fields=['hora_salida'])
         registrar_novedad_sistema(
             titulo=f"Salida cancelada: {nino.nombre}",
-            descripcion=f"Se canceló la salida de '{nino.nombre}', reactivando su monitoreo en el parque.",
+            descripcion=(
+                f"Se canceló la salida de '{nino.nombre}', reactivando su monitoreo en el parque. "
+                f"El niño continúa con {nino.tiempo} min registrados"
+                f"{f' (+{nino.tiempo_adicional} min adicionales)' if nino.tiempo_adicional > 0 else ''}."
+                f" Tiempo restante disponible hasta alcanzar el máximo (90 min): "
+                f"{max(0, TIEMPO_MAXIMO_NINO - nino.tiempo)} min."
+            ),
             usuario=request.user,
             nino=nino
         )
         messages.success(request, f"Salida de '{nino.nombre}' eliminada.")
+    return redirect('control_nino:lista_control_ninos')
+
+
+@login_required
+@control_nino_required
+def registrar_incidente_nino(request, pk):
+    """Permite registrar un incidente u observación especial sobre un niño y guardarlo en la bitácora/novedades."""
+    nino = get_object_or_404(ControlNino, pk=pk)
+    es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    if request.method != 'POST':
+        if es_ajax:
+            return JsonResponse({'ok': False, 'error': 'Método no permitido.'}, status=405)
+        return redirect('control_nino:lista_control_ninos')
+
+    titulo = request.POST.get('titulo', '').strip()
+    descripcion = request.POST.get('descripcion', '').strip()
+
+    if not descripcion:
+        error_msg = "Debes ingresar una descripción detallada del incidente."
+        if es_ajax:
+            return JsonResponse({'ok': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
+        return redirect('control_nino:lista_control_ninos')
+
+    if not titulo:
+        titulo = f"Incidente: {nino.nombre}"
+
+    novedad = Novedad.objects.create(
+        tipo='INCIDENTE',
+        titulo=titulo,
+        descripcion=descripcion,
+        usuario=request.user,
+        nino=nino
+    )
+
+    msg = f"Incidente registrado correctamente para el niño '{nino.nombre}'."
+    if es_ajax:
+        return JsonResponse({
+            'ok': True,
+            'mensaje': msg,
+            'novedad': {
+                'id': novedad.pk,
+                'titulo': novedad.titulo,
+                'descripcion': novedad.descripcion,
+                'fecha': timezone.localtime(novedad.fecha_registro).strftime('%d/%m/%Y %H:%M'),
+                'usuario': request.user.username,
+            }
+        })
+
+    messages.success(request, msg)
     return redirect('control_nino:lista_control_ninos')
 
 
@@ -1114,7 +1180,7 @@ def lista_novedades(request):
 
     novedades_qs = Novedad.objects.select_related('usuario', 'nino', 'fiesta').all()
 
-    if tipo_filtro in ('SISTEMA', 'MANUAL'):
+    if tipo_filtro in ('SISTEMA', 'MANUAL', 'INCIDENTE'):
         novedades_qs = novedades_qs.filter(tipo=tipo_filtro)
 
     if q:

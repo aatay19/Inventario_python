@@ -109,9 +109,9 @@
                                         <div class="text-muted small text-uppercase">Total</div>
                                         <div class="fw-bold total-tiempo" data-minutos="{{ nino.tiempo }}">{{ nino.tiempo }} min</div>
                                         {% if nino.tiempo_adicional > 0 %}
-                                        <div>
-                                            <span class="badge bg-warning text-dark border px-2 py-0 fw-bold" style="font-size: 0.72rem;" title="Tiempo adicional agregado">
-                                                <i class="bi bi-plus-circle-fill text-dark me-1"></i>+{{ nino.tiempo_adicional }} min extra
+                                        <div class="mt-1">
+                                            <span class="badge-extra-tiempo">
+                                                <i class="bi bi-plus-circle-fill me-1"></i>+{{ nino.tiempo_adicional }} min
                                             </span>
                                         </div>
                                         {% endif %}
@@ -143,7 +143,14 @@
                                         </button>
                                     </form>
                                     {% endif %}
-                                    <div class="d-flex gap-1">
+                                    <div class="d-flex gap-1 align-items-center">
+                                        <button type="button" class="btn btn-sm btn-outline-warning btn-abrir-incidente" 
+                                                data-nino-id="{{ nino.pk }}" 
+                                                data-nino-nombre="{{ nino.nombre }}"
+                                                data-url="{% url 'control_nino:registrar_incidente_nino' nino.pk %}"
+                                                title="Registrar incidente de {{ nino.nombre }}">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Incidente
+                                        </button>
                                         <a href="{% url 'control_nino:editar_control_nino' nino.pk %}" class="btn btn-sm btn-outline-primary" title="Editar niño">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>
@@ -156,28 +163,18 @@
                                             <i class="bi bi-trash"></i>
                                         </a>
                                     </div>
-                                    {% if nino.puede_agregar_45 or nino.puede_agregar_1 %}
-                                    <div class="d-flex align-items-center flex-wrap gap-1 border-top pt-2 bloque-agregar-tiempo">
-                                        <span class="small text-muted me-1">Agregar tiempo:</span>
-                                        {% if nino.puede_agregar_45 %}
+                                    {% if nino.puede_agregar_45 %}
+                                    <div class="d-flex align-items-center gap-1 border-top pt-2 bloque-agregar-tiempo">
+                                        <span class="small me-1 etiq-agregar-tiempo">Agregar tiempo:</span>
                                         <form method="post" action="{% url 'control_nino:agregar_tiempo_nino' nino.pk %}" class="d-inline" data-minutos="45">
                                             {% csrf_token %}
                                             <input type="hidden" name="minutos" value="45">
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary py-0">+45 min</button>
+                                            <button type="submit" class="btn btn-sm btn-agregar-nino py-0">+45 min</button>
                                         </form>
-                                        {% endif %}
-                                        {% if nino.puede_agregar_1 %}
-                                        <form method="post" action="{% url 'control_nino:agregar_tiempo_nino' nino.pk %}" class="d-inline" data-minutos="1">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="minutos" value="1">
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-warning text-dark py-0 fw-semibold" title="Agregar 1 minuto para prueba">+1 min (prueba)</button>
-                                        </form>
-                                        {% endif %}
                                     </div>
                                     {% elif nino.tiempo_maximo_alcanzado %}
-                                    <div class="small text-muted border-top pt-2">
+                                    <div class="small border-top pt-2 etiq-agregar-tiempo opacity-75">
                                         Tiempo máximo alcanzado ({{ tiempo_maximo_nino|default:90 }} min).
                                     </div>
                                     {% endif %}
@@ -264,9 +261,9 @@
                                             {{ fiesta.tiempo }} min
                                         </div>
                                         {% if fiesta.tiempo_adicional > 0 %}
-                                        <div>
-                                            <span class="badge bg-warning text-dark border px-2 py-0 fw-bold" style="font-size: 0.72rem;" title="Tiempo adicional agregado">
-                                                <i class="bi bi-plus-circle-fill text-dark me-1"></i>+{{ fiesta.tiempo_adicional }} min extra
+                                        <div class="mt-1">
+                                            <span class="badge-extra-tiempo">
+                                                <i class="bi bi-plus-circle-fill me-1"></i>+{{ fiesta.tiempo_adicional }} min
                                             </span>
                                         </div>
                                         {% endif %}
@@ -324,7 +321,7 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="minutos" value="45">
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary py-0">+45 min</button>
+                                            <button type="submit" class="btn btn-sm btn-agregar-fiesta py-0">+45 min</button>
                                         </form>
                                         {% endif %}
                                         {% if fiesta.puede_agregar_90 %}
@@ -332,7 +329,7 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="minutos" value="90">
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary py-0">+90 min</button>
+                                            <button type="submit" class="btn btn-sm btn-agregar-fiesta py-0">+90 min</button>
                                         </form>
                                         {% endif %}
                                     </div>
@@ -364,6 +361,47 @@
                 </div>
             </div>
         </div>
+
+<!-- Modal Registrar Incidente para Niño -->
+<div class="modal fade" id="modalIncidenteNino" tabindex="-1" aria-labelledby="modalIncidenteNinoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-warning text-dark py-3">
+                <h5 class="modal-title fw-bold" id="modalIncidenteNinoLabel">
+                    <i class="bi bi-exclamation-triangle-fill text-dark me-2"></i>Registrar Incidente / Novedad
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formIncidenteNino" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body p-3 p-md-4">
+                    <div class="alert alert-light border d-flex align-items-center mb-3 py-2 px-3">
+                        <i class="bi bi-person-fill fs-3 text-secondary me-2"></i>
+                        <div>
+                            <div class="small text-muted text-uppercase fw-semibold" style="font-size: 0.75rem;">Niño seleccionado</div>
+                            <strong class="fs-6 text-dark" id="modalIncidenteNombre">--</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_incidente_titulo" class="form-label fw-bold">Título / Asunto</label>
+                        <input type="text" name="titulo" id="id_incidente_titulo" class="form-control" placeholder="Ej: Caída, llanto, llamado de padres, objeto perdido...">
+                        <div class="form-text small">Opcional. Por defecto será "Incidente: [Nombre del niño]".</div>
+                    </div>
+                    <div class="mb-2">
+                        <label for="id_incidente_descripcion" class="form-label fw-bold">Descripción del incidente <span class="text-danger">*</span></label>
+                        <textarea name="descripcion" id="id_incidente_descripcion" class="form-control" rows="4" required placeholder="Escribe aquí con detalle lo ocurrido..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning px-4 fw-bold" id="btnGuardarIncidente">
+                        <i class="bi bi-check-circle-fill me-1"></i>Guardar en Novedades
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <div id="alertasControl" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080; pointer-events: none;"></div>
 
@@ -400,21 +438,25 @@
     .tarjeta-nino .btn-outline-secondary,
     .tarjeta-nino .btn-outline-danger,
     .tarjeta-nino .btn-outline-dark,
+    .tarjeta-nino .btn-outline-warning,
     .tarjeta-nino .btn-outline-primary { color: #fff !important; border-color: rgba(255, 255, 255, 0.8) !important; }
     .tarjeta-nino .btn-outline-success:hover,
     .tarjeta-nino .btn-outline-secondary:hover,
     .tarjeta-nino .btn-outline-danger:hover,
     .tarjeta-nino .btn-outline-dark:hover,
+    .tarjeta-nino .btn-outline-warning:hover,
     .tarjeta-nino .btn-outline-primary:hover { background: rgba(255, 255, 255, 0.22) !important; color: #fff !important; }
     .tarjeta-nino.estado-amarillo .btn-outline-success,
     .tarjeta-nino.estado-amarillo .btn-outline-secondary,
     .tarjeta-nino.estado-amarillo .btn-outline-danger,
     .tarjeta-nino.estado-amarillo .btn-outline-dark,
+    .tarjeta-nino.estado-amarillo .btn-outline-warning,
     .tarjeta-nino.estado-amarillo .btn-outline-primary { color: #1a1a1a !important; border-color: rgba(0, 0, 0, 0.45) !important; }
     .tarjeta-nino.estado-amarillo .btn-outline-success:hover,
     .tarjeta-nino.estado-amarillo .btn-outline-secondary:hover,
     .tarjeta-nino.estado-amarillo .btn-outline-danger:hover,
     .tarjeta-nino.estado-amarillo .btn-outline-dark:hover,
+    .tarjeta-nino.estado-amarillo .btn-outline-warning:hover,
     .tarjeta-nino.estado-amarillo .btn-outline-primary:hover { background: rgba(0, 0, 0, 0.12) !important; color: #1a1a1a !important; }
 
     /* Letras más grandes */
@@ -425,6 +467,107 @@
     .tarjeta-nino .tiempo-restante { font-size: 2.6rem !important; line-height: 1.1; }
     .tarjeta-nino .card-footer { font-size: 1rem; }
     .tarjeta-nino .card-footer .small { font-size: 0.95rem !important; }
+
+    /* ================================================================
+       Badge "+ X min" adaptado al color de cada tarjeta
+       ================================================================ */
+    .badge-extra-tiempo {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.25);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.5);
+        letter-spacing: 0.01em;
+    }
+    .tarjeta-nino.estado-amarillo .badge-extra-tiempo {
+        background: rgba(0,0,0,0.15);
+        color: #1a1a1a;
+        border-color: rgba(0,0,0,0.3);
+    }
+    /* Badge blanco nítido en tarjetas oscuras (verde, rojo, gris) */
+    .tarjeta-nino.estado-verde .badge-extra-tiempo,
+    .tarjeta-nino.estado-rojo .badge-extra-tiempo,
+    .tarjeta-nino.estado-gris .badge-extra-tiempo,
+    .tarjeta-nino.tarjeta-salido .badge-extra-tiempo {
+        background: rgba(255,255,255,0.2);
+        color: #fff;
+        border-color: rgba(255,255,255,0.45);
+    }
+    /* Mismo estilo para tarjetas de fiestas (blancas, usa colores distintos) */
+    .tarjeta-nino .badge-extra-tiempo { /* fiestas heredan si no se define estado */
+        background: rgba(255,255,255,0.22);
+        color: #fff;
+        border-color: rgba(255,255,255,0.4);
+    }
+
+    /* ================================================================
+       Botón "+ 45 min" en tarjetas de NIÑOS: siempre visible
+       ================================================================ */
+    .btn-agregar-nino {
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 1px 10px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.18);
+        color: #fff;
+        border: 1.5px solid rgba(255,255,255,0.65);
+        transition: background 0.18s;
+    }
+    .btn-agregar-nino:hover {
+        background: rgba(255,255,255,0.35);
+        color: #fff;
+    }
+    .tarjeta-nino.estado-amarillo .btn-agregar-nino {
+        background: rgba(0,0,0,0.10);
+        color: #1a1a1a;
+        border-color: rgba(0,0,0,0.35);
+    }
+    .tarjeta-nino.estado-amarillo .btn-agregar-nino:hover {
+        background: rgba(0,0,0,0.20);
+        color: #1a1a1a;
+    }
+
+    /* ================================================================
+       Botón "+ 45 min / +90 min" en tarjetas de FIESTAS
+       (fondo blanco / claro porque el panel de fiestas es blanco)
+       ================================================================ */
+    .btn-agregar-fiesta {
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 1px 10px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.22);
+        color: #fff;
+        border: 1.5px solid rgba(255,255,255,0.6);
+        transition: background 0.18s;
+    }
+    .btn-agregar-fiesta:hover {
+        background: rgba(255,255,255,0.38);
+        color: #fff;
+    }
+    .tarjeta-nino.estado-amarillo .btn-agregar-fiesta {
+        background: rgba(0,0,0,0.10);
+        color: #1a1a1a;
+        border-color: rgba(0,0,0,0.3);
+    }
+    .tarjeta-nino.estado-amarillo .btn-agregar-fiesta:hover {
+        background: rgba(0,0,0,0.18);
+        color: #1a1a1a;
+    }
+
+    /* ================================================================
+       Etiqueta "Agregar tiempo:" adaptada al color de cada tarjeta
+       ================================================================ */
+    .etiq-agregar-tiempo {
+        color: rgba(255,255,255,0.85) !important;
+    }
+    .tarjeta-nino.estado-amarillo .etiq-agregar-tiempo {
+        color: rgba(0,0,0,0.65) !important;
+    }
 
     .alerta-toast { min-width: 320px; }
 
@@ -959,5 +1102,61 @@
         if (ocultoActivo) aplicarOculto();
     }, 1000);
 })();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('modalIncidenteNino');
+    const formIncidente = document.getElementById('formIncidenteNino');
+    const spanNombre = document.getElementById('modalIncidenteNombre');
+    const inputTitulo = document.getElementById('id_incidente_titulo');
+    const inputDesc = document.getElementById('id_incidente_descripcion');
+    const btnGuardar = document.getElementById('btnGuardarIncidente');
+    if (!modalEl || !formIncidente) return;
+
+    let bsModal = null;
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    }
+
+    document.querySelectorAll('.btn-abrir-incidente').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const url = this.dataset.url;
+            const nombre = this.dataset.ninoNombre || 'Niño';
+
+            formIncidente.action = url;
+            if (spanNombre) spanNombre.textContent = nombre;
+            if (inputTitulo) inputTitulo.value = '';
+            if (inputDesc) inputDesc.value = '';
+
+            if (btnGuardar) {
+                btnGuardar.disabled = false;
+                btnGuardar.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Guardar en Novedades';
+            }
+
+            if (bsModal) {
+                bsModal.show();
+            }
+            setTimeout(function () {
+                if (inputDesc) inputDesc.focus();
+            }, 350);
+        });
+    });
+
+    formIncidente.addEventListener('submit', function (e) {
+        if (!inputDesc || !inputDesc.value.trim()) {
+            e.preventDefault();
+            alert('Por favor escribe la descripción del incidente.');
+            if (inputDesc) inputDesc.focus();
+            return;
+        }
+
+        if (btnGuardar) {
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando incidente...';
+        }
+    });
+});
 </script>
 {% endblock %}

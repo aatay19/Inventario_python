@@ -4,19 +4,39 @@ from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad
 
 
 class ControlNinoForm(forms.ModelForm):
+    tiempo = forms.TypedChoiceField(
+        choices=ControlNino.TIEMPO_CHOICES,
+        coerce=int,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='Tiempo'
+    )
+
     class Meta:
         model = ControlNino
         fields = ['nombre', 'descripcion', 'tiempo']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del niño'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción, características o contacto...'}),
-            'tiempo': forms.Select(attrs={'class': 'form-select'}),
         }
         labels = {
             'nombre': 'Nombre',
             'descripcion': 'Descripción',
-            'tiempo': 'Tiempo',
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.tiempo:
+            tiempo_actual = self.instance.tiempo
+            choices_existentes = [c[0] for c in self.fields['tiempo'].choices]
+            if tiempo_actual not in choices_existentes:
+                nuevos_choices = list(self.fields['tiempo'].choices) + [
+                    (tiempo_actual, f"{tiempo_actual} minutos (actual)")
+                ]
+                self.fields['tiempo'].choices = sorted(
+                    nuevos_choices,
+                    key=lambda c: int(c[0]) if str(c[0]).isdigit() else 0
+                )
+            self.initial['tiempo'] = tiempo_actual
 
     def clean_tiempo(self):
         tiempo = self.cleaned_data.get('tiempo')

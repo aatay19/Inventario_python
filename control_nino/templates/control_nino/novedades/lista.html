@@ -34,6 +34,7 @@
                     <label class="form-label small fw-bold text-muted mb-1">Tipo de novedad</label>
                     <select name="tipo" class="form-select form-select-sm">
                         <option value="">Todos los tipos</option>
+                        <option value="INCIDENTE" {% if tipo_filtro == 'INCIDENTE' %}selected{% endif %}>Incidentes</option>
                         <option value="SISTEMA" {% if tipo_filtro == 'SISTEMA' %}selected{% endif %}>Automático / Sistema</option>
                         <option value="MANUAL" {% if tipo_filtro == 'MANUAL' %}selected{% endif %}>Nota Manual</option>
                     </select>
@@ -85,7 +86,11 @@
                                 <i class="bi bi-clock me-1"></i>{{ n.fecha_registro|date:"H:i" }}
                             </td>
                             <td>
-                                {% if n.tipo == 'MANUAL' %}
+                                {% if n.tipo == 'INCIDENTE' %}
+                                    <span class="badge bg-danger rounded-pill px-2 py-1">
+                                        <i class="bi bi-exclamation-triangle-fill me-1 small"></i>Incidente
+                                    </span>
+                                {% elif n.tipo == 'MANUAL' %}
                                     <span class="badge bg-warning text-dark rounded-pill px-2 py-1">
                                         <i class="bi bi-pencil-fill me-1 small"></i>Manual
                                     </span>
