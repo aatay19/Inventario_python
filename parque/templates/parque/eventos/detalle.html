@@ -1,6 +1,43 @@
 {% extends 'parque/layout/base_parque.html' %}
 
 {% block content %}
+
+<!-- Modal de confirmación amigable para desconfirmar abono -->
+<div class="modal fade" id="modalDesconfirmar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-3 w-100">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                         style="width:48px;height:48px;background:#fff3cd;">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0" style="font-size:1.05rem;">¿Quitar confirmación?</h6>
+                        <p class="text-muted mb-0 small" id="detDesconfirmarSubtitulo">Abono</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 pt-3 pb-2">
+                <p class="text-secondary mb-0" style="font-size:0.95rem;">
+                    Este abono ya fue marcado como <strong class="text-success">Confirmado</strong>.
+                    Si lo cambias a <strong class="text-danger">No confirmado</strong>, se perderá esa validación.
+                </p>
+                <p class="text-muted small mt-2 mb-0">¿Estás seguro de continuar?</p>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-2 gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger rounded-pill px-4" id="detBtnConfirmarDesconfirmar">
+                    <i class="bi bi-x-circle me-1"></i>Sí, quitar confirmación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-md-10">
@@ -107,7 +144,9 @@
                                     <div class="d-inline-flex align-items-center gap-2">
                                         <span>Confirmado:</span>
                                         {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
-                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 1 %}" class="d-inline m-0 p-0">
+                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 1 %}" class="d-inline m-0 p-0" id="formConfirmado1"
+                                                data-esta-confirmado="{% if evento.confirmado == 'Sí' %}1{% else %}0{% endif %}"
+                                                data-label="Abono 1 (Reserva)">
                                                 {% csrf_token %}
                                                 <button type="submit" class="btn btn-sm {% if evento.confirmado == 'Sí' %}btn-success{% else %}btn-danger{% endif %}" title="Clic para cambiar el estado">
                                                     {% if evento.confirmado == 'Sí' %}Sí{% else %}No{% endif %}
@@ -150,7 +189,9 @@
                                     <div class="d-inline-flex align-items-center gap-2">
                                         <span>Confirmado:</span>
                                         {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
-                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 2 %}" class="d-inline m-0 p-0">
+                                            <form method="post" action="{% url 'parque:toggle_confirmado' evento.pk 2 %}" class="d-inline m-0 p-0" id="formConfirmado2"
+                                                data-esta-confirmado="{% if evento.confirmado2 == 'Sí' %}1{% else %}0{% endif %}"
+                                                data-label="Abono 2 (Día del Evento)">
                                                 {% csrf_token %}
                                                 <button type="submit" class="btn btn-sm {% if evento.confirmado2 == 'Sí' %}btn-success{% else %}btn-danger{% endif %}" title="Clic para cambiar el estado">
                                                     {% if evento.confirmado2 == 'Sí' %}Sí{% else %}No{% endif %}
@@ -203,4 +244,34 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    let formularioPendiente = null;
+
+    function interceptarDesconfirmar(formEl) {
+        if (!formEl) return;
+        formEl.addEventListener('submit', function (e) {
+            if (formEl.dataset.estaConfirmado === '1') {
+                e.preventDefault();
+                formularioPendiente = formEl;
+                document.getElementById('detDesconfirmarSubtitulo').textContent = formEl.dataset.label || 'este abono';
+                new bootstrap.Modal(document.getElementById('modalDesconfirmar')).show();
+            }
+        });
+    }
+
+    interceptarDesconfirmar(document.getElementById('formConfirmado1'));
+    interceptarDesconfirmar(document.getElementById('formConfirmado2'));
+
+    document.getElementById('detBtnConfirmarDesconfirmar').addEventListener('click', function () {
+        bootstrap.Modal.getInstance(document.getElementById('modalDesconfirmar'))?.hide();
+        if (formularioPendiente) {
+            formularioPendiente.dataset.estaConfirmado = '0';
+            formularioPendiente.submit();
+            formularioPendiente = null;
+        }
+    });
+});
+</script>
 {% endblock %}

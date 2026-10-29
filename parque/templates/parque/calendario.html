@@ -56,6 +56,42 @@
     </div>
 </div>
 
+<!-- Modal de confirmación al desconfirmar -->
+<div class="modal fade" id="modalDesconfirmar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-3 w-100">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                         style="width:48px;height:48px;background:#fff3cd;">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0" style="font-size:1.05rem;">¿Quitar confirmación?</h6>
+                        <p class="text-muted mb-0 small" id="modalDesconfirmarSubtitulo">Abono</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 pt-3 pb-2">
+                <p class="text-secondary mb-0" style="font-size:0.95rem;">
+                    Este abono ya fue marcado como <strong class="text-success">Confirmado</strong>.
+                    Si lo cambias a <strong class="text-danger">No confirmado</strong>, se perderá esa validación.
+                </p>
+                <p class="text-muted small mt-2 mb-0">¿Estás seguro de continuar?</p>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-2 gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger rounded-pill px-4" id="btnConfirmarDesconfirmar">
+                    <i class="bi bi-x-circle me-1"></i>Sí, quitar confirmación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de detalle del evento -->
 <div class="modal fade" id="modalEvento" tabindex="-1" aria-labelledby="modalEventoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -212,6 +248,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     const btnA1 = document.getElementById('modalBtnA1');
                     btnA1.className = 'btn btn-sm rounded-pill ' + (props.confirmado1 ? 'btn-success' : 'btn-outline-danger');
                     btnA1.title = props.confirmado1 ? 'Abono 1 confirmado (clic para quitar)' : 'Confirmar Abono 1';
+                    // Guardar estado en el formulario para el interceptor
+                    formA1.dataset.estaConfirmado = props.confirmado1 ? '1' : '0';
+                    formA1.dataset.label = 'Abono 1';
                 }
             }
 
@@ -224,6 +263,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     const btnA2 = document.getElementById('modalBtnA2');
                     btnA2.className = 'btn btn-sm rounded-pill ' + (props.confirmado2 ? 'btn-success' : 'btn-outline-danger');
                     btnA2.title = props.confirmado2 ? 'Abono 2 confirmado (clic para quitar)' : 'Confirmar Abono 2';
+                    // Guardar estado en el formulario para el interceptor
+                    formA2.dataset.estaConfirmado = props.confirmado2 ? '1' : '0';
+                    formA2.dataset.label = 'Abono 2';
                 }
             }
 
@@ -238,6 +280,39 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     calendar.render();
+
+    // ── Interceptor: alerta amigable al desconfirmar desde el calendario ──
+    let formularioPendiente = null;
+
+    function interceptarDesconfirmar(formEl) {
+        formEl.addEventListener('submit', function (e) {
+            if (formEl.dataset.estaConfirmado === '1') {
+                e.preventDefault();
+                formularioPendiente = formEl;
+                const label = formEl.dataset.label || 'este abono';
+                document.getElementById('modalDesconfirmarSubtitulo').textContent = label;
+                // Ocultar modal del evento y mostrar modal de confirmación
+                bootstrap.Modal.getInstance(document.getElementById('modalEvento'))?.hide();
+                const modalDes = new bootstrap.Modal(document.getElementById('modalDesconfirmar'));
+                modalDes.show();
+            }
+        });
+    }
+
+    const fA1 = document.getElementById('modalFormA1');
+    const fA2 = document.getElementById('modalFormA2');
+    if (fA1) interceptarDesconfirmar(fA1);
+    if (fA2) interceptarDesconfirmar(fA2);
+
+    document.getElementById('btnConfirmarDesconfirmar').addEventListener('click', function () {
+        bootstrap.Modal.getInstance(document.getElementById('modalDesconfirmar'))?.hide();
+        if (formularioPendiente) {
+            // Enviar el formulario sin disparar el listener (evitar loop)
+            formularioPendiente.dataset.estaConfirmado = '0';
+            formularioPendiente.submit();
+            formularioPendiente = null;
+        }
+    });
 });
 </script>
 
