@@ -4,7 +4,7 @@ from .models import Evento, ProductoParque, ComboParque, Brazalete
 class Abono2Form(forms.ModelForm):
     class Meta:
         model = Evento
-        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2', 'confirmado_por2', 'foto_abono2']
+        fields = ['fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2', 'confirmado_por2', 'foto_abono2', 'foto_factura_abono2']
         widgets = {
             'fecha_abono2': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'monto_abono2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
@@ -26,6 +26,7 @@ class Abono2Form(forms.ModelForm):
             'banco2': 'Banco',
             'confirmado2': 'Nota 2',
             'foto_abono2': 'Foto Comprobante',
+            'foto_factura_abono2': 'Foto de la Factura',
         }
 
 class EventoForm(forms.ModelForm):
@@ -35,8 +36,8 @@ class EventoForm(forms.ModelForm):
         model = Evento
         fields = [
             'titulo', 'nombre_reserva', 'zona', 'total_pagar',
-            'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago', 'foto_abono1',
-            'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'foto_abono2',
+            'fecha_abono1', 'monto_abono1', 'metodo_pago', 'nota_forma_pago', 'foto_abono1', 'foto_factura_abono1',
+            'fecha_abono2', 'monto_abono2', 'metodo_pago2', 'nota_forma_pago2', 'foto_abono2', 'foto_factura_abono2',
             'tasa_dia', 'referencia_bancaria', 'banco', 'confirmado', 'confirmado_por',
             'tasa_dia2', 'referencia_bancaria2', 'banco2', 'confirmado2', 'confirmado_por2',
             'descripcion', 'fecha_inicio', 'hora_inicio', 'duracion_horas', 'estado'
@@ -51,6 +52,10 @@ class EventoForm(forms.ModelForm):
             'confirmado2': 'Confirmado 2',
             'confirmado_por2': 'Confirmado por 2',
             'confirmado_por2': 'Confirmado por 2',
+            'foto_abono1': 'Foto Comprobante Abono 1',
+            'foto_factura_abono1': 'Foto de la Factura Abono 1',
+            'foto_abono2': 'Foto Comprobante Abono 2',
+            'foto_factura_abono2': 'Foto de la Factura Abono 2',
         }
         widgets = {
             'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),

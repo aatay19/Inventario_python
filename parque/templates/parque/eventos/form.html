@@ -178,6 +178,23 @@
                                              </div>
                                              {% endif %}
                                         </div>
+                                        <!-- Foto Factura Abono 1 -->
+                                        <div class="col-12 mt-2">
+                                            <label class="form-label fw-bold small"><i class="bi bi-receipt me-1"></i>Foto de la Factura Abono 1</label>
+                                            {{ form.foto_factura_abono1 }}
+                                            {% if evento.foto_factura_abono1 %}
+                                            <div class="mt-2 d-flex align-items-center gap-3">
+                                                <div class="position-relative d-inline-block">
+                                                    <span class="badge bg-warning text-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Factura</span>
+                                                    <img src="{{ evento.foto_factura_abono1.url }}" alt="Factura Abono 1" class="img-thumbnail" style="max-height:120px;">
+                                                </div>
+                                                <form method="post" action="{% url 'parque:borrar_foto_factura_abono1' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 1?')">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar factura</button>
+                                                </form>
+                                            </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                                 <!-- Abono 2 -->
@@ -235,6 +252,23 @@
                                                  </form>
                                              </div>
                                              {% endif %}
+                                        </div>
+                                        <!-- Foto Factura Abono 2 -->
+                                        <div class="col-12 mt-2">
+                                            <label class="form-label fw-bold small"><i class="bi bi-receipt me-1"></i>Foto de la Factura Abono 2</label>
+                                            {{ form.foto_factura_abono2 }}
+                                            {% if evento.foto_factura_abono2 %}
+                                            <div class="mt-2 d-flex align-items-center gap-3">
+                                                <div class="position-relative d-inline-block">
+                                                    <span class="badge bg-warning text-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Factura</span>
+                                                    <img src="{{ evento.foto_factura_abono2.url }}" alt="Factura Abono 2" class="img-thumbnail" style="max-height:120px;">
+                                                </div>
+                                                <form method="post" action="{% url 'parque:borrar_foto_factura_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 2?')">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar factura</button>
+                                                </form>
+                                            </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>

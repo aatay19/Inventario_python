@@ -12,7 +12,7 @@ from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEven
 from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm, Abono2Form
 
 def actualizar_estados_eventos():
-    """Lógica para mover eventos a 'En Curso' o 'Finalizado' según la hora exacta"""
+    """LÃƒÂ³gica para mover eventos a 'En Curso' o 'Finalizado' segÃƒÂºn la hora exacta"""
     ahora = timezone.now()
     
     # Eventos que deben pasar a EN_CURSO
@@ -28,7 +28,7 @@ def actualizar_estados_eventos():
                 evento.estado = 'EN_CURSO'
                 evento.save()
     
-    # Revertir eventos que están EN_CURSO pero aún no han empezado (por error de lógica previa)
+    # Revertir eventos que estÃƒÂ¡n EN_CURSO pero aÃƒÂºn no han empezado (por error de lÃƒÂ³gica previa)
     eventos_en_curso = Evento.objects.filter(estado='EN_CURSO')
     for evento in eventos_en_curso:
         if evento.fecha_inicio and evento.hora_inicio:
@@ -61,7 +61,7 @@ def lista_eventos(request):
             Q(nombre_reserva__icontains=q) | Q(titulo__icontains=q)
         )
         
-    # Manejar orden dinámico
+    # Manejar orden dinÃƒÂ¡mico
     if order_by == 'fecha_asc':
         eventos = eventos.order_by('fecha_inicio', 'hora_inicio')
     elif order_by == 'fecha_desc':
@@ -75,7 +75,7 @@ def lista_eventos(request):
     elif order_by == 'nombre_desc':
         eventos = eventos.order_by('-nombre_reserva')
     else:
-        # Default: Más recientes primero
+        # Default: MÃƒÂ¡s recientes primero
         eventos = eventos.order_by('-fecha_inicio', '-hora_inicio')
 
     paginator = Paginator(eventos, 10)
@@ -115,7 +115,7 @@ def crear_evento(request):
                             )
                             total_calculado += detalle.subtotal
                     
-                    # Calcular fecha_fin automáticamente
+                    # Calcular fecha_fin automÃƒÂ¡ticamente
                     if evento.fecha_inicio and evento.hora_inicio:
                         inicio_dt = datetime.combine(evento.fecha_inicio, evento.hora_inicio)
                         evento.fecha_fin = inicio_dt + timedelta(hours=evento.duracion_horas)
@@ -168,7 +168,7 @@ def editar_evento(request, pk):
                             )
                             total_calculado += detalle.subtotal
                     
-                    # Calcular fecha_fin automáticamente
+                    # Calcular fecha_fin automÃƒÂ¡ticamente
                     if evento.fecha_inicio and evento.hora_inicio:
                         inicio_dt = datetime.combine(evento.fecha_inicio, evento.hora_inicio)
                         evento.fecha_fin = inicio_dt + timedelta(hours=evento.duracion_horas)
@@ -203,7 +203,7 @@ def finalizar_evento(request, pk):
     evento = get_object_or_404(Evento, pk=pk)
     evento.estado = 'FINALIZADO'
     evento.save()
-    messages.success(request, f"El evento {evento.titulo} ha sido finalizado con éxito.")
+    messages.success(request, f"El evento {evento.titulo} ha sido finalizado con ÃƒÂ©xito.")
     # return redirect('parque:dashboard')
     return redirect('parque:calendario')
 
@@ -230,12 +230,12 @@ def generar_pdf_evento(request, pk):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Título
+    # TÃƒÂ­tulo
     pdf.set_font("Helvetica", 'B', 16)
     pdf.cell(190, 10, txt="RECIBO DE RESERVA", ln=True, align='C')
     pdf.ln(10)
     
-    # Información General
+    # InformaciÃƒÂ³n General
     pdf.set_font("Helvetica", 'B', 12)
     pdf.cell(190, 8, txt=f"Detalles del Evento", ln=True)
     pdf.set_font("Helvetica", size=11)
@@ -247,10 +247,10 @@ def generar_pdf_evento(request, pk):
     pdf.cell(190, 7, txt=f"Estado: {evento.get_estado_display()}", ln=True)
     pdf.cell(190, 7, txt=f"Fecha: {evento.fecha_inicio.strftime('%d/%m/%Y')}", ln=True)
     
-    # Información de Pagos (Abonos)
+    # InformaciÃƒÂ³n de Pagos (Abonos)
     pdf.ln(5)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(190, 8, txt="Información de Pagos / Abonos", ln=True)
+    pdf.cell(190, 8, txt="InformaciÃƒÂ³n de Pagos / Abonos", ln=True)
     pdf.set_font("Helvetica", size=10)
 
     # Abono 1
@@ -273,7 +273,7 @@ def generar_pdf_evento(request, pk):
     # Abono 2
     if evento.monto_abono2 or evento.metodo_pago2:
         pdf.set_font("Helvetica", 'B', 10)
-        pdf.cell(190, 7, txt="Abono 2 (Día del Evento):", ln=True)
+        pdf.cell(190, 7, txt="Abono 2 (DÃƒÂ­a del Evento):", ln=True)
         pdf.set_font("Helvetica", size=10)
         if evento.fecha_abono2:
             pdf.cell(95, 7, txt=f"  Fecha: {evento.fecha_abono2.strftime('%d/%m/%Y')}", ln=False)
@@ -336,12 +336,12 @@ def generar_pdf_abono1(request, pk):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Título
+    # TÃƒÂ­tulo
     pdf.set_font("Helvetica", 'B', 16)
     pdf.cell(190, 10, txt="RECIBO DE ABONO 1 (RESERVA)", ln=True, align='C')
     pdf.ln(10)
     
-    # Información General
+    # InformaciÃƒÂ³n General
     pdf.set_font("Helvetica", 'B', 12)
     pdf.cell(190, 8, txt=f"Detalles del Evento", ln=True)
     pdf.set_font("Helvetica", size=11)
@@ -354,7 +354,7 @@ def generar_pdf_abono1(request, pk):
     
     pdf.ln(5)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(190, 8, txt="Información del Abono", ln=True)
+    pdf.cell(190, 8, txt="InformaciÃƒÂ³n del Abono", ln=True)
     pdf.set_font("Helvetica", size=11)
     
     if evento.fecha_abono1:
@@ -388,12 +388,12 @@ def generar_pdf_abono2(request, pk):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Título
+    # TÃƒÂ­tulo
     pdf.set_font("Helvetica", 'B', 16)
-    pdf.cell(190, 10, txt="RECIBO DE ABONO 2 (DÍA DEL EVENTO)", ln=True, align='C')
+    pdf.cell(190, 10, txt="RECIBO DE ABONO 2 (DÃƒÂA DEL EVENTO)", ln=True, align='C')
     pdf.ln(10)
 
-    # Información General
+    # InformaciÃƒÂ³n General
     pdf.set_font("Helvetica", 'B', 12)
     pdf.cell(190, 8, txt="Detalles del Evento", ln=True)
     pdf.set_font("Helvetica", size=11)
@@ -406,7 +406,7 @@ def generar_pdf_abono2(request, pk):
 
     pdf.ln(5)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(190, 8, txt="Información del Abono 2", ln=True)
+    pdf.cell(190, 8, txt="InformaciÃƒÂ³n del Abono 2", ln=True)
     pdf.set_font("Helvetica", size=11)
 
     if evento.fecha_abono2:
@@ -421,7 +421,7 @@ def generar_pdf_abono2(request, pk):
     if not evento.monto_abono2 and not evento.metodo_pago2:
         pdf.ln(3)
         pdf.set_font("Helvetica", 'I', 10)
-        pdf.cell(190, 7, txt="Este evento aún no registra un segundo abono.", ln=True)
+        pdf.cell(190, 7, txt="Este evento aÃƒÂºn no registra un segundo abono.", ln=True)
 
     # Generar respuesta
     response = HttpResponse(content_type='application/pdf')
@@ -468,14 +468,14 @@ def pagar_abono2(request, pk):
 
 @login_required
 def borrar_foto_abono1(request, pk):
-    """Borra solo la foto del Abono 1 sin afectar ningún otro dato del evento."""
+    """Borra solo la foto del Abono 1 sin afectar ningÃƒÂºn otro dato del evento."""
     evento = get_object_or_404(Evento, pk=pk)
     if request.method == 'POST':
         if evento.foto_abono1:
             import os
             if os.path.isfile(evento.foto_abono1.path):
                 os.remove(evento.foto_abono1.path)
-            # Solo limpia el campo, no toca nada más
+            # Solo limpia el campo, no toca nada mÃƒÂ¡s
             Evento.objects.filter(pk=pk).update(foto_abono1='')
             messages.success(request, 'Foto del Abono 1 eliminada correctamente.')
         else:
@@ -485,7 +485,7 @@ def borrar_foto_abono1(request, pk):
 
 @login_required
 def borrar_foto_abono2(request, pk):
-    """Borra solo la foto del Abono 2 sin afectar ningún otro dato del evento."""
+    """Borra solo la foto del Abono 2 sin afectar ningÃƒÂºn otro dato del evento."""
     evento = get_object_or_404(Evento, pk=pk)
     if request.method == 'POST':
         if evento.foto_abono2:
@@ -498,6 +498,36 @@ def borrar_foto_abono2(request, pk):
             messages.warning(request, 'Este abono no tiene foto registrada.')
     return redirect('parque:detalle_evento', pk=pk)
 
+@login_required
+def borrar_foto_factura_abono1(request, pk):
+    """Borra solo la foto de factura del Abono 1 sin afectar ningun otro dato del evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    if request.method == 'POST':
+        if evento.foto_factura_abono1:
+            import os
+            if os.path.isfile(evento.foto_factura_abono1.path):
+                os.remove(evento.foto_factura_abono1.path)
+            Evento.objects.filter(pk=pk).update(foto_factura_abono1='')
+            messages.success(request, 'Foto de factura del Abono 1 eliminada correctamente.')
+        else:
+            messages.warning(request, 'Este abono no tiene foto de factura registrada.')
+    return redirect('parque:detalle_evento', pk=pk)
+
+
+@login_required
+def borrar_foto_factura_abono2(request, pk):
+    """Borra solo la foto de factura del Abono 2 sin afectar ningun otro dato del evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    if request.method == 'POST':
+        if evento.foto_factura_abono2:
+            import os
+            if os.path.isfile(evento.foto_factura_abono2.path):
+                os.remove(evento.foto_factura_abono2.path)
+            Evento.objects.filter(pk=pk).update(foto_factura_abono2='')
+            messages.success(request, 'Foto de factura del Abono 2 eliminada correctamente.')
+        else:
+            messages.warning(request, 'Este abono no tiene foto de factura registrada.')
+    return redirect('parque:detalle_evento', pk=pk)
 @login_required
 def toggle_confirmado(request, pk, abono_num):
     evento = get_object_or_404(Evento, pk=pk)
@@ -512,17 +542,17 @@ def toggle_confirmado(request, pk, abono_num):
 
     if request.method == 'POST':
         if abono_num == 1:
-            if evento.confirmado == 'Sí':
+            if evento.confirmado == 'SÃƒÂ­':
                 evento.confirmado = ''
             else:
-                evento.confirmado = 'Sí'
+                evento.confirmado = 'SÃƒÂ­'
         elif abono_num == 2:
-            if evento.confirmado2 == 'Sí':
+            if evento.confirmado2 == 'SÃƒÂ­':
                 evento.confirmado2 = ''
             else:
-                evento.confirmado2 = 'Sí'
+                evento.confirmado2 = 'SÃƒÂ­'
         evento.save()
-        messages.success(request, f"Estado de confirmación de Abono {abono_num} actualizado.")
+        messages.success(request, f"Estado de confirmaciÃƒÂ³n de Abono {abono_num} actualizado.")
 
     return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
 
@@ -666,7 +696,7 @@ def crear_brazalete(request):
         form = BrazaleteForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "Configuración de brazalete guardada.")
+            messages.success(request, "ConfiguraciÃƒÂ³n de brazalete guardada.")
             return redirect('parque:lista_brazaletes')
     else:
         form = BrazaleteForm()
@@ -679,18 +709,18 @@ def editar_brazalete(request, pk):
         form = BrazaleteForm(request.POST, instance=brazalete)
         if form.is_valid():
             form.save()
-            messages.success(request, "Configuración actualizada.")
+            messages.success(request, "ConfiguraciÃƒÂ³n actualizada.")
             return redirect('parque:lista_brazaletes')
     else:
         form = BrazaleteForm(instance=brazalete)
-    return render(request, 'parque/brazaletes/form.html', {'form': form, 'titulo': 'Editar Configuración'})
+    return render(request, 'parque/brazaletes/form.html', {'form': form, 'titulo': 'Editar ConfiguraciÃƒÂ³n'})
 
 @login_required
 def eliminar_brazalete(request, pk):
     brazalete = get_object_or_404(Brazalete, pk=pk)
     if request.method == 'POST':
         brazalete.delete()
-        messages.success(request, "Configuración eliminada.")
+        messages.success(request, "ConfiguraciÃƒÂ³n eliminada.")
         return redirect('parque:lista_brazaletes')
     return render(request, 'parque/brazaletes/eliminar.html', {'brazalete': brazalete})
 

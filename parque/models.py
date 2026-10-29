@@ -119,10 +119,20 @@ class Evento(models.Model):
         null=True, blank=True,
         verbose_name="Foto Comprobante Abono 1"
     )
+    foto_factura_abono1 = models.ImageField(
+        upload_to='parque/facturas/',
+        null=True, blank=True,
+        verbose_name="Foto Factura Abono 1"
+    )
     foto_abono2 = models.ImageField(
         upload_to='parque/comprobantes/',
         null=True, blank=True,
         verbose_name="Foto Comprobante Abono 2"
+    )
+    foto_factura_abono2 = models.ImageField(
+        upload_to='parque/facturas/',
+        null=True, blank=True,
+        verbose_name="Foto Factura Abono 2"
     )
 
     def __str__(self):

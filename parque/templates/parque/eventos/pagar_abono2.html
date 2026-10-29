@@ -161,12 +161,29 @@
                                 {% if evento.foto_abono2 %}
                                 <div class="mt-2 d-flex align-items-center gap-3">
                                     <div class="position-relative d-inline-block">
-                                        <span class="badge bg-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Foto de factura</span>
+                                        <span class="badge bg-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Comprobante</span>
                                         <img src="{{ evento.foto_abono2.url }}" alt="Comprobante" class="img-thumbnail" style="max-height:100px;">
                                     </div>
-                                    <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Borrar la foto? Los datos del abono no se modificarán.')">
+                                    <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Borrar el comprobante? Los datos del abono no se modificarán.')">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar foto</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar comprobante</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <!-- Foto Factura -->
+                            <div class="col-12 mt-2">
+                                <label class="form-label fw-bold small"><i class="bi bi-receipt me-1"></i>Foto de la Factura Abono 2</label>
+                                {{ form.foto_factura_abono2 }}
+                                {% if evento.foto_factura_abono2 %}
+                                <div class="mt-2 d-flex align-items-center gap-3">
+                                    <div class="position-relative d-inline-block">
+                                        <span class="badge bg-warning text-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Factura</span>
+                                        <img src="{{ evento.foto_factura_abono2.url }}" alt="Factura Abono 2" class="img-thumbnail" style="max-height:100px;">
+                                    </div>
+                                    <form method="post" action="{% url 'parque:borrar_foto_factura_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Borrar la foto de factura? Los datos del abono no se modificarán.')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning"><i class="bi bi-trash me-1"></i>Borrar factura</button>
                                     </form>
                                 </div>
                                 {% endif %}
