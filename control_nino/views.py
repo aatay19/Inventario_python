@@ -369,6 +369,57 @@ def registrar_incidente_nino(request, pk):
     return redirect('control_nino:lista_control_ninos')
 
 
+@login_required
+@control_nino_required
+def registrar_incidente_fiesta(request, pk):
+    """Permite registrar un incidente u observación especial sobre una fiesta y guardarlo en la bitácora/novedades."""
+    fiesta = get_object_or_404(Fiesta, pk=pk)
+    es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    if request.method != 'POST':
+        if es_ajax:
+            return JsonResponse({'ok': False, 'error': 'Método no permitido.'}, status=405)
+        return redirect('control_nino:lista_control_ninos')
+
+    titulo = request.POST.get('titulo', '').strip()
+    descripcion = request.POST.get('descripcion', '').strip()
+
+    if not descripcion:
+        error_msg = "Debes ingresar una descripción detallada del incidente."
+        if es_ajax:
+            return JsonResponse({'ok': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
+        return redirect('control_nino:lista_control_ninos')
+
+    if not titulo:
+        titulo = f"Incidente: {fiesta.nombre}"
+
+    novedad = Novedad.objects.create(
+        tipo='INCIDENTE',
+        titulo=titulo,
+        descripcion=descripcion,
+        usuario=request.user,
+        fiesta=fiesta
+    )
+
+    msg = f"Incidente registrado correctamente para la fiesta '{fiesta.nombre}'."
+    if es_ajax:
+        return JsonResponse({
+            'ok': True,
+            'mensaje': msg,
+            'novedad': {
+                'id': novedad.pk,
+                'titulo': novedad.titulo,
+                'descripcion': novedad.descripcion,
+                'fecha': timezone.localtime(novedad.fecha_registro).strftime('%d/%m/%Y %H:%M'),
+                'usuario': request.user.username,
+            }
+        })
+
+    messages.success(request, msg)
+    return redirect('control_nino:lista_control_ninos')
+
+
 def _control_ninos_queryset(fecha_str):
     """Devuelve el queryset filtrado por fecha (YYYY-MM-DD) si se indica."""
     qs = ControlNino.objects.all().order_by('fecha_registro')
@@ -772,7 +823,9 @@ def estadisticas_control_ninos(request):
     tot_ninos_renovados_45 = 0
     tot_tiempo_fiestas = 0
     tot_cash_45 = 0.0
+    tot_cash_45_base = 0.0
     tot_cash_90 = 0.0
+    tot_cash_nuevos = 0.0
     tot_cash_total = 0.0
 
     for clave in claves_ordenadas:
@@ -786,6 +839,8 @@ def estadisticas_control_ninos(request):
 
         cash_45 = round(n45 * PRECIO_NINO_45, 2)
         cash_90 = round(n90 * PRECIO_NINO_90, 2)
+        cash_nuevos = round(n_renovados * PRECIO_NINO_45, 2)
+        cash_45_base = round(max(0, n45 - n_renovados) * PRECIO_NINO_45, 2)
         cash_total = round(cash_45 + cash_90, 2)
 
         etiqueta_periodo = _formatear_etiqueta_periodo(clave, periodo)
@@ -797,7 +852,9 @@ def estadisticas_control_ninos(request):
             'ninos_90': n90,
             'ninos_renovados_45': n_renovados,
             'cash_45': cash_45,
+            'cash_45_base': cash_45_base,
             'cash_90': cash_90,
+            'cash_nuevos': cash_nuevos,
             'cash_total': cash_total,
             'fiestas': f,
             'brazaletes': br,
@@ -809,7 +866,9 @@ def estadisticas_control_ninos(request):
         tot_ninos_90 += n90
         tot_ninos_renovados_45 += n_renovados
         tot_cash_45 += cash_45
+        tot_cash_45_base += cash_45_base
         tot_cash_90 += cash_90
+        tot_cash_nuevos += cash_nuevos
         tot_cash_total += cash_total
         tot_fiestas += f
         tot_brazaletes += br
@@ -826,10 +885,13 @@ def estadisticas_control_ninos(request):
         'periodo': periodo,
         'total_ninos': tot_ninos,
         'total_ninos_45': tot_ninos_45,
+        'total_ninos_45_base': max(0, tot_ninos_45 - tot_ninos_renovados_45),
         'total_ninos_90': tot_ninos_90,
         'total_ninos_renovados_45': tot_ninos_renovados_45,
         'total_cash_45': round(tot_cash_45, 2),
+        'total_cash_45_base': round(tot_cash_45_base, 2),
         'total_cash_90': round(tot_cash_90, 2),
+        'total_cash_nuevos': round(tot_cash_nuevos, 2),
         'total_cash_total': round(tot_cash_total, 2),
         'total_fiestas': tot_fiestas,
         'total_brazaletes': tot_brazaletes,

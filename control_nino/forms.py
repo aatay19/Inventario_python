@@ -7,6 +7,7 @@ class ControlNinoForm(forms.ModelForm):
     tiempo = forms.TypedChoiceField(
         choices=ControlNino.TIEMPO_CHOICES,
         coerce=int,
+        initial=90,
         widget=forms.Select(attrs={'class': 'form-select'}),
         label='Tiempo'
     )

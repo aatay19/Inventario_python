@@ -8,6 +8,7 @@ urlpatterns = [
     path('nuevo/', views.crear_control_nino, name='crear_control_nino'),
     path('editar/<int:pk>/', views.editar_control_nino, name='editar_control_nino'),
     path('incidente/<int:pk>/', views.registrar_incidente_nino, name='registrar_incidente_nino'),
+    path('fiesta/incidente/<int:pk>/', views.registrar_incidente_fiesta, name='registrar_incidente_fiesta'),
     path('agregar-tiempo/<int:pk>/', views.agregar_tiempo_nino, name='agregar_tiempo_nino'),
     path('eliminar/<int:pk>/', views.eliminar_control_nino, name='eliminar_control_nino'),
     path('salida/<int:pk>/', views.marcar_salida, name='marcar_salida'),

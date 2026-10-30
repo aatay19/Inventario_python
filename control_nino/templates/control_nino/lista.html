@@ -147,6 +147,7 @@
                                         <button type="button" class="btn btn-sm btn-outline-warning btn-abrir-incidente" 
                                                 data-nino-id="{{ nino.pk }}" 
                                                 data-nino-nombre="{{ nino.nombre }}"
+                                                data-tipo="Niño"
                                                 data-url="{% url 'control_nino:registrar_incidente_nino' nino.pk %}"
                                                 title="Registrar incidente de {{ nino.nombre }}">
                                             <i class="bi bi-exclamation-triangle me-1"></i>Incidente
@@ -159,9 +160,6 @@
                                             <i class="bi bi-file-earmark-pdf"></i>
                                         </a>
                                         {% endif %}
-                                        <a href="{% url 'control_nino:eliminar_control_nino' nino.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
                                     </div>
                                     {% if nino.puede_agregar_45 %}
                                     <div class="d-flex align-items-center gap-1 border-top pt-2 bloque-agregar-tiempo">
@@ -301,6 +299,13 @@
                                         </form>
                                     {% endif %}
                                     <div class="d-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-warning btn-abrir-incidente"
+                                                data-url="{% url 'control_nino:registrar_incidente_fiesta' fiesta.pk %}"
+                                                data-nombre="{{ fiesta.nombre }}"
+                                                data-tipo="Fiesta"
+                                                title="Registrar incidente de {{ fiesta.nombre }}">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                        </button>
                                         <a href="{% url 'control_nino:editar_fiesta' fiesta.pk %}" class="btn btn-sm btn-outline-primary" title="Editar fiesta y brazaletes">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>
@@ -309,9 +314,6 @@
                                             <i class="bi bi-file-earmark-pdf"></i>
                                         </a>
                                         {% endif %}
-                                        <a href="{% url 'control_nino:eliminar_fiesta' fiesta.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
                                     </div>
                                     {% if fiesta.puede_agregar_45 or fiesta.puede_agregar_90 %}
                                     <div class="d-flex align-items-center flex-wrap gap-1 border-top pt-2 bloque-agregar-tiempo">
@@ -378,14 +380,14 @@
                     <div class="alert alert-light border d-flex align-items-center mb-3 py-2 px-3">
                         <i class="bi bi-person-fill fs-3 text-secondary me-2"></i>
                         <div>
-                            <div class="small text-muted text-uppercase fw-semibold" style="font-size: 0.75rem;">Niño seleccionado</div>
+                            <div class="small text-muted text-uppercase fw-semibold" style="font-size: 0.75rem;" id="modalIncidenteTipo">Niño seleccionado</div>
                             <strong class="fs-6 text-dark" id="modalIncidenteNombre">--</strong>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label for="id_incidente_titulo" class="form-label fw-bold">Título / Asunto</label>
                         <input type="text" name="titulo" id="id_incidente_titulo" class="form-control" placeholder="Ej: Caída, llanto, llamado de padres, objeto perdido...">
-                        <div class="form-text small">Opcional. Por defecto será "Incidente: [Nombre del niño]".</div>
+                        <div class="form-text small">Opcional. Por defecto será "Incidente: [Nombre del niño o fiesta]".</div>
                     </div>
                     <div class="mb-2">
                         <label for="id_incidente_descripcion" class="form-label fw-bold">Descripción del incidente <span class="text-danger">*</span></label>
@@ -1109,6 +1111,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalEl = document.getElementById('modalIncidenteNino');
     const formIncidente = document.getElementById('formIncidenteNino');
     const spanNombre = document.getElementById('modalIncidenteNombre');
+    const spanTipo = document.getElementById('modalIncidenteTipo');
     const inputTitulo = document.getElementById('id_incidente_titulo');
     const inputDesc = document.getElementById('id_incidente_descripcion');
     const btnGuardar = document.getElementById('btnGuardarIncidente');
@@ -1123,9 +1126,11 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', function (e) {
             e.preventDefault();
             const url = this.dataset.url;
-            const nombre = this.dataset.ninoNombre || 'Niño';
+            const tipo = this.dataset.tipo || 'Niño';
+            const nombre = this.dataset.nombre || this.dataset.ninoNombre || tipo;
 
             formIncidente.action = url;
+            if (spanTipo) spanTipo.textContent = tipo + ' seleccionado';
             if (spanNombre) spanNombre.textContent = nombre;
             if (inputTitulo) inputTitulo.value = '';
             if (inputDesc) inputDesc.value = '';
