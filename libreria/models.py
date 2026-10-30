@@ -138,7 +138,6 @@ class MovimientosInventario(models.Model):
     cantidad_empaques = models.FloatField(verbose_name="Cantidad de Empaques", default=0.0, blank=True, null=True, help_text="Cantidad de bultos, cajas o paquetes.")
     fecha_movimiento = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Movimiento")
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor")
-    codigo_lote = models.CharField(max_length=50, null=True, blank=True, verbose_name="Código de Lote")
 
     def __str__(self):
         return f"{self.tipo_movimiento} - {self.producto.nombre_producto} - {self.cantidad} unidades el {self.fecha_movimiento:%Y-%m-%d}"
@@ -190,10 +189,10 @@ class PedidoCompra(models.Model):
     proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, verbose_name="Proveedor")
     fecha_pedido = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Pedido")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
-    codigo_lote = models.CharField(max_length=50, unique=True, verbose_name="Código de Pedido")
+    codigo_pedido = models.CharField(max_length=50, unique=True, verbose_name="Código de Pedido")
 
     def __str__(self):
-        return f"Pedido {self.codigo_lote} - {self.proveedor.razonsocial}"
+        return f"Pedido {self.codigo_pedido} - {self.proveedor.razonsocial}"
 
     class Meta:
         verbose_name = "Pedido de Compra"

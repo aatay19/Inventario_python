@@ -327,8 +327,8 @@ def inventario_deposito_vencido(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Si vienen de un traslado/carga reciente, pasar el lote para el modal de PDF
-    pdf_lote = request.session.pop('ultimo_vencido_pdf_lote', None)
+    # Si vienen de un traslado/carga reciente, pasar la operación para el modal de PDF
+    pdf_mov = request.session.pop('ultimo_vencido_pdf_mov', None)
     pdf_tipo = request.session.pop('ultimo_vencido_pdf_tipo', None)
 
     context = {
@@ -337,7 +337,7 @@ def inventario_deposito_vencido(request):
         'categoria': categoria,
         'order': order,
         'titulo': 'Depósito de Productos Vencidos',
-        'pdf_lote': pdf_lote,
+        'pdf_mov': pdf_mov,
         'pdf_tipo': pdf_tipo,
     }
     return render(request, 'inventario/deposito_vencido.html', context)

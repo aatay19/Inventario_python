@@ -74,10 +74,10 @@
     </div>
 
     {% if historial_list %}
-        {% for lote in historial_list %}
-            {% with tipo_mov=lote.info.tipo_movimiento %}
+        {% for operacion in historial_list %}
+            {% with tipo_mov=operacion.info.tipo_movimiento %}
             <div class="card shadow-sm border-0 mb-4 overflow-hidden">
-                <!-- Cabecera del lote -->
+                <!-- Cabecera de la operación -->
                 <div class="card-header text-white py-3
                     {% if tipo_mov == 'TRASLADO_VENCIDO' %}bg-warning
                     {% elif tipo_mov == 'SALIDA_VENCIDO' %}bg-danger
@@ -92,13 +92,13 @@
                                 {% else %}
                                     <i class="fas fa-plus-circle me-2"></i>Carga Directa a Vencidos
                                 {% endif %}
-                                &mdash; {{ lote.info.fecha_movimiento|date:"d/m/Y H:i:s" }}
+                                &mdash; {{ operacion.info.fecha_movimiento|date:"d/m/Y H:i:s" }}
                             </h5>
                         </div>
                         <div class="col-md-5 text-md-end small
                             {% if tipo_mov == 'TRASLADO_VENCIDO' %}text-dark opacity-75{% else %}text-white-50{% endif %}">
-                            Lote: <code class="{% if tipo_mov == 'TRASLADO_VENCIDO' %}text-dark{% else %}text-white{% endif %}">
-                                {{ lote.info.codigo_lote }}
+                            Operación: <code class="{% if tipo_mov == 'TRASLADO_VENCIDO' %}text-dark{% else %}text-white{% endif %}">
+                                {{ operacion.info.id }}
                             </code>
                         </div>
                     </div>
@@ -123,24 +123,24 @@
                                 </span>
                             {% endif %}
                         </div>
-                        {% if lote.info.proveedor_nombre %}
+                        {% if operacion.info.proveedor_nombre %}
                         <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Proveedor:</span>
-                            <span class="fw-semibold"><i class="fas fa-truck me-1 text-muted"></i>{{ lote.info.proveedor_nombre }}</span>
+                            <span class="fw-semibold"><i class="fas fa-truck me-1 text-muted"></i>{{ operacion.info.proveedor_nombre }}</span>
                         </div>
                         {% endif %}
                         <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Resumen:</span>
                             <span class="badge bg-white text-dark border me-1">
-                                {{ lote.info.total_items }} Producto{% if lote.info.total_items != 1 %}s{% endif %}
+                                {{ operacion.info.total_items }} Producto{% if operacion.info.total_items != 1 %}s{% endif %}
                             </span>
                             <span class="badge bg-white text-dark border">
-                                {{ lote.info.total_unidades }} Unidades Totales
+                                {{ operacion.info.total_unidades }} Unidades Totales
                             </span>
                         </div>
                         <div class="col-xl-3 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
                             <!-- Botón PDF -->
-                            <a href="{% url 'movimientos.exportar_vencido_pdf' %}?lote={{ lote.info.codigo_lote }}&tipo={{ tipo_mov }}"
+                            <a href="{% url 'movimientos.exportar_movimiento_pdf' %}?mov={{ operacion.info.id }}&tipo={{ tipo_mov }}"
                                class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap"
                                target="_blank" title="Descargar Comprobante PDF">
                                 <i class="fas fa-file-pdf me-1"></i> PDF
@@ -171,7 +171,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in lote.detalles %}
+                                {% for item in operacion.detalles %}
                                 <tr>
                                     <td class="ps-4">
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>

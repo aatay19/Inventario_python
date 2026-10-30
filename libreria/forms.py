@@ -5,7 +5,7 @@ from django.db import transaction
 import re
 from django.forms import ModelChoiceField
 from django.utils import timezone
-from .servicios_lotes import aplicar_movimiento, aplicar_entrada_existente, revertir_movimiento
+from .servicios_inventario import aplicar_movimiento, revertir_movimiento
 
 class ProductoModelChoiceField(ModelChoiceField):
     """
@@ -226,7 +226,7 @@ class MovimientosInventarioForm(forms.ModelForm):
         
         cantidad = cleaned_data.get("cantidad")
 
-        # Las entradas se registran desde su flujo propio porque necesitan crear el lote.
+        # Las entradas se registran desde su flujo propio.
         if tipo_movimiento == 'ENTRADA':
             if not self.instance.pk:
                 self.add_error('tipo_movimiento', 'Las entradas se registran desde el flujo de Entrada.')

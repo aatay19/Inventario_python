@@ -126,7 +126,7 @@
   </div>
 </div>
 
-{% if pdf_lote %}
+{% if pdf_mov %}
 <!-- Modal de descarga de PDF -->
 <div class="modal fade" id="modalPdfVencido" tabindex="-1" aria-labelledby="modalPdfVencidoLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -143,9 +143,9 @@
         <p class="fw-bold fs-5 mb-1">¡Operación registrada exitosamente!</p>
         <p class="text-muted mb-3">
           El comprobante PDF ha sido generado y está listo para descargar.<br>
-          <small class="text-muted">Lote: <code>{{ pdf_lote }}</code></small>
+          <small class="text-muted">Operación: <code>{{ pdf_mov }}</code></small>
         </p>
-        <a href="{% url 'movimientos.exportar_vencido_pdf' %}?lote={{ pdf_lote }}&tipo={{ pdf_tipo }}"
+        <a href="{% url 'movimientos.exportar_vencido_pdf' %}?mov={{ pdf_mov }}&tipo={{ pdf_tipo }}"
            class="btn btn-success btn-lg px-4 shadow-sm">
           <i class="fas fa-download me-2"></i>Descargar Comprobante PDF
         </a>

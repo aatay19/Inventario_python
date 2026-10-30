@@ -1,8 +1,7 @@
-import uuid
 from datetime import datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Q, Sum, Max, Count, OuterRef, Subquery, Case, When, Value, IntegerField, F
+from django.db.models import Q, Sum, Max, Min, Count, OuterRef, Subquery, Case, When, Value, IntegerField, F
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -11,14 +10,7 @@ from django import forms
 from .auth import es_inventario_acceso, es_pleno_acceso, es_almacenista_o_superior
 from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra
 from ..forms import MovimientosInventarioForm, HistorialProveedoresNotasForm
-from ..servicios_lotes import (
-    consumir_lotes_fefo,
-    registrar_consumo,
-    registrar_entrada,
-    revertir_movimiento,
-    aplicar_movimiento,
-    aplicar_entrada_existente,
-)
+from ..servicios_inventario import revertir_movimiento, aplicar_movimiento
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
@@ -142,12 +134,6 @@ def movimientos_inventario_editar(request, id_movimiento):
         formulario = MovimientosInventarioForm(request.POST, instance=movimiento)
         if formulario.is_valid():
             try:
-                # Si no tiene lote, le asignamos uno al editar para que aparezca agrupado en el historial
-                if not movimiento.codigo_lote:
-                    import uuid
-                    ahora = timezone.now()
-                    movimiento.codigo_lote = f"ED-{ahora.strftime('%Y%m%d')}-{str(uuid.uuid4())[:8]}"
-                
                 formulario.save()
                 messages.success(request, 'El movimiento se ha actualizado y el stock ha sido ajustado correctamente.')
                 return redirect('movimientos.index')
@@ -156,11 +142,6 @@ def movimientos_inventario_editar(request, id_movimiento):
     else:
         formulario = MovimientosInventarioForm(instance=movimiento)
     return render(request, 'movimientos/editar.html', {'formulario': formulario, 'movimiento': movimiento})
-
-@login_required
-@user_passes_test(es_inventario_acceso, login_url='index')
-def lotes_index(request):
-    return redirect('movimientos.index')
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
@@ -254,8 +235,8 @@ def movimientos_salida_procesar(request):
         if proveedor_id:
             proveedor = Proveedor.objects.get(id=proveedor_id)
         ahora = timezone.now()
-        lote_id = f"S-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         salidas_creadas = 0
+        primer_movimiento_id = None
         try:
             with transaction.atomic():
                 for i in range(len(producto_ids)):
@@ -272,13 +253,12 @@ def movimientos_salida_procesar(request):
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
                             proveedor=proveedor,
-                            fecha_movimiento=ahora,
-                            codigo_lote=lote_id
+                            fecha_movimiento=ahora
                         )
-                        usados = consumir_lotes_fefo(producto, cant_salida)
+                        if primer_movimiento_id is None:
+                            primer_movimiento_id = movimiento.id_movimiento
                         producto.cantidad -= cant_salida
                         producto.save(update_fields=['cantidad'])
-                        registrar_consumo(movimiento, usados)
                         salidas_creadas += 1
             
             if proveedor:
@@ -290,9 +270,10 @@ def movimientos_salida_procesar(request):
                 
             messages.success(request, msg)
             request.session['ultimo_pdf_params'] = {
-                'lote': lote_id,
+                'mov': primer_movimiento_id,
                 'fecha': ahora.strftime('%Y-%m-%d %H:%M:%S.%f'),
-                'prov': razon_social
+                'prov': razon_social,
+                'tipo': 'SALIDA'
             }
             return redirect('movimientos.historial_salidas')
         except forms.ValidationError as e:
@@ -364,7 +345,6 @@ def movimientos_traslado_vencido_confirmar(request):
 def movimientos_traslado_vencido_procesar(request):
     """
     Procesa el traslado a vencidos.
-    NOTA: Descuenta la cantidad trasladada directamente del campo 'cantidad_actual' de los lotes vencidos.
     """
     if request.method == 'POST':
         producto_ids = request.POST.getlist('producto_id[]')
@@ -373,8 +353,8 @@ def movimientos_traslado_vencido_procesar(request):
         totales = request.POST.getlist('total_unidades[]')
         
         ahora = timezone.now()
-        lote_id = f"TV-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         traslados_creados = 0
+        primer_movimiento_id = None
         try:
             with transaction.atomic():
                 for i in range(len(producto_ids)):
@@ -390,16 +370,17 @@ def movimientos_traslado_vencido_procesar(request):
                             cantidad=cant_traslado,
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
-                            fecha_movimiento=ahora,
-                            codigo_lote=lote_id
+                            fecha_movimiento=ahora
                         )
+                        if primer_movimiento_id is None:
+                            primer_movimiento_id = movimiento.id_movimiento
                         producto.cantidad -= cant_traslado
                         producto.cantidad_vencido += cant_traslado
                         producto.save(update_fields=['cantidad', 'cantidad_vencido'])
 
                         traslados_creados += 1
             messages.success(request, f'Se trasladaron exitosamente {traslados_creados} productos al deposito de vencidos.')
-            request.session['ultimo_vencido_pdf_lote'] = lote_id
+            request.session['ultimo_vencido_pdf_mov'] = primer_movimiento_id
             request.session['ultimo_vencido_pdf_tipo'] = 'TRASLADO_VENCIDO'
             return redirect('inventario.deposito_vencido')
         except forms.ValidationError as e:
@@ -483,30 +464,31 @@ def movimientos_carga_vencido_procesar(request):
         )
 
         ahora = timezone.now()
-        lote_id = f"CV-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         cargas_creadas = 0
+        primer_movimiento_id = None
         try:
             with transaction.atomic():
                 for i in range(len(producto_ids)):
                     producto = Inventario.objects.get(id_producto=producto_ids[i])
                     cant_carga = int(totales[i])
                     if cant_carga > 0:
-                        MovimientosInventario.objects.create(
+                        movimiento = MovimientosInventario.objects.create(
                             producto=producto,
                             tipo_movimiento='CARGA_VENCIDO',
                             cantidad=cant_carga,
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
                             fecha_movimiento=ahora,
-                            codigo_lote=lote_id,
                             proveedor=proveedor_ficticio
                         )
+                        if primer_movimiento_id is None:
+                            primer_movimiento_id = movimiento.id_movimiento
                         # SOLO suma al vencido, NO descuenta del principal
                         producto.cantidad_vencido += cant_carga
                         producto.save()
                         cargas_creadas += 1
             messages.success(request, f'Se cargaron exitosamente {cargas_creadas} productos directamente al deposito de vencidos.')
-            request.session['ultimo_vencido_pdf_lote'] = lote_id
+            request.session['ultimo_vencido_pdf_mov'] = primer_movimiento_id
             request.session['ultimo_vencido_pdf_tipo'] = 'CARGA_VENCIDO'
             return redirect('inventario.deposito_vencido')
         except Exception as e:
@@ -599,8 +581,8 @@ def movimientos_entrada_procesar(request):
             return redirect('movimientos.entrada')
         proveedor = Proveedor.objects.get(id=proveedor_id)
         ahora = timezone.now()
-        lote_id = f"E-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         entradas_creadas = 0
+        primer_movimiento_id = None
         try:
             with transaction.atomic():
                 for i in range(len(producto_ids)):
@@ -614,18 +596,20 @@ def movimientos_entrada_procesar(request):
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
                             proveedor=proveedor,
-                            fecha_movimiento=ahora,
-                            codigo_lote=lote_id
+                            fecha_movimiento=ahora
                         )
+                        if primer_movimiento_id is None:
+                            primer_movimiento_id = movimiento.id_movimiento
                         producto.cantidad += cant_entrada
                         producto.proveedores.add(proveedor)
                         producto.save()
                         entradas_creadas += 1
             messages.success(request, f'Se registraron exitosamente {entradas_creadas} ingresos de stock de {proveedor.razonsocial}.')
             request.session['ultimo_pdf_params'] = {
-                'lote': lote_id,
+                'mov': primer_movimiento_id,
                 'fecha': ahora.strftime('%Y-%m-%d %H:%M:%S.%f'),
-                'prov': proveedor.razonsocial
+                'prov': proveedor.razonsocial,
+                'tipo': 'ENTRADA'
             }
             pedido_id_input = request.POST.get('pedido_id_vincular')
             if pedido_id_input:
@@ -633,7 +617,7 @@ def movimientos_entrada_procesar(request):
                     pedido_real = PedidoCompra.objects.get(id_pedido=pedido_id_input)
                     pedido_real.estado = 'COMPLETADO'
                     pedido_real.save()
-                    messages.info(request, f"El pedido {pedido_real.codigo_lote} ha sido marcado como COMPLETADO.")
+                    messages.info(request, f"El pedido {pedido_real.codigo_pedido} ha sido marcado como COMPLETADO.")
                 except PedidoCompra.DoesNotExist:
                     pass
             return redirect('movimientos.historial_entradas')
@@ -687,47 +671,39 @@ def movimientos_historial_vencidos(request):
     if q:
         qs = qs.filter(Q(producto__nombre_producto__icontains=q) | Q(producto__codigo_producto__icontains=q))
 
-    from django.db.models.functions import Cast
-    from django.db.models import CharField, Case, When
-    qs_agrupado = qs.annotate(
-        lote_final=Case(
-            When(Q(codigo_lote__isnull=True) | Q(codigo_lote=''), then=Cast('id_movimiento', CharField())),
-            default='codigo_lote'
-        )
-    )
+    grupos = qs.values('fecha_movimiento', 'tipo_movimiento', 'proveedor_id').annotate(
+        total_items=Count('id_movimiento'),
+        total_unidades=Sum('cantidad'),
+    ).order_by('-fecha_movimiento')
 
-    lotes_ids = qs_agrupado.values_list('lote_final', flat=True).distinct().order_by('-fecha_movimiento')
-
-    paginator = Paginator(lotes_ids, 10)
+    paginator = Paginator(grupos, 10)
     page_number = request.GET.get('page')
-    lotes_page = paginator.get_page(page_number)
+    grupos_page = paginator.get_page(page_number)
 
     historial_final = []
-    for lid in lotes_page:
-        if lid.isdigit() and not qs.filter(codigo_lote=lid).exists():
-            movs_del_lote = qs.filter(id_movimiento=int(lid))
-            es_individual = True
-        else:
-            movs_del_lote = qs.filter(codigo_lote=lid)
-            es_individual = False
+    for grupo in grupos_page:
+        movs = qs.filter(
+            fecha_movimiento=grupo['fecha_movimiento'],
+            tipo_movimiento=grupo['tipo_movimiento'],
+            proveedor_id=grupo['proveedor_id'],
+        ).order_by('id_movimiento')
 
-        if movs_del_lote.exists():
-            primero = movs_del_lote.first()
-            tipo_mov = primero.tipo_movimiento
+        if movs.exists():
+            primero = movs.first()
             historial_final.append({
                 'info': {
-                    'codigo_lote': lid if not es_individual else 'Individual (Sin Lote)',
+                    'id': primero.id_movimiento,
                     'fecha_movimiento': primero.fecha_movimiento,
-                    'tipo_movimiento': tipo_mov,
-                    'total_items': movs_del_lote.count(),
-                    'total_unidades': movs_del_lote.aggregate(Sum('cantidad'))['cantidad__sum'],
+                    'tipo_movimiento': grupo['tipo_movimiento'],
+                    'total_items': grupo['total_items'],
+                    'total_unidades': grupo['total_unidades'],
                     'proveedor_nombre': primero.proveedor.razonsocial if primero.proveedor else None,
                 },
-                'detalles': movs_del_lote
+                'detalles': movs
             })
 
     return render(request, 'movimientos/historial_vencidos.html', {
-        'page_obj': lotes_page,
+        'page_obj': grupos_page,
         'historial_list': historial_final,
         'tipo_filtro': tipo_filtro,
         'q': q,
@@ -749,53 +725,42 @@ def _historial_agrupado(request, tipo, titulo):
     if prov_id:
         qs = qs.filter(proveedor_id=prov_id)
 
-    # Identificar lotes y movimientos individuales para mostrarlos por separado si no tienen lote
-    from django.db.models.functions import Cast
-    from django.db.models import CharField, Case, When
+    grupos = qs.values('fecha_movimiento', 'proveedor_id').annotate(
+        total_items=Count('id_movimiento'),
+        total_unidades=Sum('cantidad'),
+    ).order_by('-fecha_movimiento')
     
-    qs_agrupado = qs.annotate(
-        lote_final=Case(
-            When(Q(codigo_lote__isnull=True) | Q(codigo_lote=''), then=Cast('id_movimiento', CharField())),
-            default='codigo_lote'
-        )
-    )
-    
-    lotes_ids = qs_agrupado.values_list('lote_final', flat=True).distinct().order_by('-fecha_movimiento')
-    
-    paginator = Paginator(lotes_ids, 10)
+    paginator = Paginator(grupos, 10)
     page_number = request.GET.get('page')
-    lotes_page = paginator.get_page(page_number)
+    grupos_page = paginator.get_page(page_number)
     
     historial_final = []
-    for lid in lotes_page:
-        # Si lid es un ID de movimiento (individual) o un codigo_lote real
-        if lid.isdigit() and not qs.filter(codigo_lote=lid).exists():
-            movs_del_lote = qs.filter(id_movimiento=int(lid))
-            es_individual = True
-        else:
-            movs_del_lote = qs.filter(codigo_lote=lid)
-            es_individual = False
+    for grupo in grupos_page:
+        movs = qs.filter(
+            fecha_movimiento=grupo['fecha_movimiento'],
+            proveedor_id=grupo['proveedor_id'],
+        ).order_by('id_movimiento')
             
-        if movs_del_lote.exists():
-            primero = movs_del_lote.first()
-            info_lote = {
-                'codigo_lote': lid if not es_individual else "Individual (Sin Código)",
+        if movs.exists():
+            primero = movs.first()
+            info_operacion = {
+                'id': primero.id_movimiento,
                 'fecha_movimiento': primero.fecha_movimiento,
                 'proveedor__razonsocial': primero.proveedor.razonsocial if primero.proveedor else "S/P",
                 'proveedor__rif': primero.proveedor.rif if primero.proveedor else "-",
-                'total_items': movs_del_lote.count(),
-                'total_unidades': movs_del_lote.aggregate(Sum('cantidad'))['cantidad__sum']
+                'total_items': grupo['total_items'],
+                'total_unidades': grupo['total_unidades']
             }
             historial_final.append({
-                'info': info_lote,
-                'detalles': movs_del_lote
+                'info': info_operacion,
+                'detalles': movs
             })
 
     proveedores_list = Proveedor.objects.all().order_by('razonsocial')
     ultimo_pdf_params = request.session.pop('ultimo_pdf_params', None)
     
     return render(request, 'movimientos/historial_masivo.html', {
-        'page_obj': lotes_page,
+        'page_obj': grupos_page,
         'historial_list': historial_final,
         'proveedores_list': proveedores_list,
         'prov_id': prov_id,
@@ -892,16 +857,22 @@ def historial_proveedores_notas_eliminar(request,id_historialproveedor):
 
 @login_required
 @user_passes_test(es_inventario_acceso, login_url='index')
-def exportar_lote_pdf(request):
+def exportar_movimiento_pdf(request):
     fecha_str = request.GET.get('fecha')
     prov_nombre = request.GET.get('prov')
     tipo = request.GET.get('tipo', 'ENTRADA')
-    lote_id = request.GET.get('lote')
+    mov_id = request.GET.get('mov')
     
     try:
         from fpdf import FPDF
-        if lote_id:
-            qs = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
+        if mov_id:
+            base = MovimientosInventario.objects.get(id_movimiento=mov_id)
+            tipo = base.tipo_movimiento
+            qs = MovimientosInventario.objects.filter(
+                fecha_movimiento=base.fecha_movimiento,
+                tipo_movimiento=base.tipo_movimiento,
+                proveedor_id=base.proveedor_id,
+            ).select_related('producto', 'proveedor')
         else:
             filtros = {
                 'fecha_movimiento': fecha_str,
@@ -912,7 +883,7 @@ def exportar_lote_pdf(request):
             qs = MovimientosInventario.objects.filter(**filtros).select_related('producto', 'proveedor')
         
         if not qs.exists():
-            messages.error(request, "No se encontró el lote especificado.")
+            messages.error(request, "No se encontró la operación especificada.")
             return redirect('movimientos.index')
             
         pdf = FPDF()
@@ -940,8 +911,8 @@ def exportar_lote_pdf(request):
         pdf.cell(90, 10, "Producto", 1, 0, "C", True)
         pdf.cell(25, 10, "Total Unid.", 1, 0, "C", True)
         pdf.cell(25, 10, "Unidad", 1, 0, "C", True)
-        pdf.cell(25, 10, "U. x Req.", 1, 0, "C", True)
-        pdf.cell(25, 10, "Requerimiento", 1, 1, "C", True)
+        pdf.cell(25, 10, "U. x Empaque", 1, 0, "C", True)
+        pdf.cell(25, 10, "Cant. Empaque", 1, 1, "C", True)
         
         pdf.set_font("Helvetica", "", 8)
         for item in qs:
@@ -972,23 +943,18 @@ def exportar_lote_pdf(request):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
-def movimientos_lote_eliminar(request):
+def movimientos_operacion_eliminar(request):
     if request.method == 'POST':
-        lote_id = request.POST.get('lote_id')
-        fecha_str = request.POST.get('fecha')
-        prov_nombre = request.POST.get('prov')
-        tipo = request.POST.get('tipo', 'ENTRADA')
+        mov_id = request.POST.get('mov_id')
 
         try:
             with transaction.atomic():
-                if lote_id:
-                    movs = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto')
-                else:
-                    movs = MovimientosInventario.objects.filter(
-                        fecha_movimiento=fecha_str,
-                        proveedor__razonsocial=prov_nombre,
-                        tipo_movimiento=tipo
-                    ).select_related('producto')
+                base = MovimientosInventario.objects.get(id_movimiento=mov_id)
+                movs = MovimientosInventario.objects.filter(
+                    fecha_movimiento=base.fecha_movimiento,
+                    tipo_movimiento=base.tipo_movimiento,
+                    proveedor_id=base.proveedor_id,
+                ).select_related('producto')
 
                 count = 0
                 for mov in movs:
@@ -997,25 +963,29 @@ def movimientos_lote_eliminar(request):
                 
                 movs.delete()
                 
-            tipo_txt = 'Entrada' if tipo == 'ENTRADA' else 'Operación'
+            tipo_txt = 'Entrada' if base.tipo_movimiento == 'ENTRADA' else 'Operación'
             messages.success(request, f'{tipo_txt} eliminada exitosamente ({count} registros revertidos).')
             
         except Exception as e:
-            tipo_txt = 'la entrada' if tipo == 'ENTRADA' else 'la operación'
-            messages.error(request, f'Error al eliminar {tipo_txt}: {str(e)}')
+            messages.error(request, f'Error al eliminar la operación: {str(e)}')
             
         return redirect(request.META.get('HTTP_REFERER', 'movimientos.index'))
     return redirect('movimientos.index')
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
-def movimientos_lote_editar(request, lote_id):
-    movimientos = MovimientosInventario.objects.filter(codigo_lote=lote_id).select_related('producto', 'proveedor')
+def movimientos_operacion_editar(request, id_movimiento):
+    base = get_object_or_404(MovimientosInventario, id_movimiento=id_movimiento)
+    movimientos = MovimientosInventario.objects.filter(
+        fecha_movimiento=base.fecha_movimiento,
+        tipo_movimiento=base.tipo_movimiento,
+        proveedor_id=base.proveedor_id,
+    ).select_related('producto', 'proveedor')
     if not movimientos.exists():
         messages.error(request, "Registro no encontrado.")
         return redirect('movimientos.index')
 
-    tipo = movimientos.first().tipo_movimiento
+    tipo = base.tipo_movimiento
 
     if request.method == 'POST':
         try:
@@ -1074,7 +1044,7 @@ def movimientos_lote_editar(request, lote_id):
                             
                         if nueva_cant_prod > 0:
                             if tipo == 'ENTRADA':
-                                raise Exception("Las entradas deben registrarse desde el flujo de Entrada para asociar su lote.")
+                                raise Exception("Las entradas deben registrarse desde el flujo de Entrada.")
                             prod_nuevo = Inventario.objects.get(id_producto=nuevo_prod_id)
                             info = movimientos.first()
                             nuevo_mov = MovimientosInventario.objects.create(
@@ -1084,8 +1054,7 @@ def movimientos_lote_editar(request, lote_id):
                                 unidad_empaque=nueva_unidad_prod,
                                 cantidad_empaques=nueva_cant_empaques_prod,
                                 proveedor=info.proveedor,
-                                fecha_movimiento=info.fecha_movimiento,
-                                codigo_lote=lote_id
+                                fecha_movimiento=info.fecha_movimiento
                             )
                             aplicar_movimiento(nuevo_mov)
                             nuevos_agregados += 1
@@ -1103,12 +1072,12 @@ def movimientos_lote_editar(request, lote_id):
     info = movimientos.first()
     # Mostramos todos los productos para que siempre se pueda agregar un extra
     productos_disponibles = Inventario.objects.all().order_by('nombre_producto')
-    productos_en_lote = movimientos.values_list('producto_id', flat=True)
-    productos_disponibles = productos_disponibles.exclude(id_producto__in=productos_en_lote)
+    productos_en_operacion = movimientos.values_list('producto_id', flat=True)
+    productos_disponibles = productos_disponibles.exclude(id_producto__in=productos_en_operacion)
 
-    return render(request, 'movimientos/lote_editar.html', {
+    return render(request, 'movimientos/operacion_editar.html', {
         'movimientos': movimientos,
-        'lote_id': lote_id,
+        'operacion_id': base.id_movimiento,
         'tipo': tipo,
         'info': info,
         'unidades_choices': UnidadEmpaqueChoices.choices,
@@ -1120,19 +1089,30 @@ def movimientos_lote_editar(request, lote_id):
 @user_passes_test(es_almacenista_o_superior, login_url='index')
 def exportar_vencido_pdf(request):
     """Genera PDF para traslado a vencidos o carga directa a vencidos."""
-    lote_id = request.GET.get('lote')
+    mov_id = request.GET.get('mov')
     tipo = request.GET.get('tipo', 'TRASLADO_VENCIDO')
 
     try:
         from fpdf import FPDF
         from django.http import HttpResponse
 
-        qs = MovimientosInventario.objects.filter(
-            codigo_lote=lote_id
-        ).select_related('producto', 'proveedor').order_by('id_movimiento')
+        if mov_id:
+            base = MovimientosInventario.objects.get(id_movimiento=mov_id)
+            qs = MovimientosInventario.objects.filter(
+                fecha_movimiento=base.fecha_movimiento,
+                tipo_movimiento=base.tipo_movimiento,
+                proveedor_id=base.proveedor_id,
+            ).select_related('producto', 'proveedor').order_by('id_movimiento')
+            tipo = base.tipo_movimiento
+        else:
+            fecha_str = request.GET.get('fecha')
+            qs = MovimientosInventario.objects.filter(
+                fecha_movimiento=fecha_str,
+                tipo_movimiento=tipo,
+            ).select_related('producto', 'proveedor').order_by('id_movimiento')
 
         if not qs.exists():
-            messages.error(request, 'No se encontro el lote especificado para generar el PDF.')
+            messages.error(request, 'No se encontro la operación especificada para generar el PDF.')
             return redirect('inventario.deposito_vencido')
 
         ahora = timezone.localtime(qs[0].fecha_movimiento)
@@ -1155,8 +1135,10 @@ def exportar_vencido_pdf(request):
         pdf.cell(0, 10, titulo_doc, ln=True, align='C')
         pdf.set_font('Helvetica', '', 8)
         pdf.cell(0, 5, subtitulo, ln=True, align='C')
+        mov_id_param = request.GET.get('mov')
         pdf.cell(0, 5, f'Fecha: {ahora.strftime("%d/%m/%Y %H:%M:%S")}', ln=True, align='C')
-        pdf.cell(0, 5, f'Codigo de Lote: {lote_id}', ln=True, align='C')
+        if mov_id_param:
+            pdf.cell(0, 5, f'Operación: #{mov_id_param}', ln=True, align='C')
         if qs[0].proveedor:
             pdf.cell(0, 5, f'Proveedor: {qs[0].proveedor.razonsocial} (RIF: {qs[0].proveedor.rif})', ln=True, align='C')
         pdf.ln(6)
@@ -1318,8 +1300,8 @@ def movimientos_salida_vencido_procesar(request):
                 pass
 
         ahora = timezone.now()
-        lote_id = f"SV-{ahora.strftime('%Y%m%d%H%M')}-{str(uuid.uuid4())[:8]}"
         salidas_creadas = 0
+        primer_movimiento_id = None
         try:
             with transaction.atomic():
                 for i in range(len(producto_ids)):
@@ -1331,16 +1313,17 @@ def movimientos_salida_vencido_procesar(request):
                                 f"Stock vencido insuficiente para {producto.nombre_producto}. "
                                 f"Disponible en vencido: {producto.cantidad_vencido}"
                             )
-                        MovimientosInventario.objects.create(
+                        movimiento = MovimientosInventario.objects.create(
                             producto=producto,
                             tipo_movimiento='SALIDA_VENCIDO',
                             cantidad=cant_salida,
                             unidad_empaque=unidades_empaque[i],
                             cantidad_empaques=float(cants_empaques[i]) if cants_empaques[i] else 0.0,
                             proveedor=proveedor,
-                            fecha_movimiento=ahora,
-                            codigo_lote=lote_id
+                            fecha_movimiento=ahora
                         )
+                        if primer_movimiento_id is None:
+                            primer_movimiento_id = movimiento.id_movimiento
                         # Solo descuenta del depósito de vencidos
                         producto.cantidad_vencido -= cant_salida
                         producto.save()

@@ -43,18 +43,18 @@
     </div>
 
     {% if page_obj %}
-        {% for lote in historial_list %}
+        {% for operacion in historial_list %}
             <div class="card shadow-sm border-0 mb-4 overflow-hidden">
                 <div class="card-header {% if tipo == 'ENTRADA' %}bg-success{% else %}bg-danger{% endif %} text-white py-3">
                     <div class="row align-items-center">
                         <div class="col-md-6">
                             <h5 class="mb-0 fw-bold">
                                 <i class="bi {% if tipo == 'ENTRADA' %}bi-receipt{% else %}bi-truck{% endif %} me-2"></i>
-                                Transacción: {{ lote.info.fecha_movimiento|date:"d/m/Y H:i:s" }}
+                                Transacción: {{ operacion.info.fecha_movimiento|date:"d/m/Y H:i:s" }}
                             </h5>
                         </div>
                         <div class="col-md-6 text-md-end text-white-50 small">
-                            {% if tipo == 'ENTRADA' %}Nº de Entrada: {{ lote.info.codigo_lote }}{% else %}Nº de Operación: {{ lote.info.codigo_lote }}{% endif %}
+                            {% if tipo == 'ENTRADA' %}Nº de Entrada: {{ operacion.info.id }}{% else %}Nº de Operación: {{ operacion.info.id }}{% endif %}
                         </div>
                     </div>
                 </div>
@@ -62,31 +62,31 @@
                     <div class="row align-items-center">
                         <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Proveedor / Destinatario:</span>
-                            <span class="fw-bold">{{ lote.info.proveedor__razonsocial }}</span>
-                            <small class="text-muted d-block">{{ lote.info.proveedor__rif }}</small>
+                            <span class="fw-bold">{{ operacion.info.proveedor__razonsocial }}</span>
+                            <small class="text-muted d-block">{{ operacion.info.proveedor__rif }}</small>
                         </div>
                         <div class="col-xl-3 col-md-12 mb-2 mb-xl-0">
                             <span class="text-muted small d-block">Resumen de Carga:</span>
-                            <span class="badge bg-white text-dark border">{{ lote.info.total_items }} Productos</span>
-                            <span class="badge bg-white text-dark border">{{ lote.info.total_unidades }} Unidades Totales</span>
+                            <span class="badge bg-white text-dark border">{{ operacion.info.total_items }} Productos</span>
+                            <span class="badge bg-white text-dark border">{{ operacion.info.total_unidades }} Unidades Totales</span>
                         </div>
                         <div class="col-xl-6 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
-                            <a href="{% url 'movimientos.lote_editar' lote.info.codigo_lote %}" 
+                            <a href="{% url 'movimientos.operacion_editar' operacion.info.id %}" 
                                class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="{% if tipo == 'ENTRADA' %}Editar Entrada{% else %}Editar Operación{% endif %}">
                                 <i class="bi bi-pencil-square fs-6 me-1"></i> Editar
                             </a>
                             {% endif %}
-                            <a href="{% url 'movimientos.exportar_lote_pdf' %}?lote={{ lote.info.codigo_lote }}&fecha={{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ lote.info.proveedor__razonsocial }}&tipo={{ tipo }}" 
+                            <a href="{% url 'movimientos.exportar_movimiento_pdf' %}?mov={{ operacion.info.id }}&fecha={{ operacion.info.fecha_movimiento|date:'Y-m-d H:i:s.u' }}&prov={{ operacion.info.proveedor__razonsocial }}&tipo={{ tipo }}" 
                                class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" target="_blank" title="Comprobante PDF">
                                 <i class="bi bi-file-earmark-pdf-fill fs-6 me-1"></i> PDF
                             </a>
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
-                            <form action="{% url 'movimientos.lote_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('{% if tipo == 'ENTRADA' %}¿Está seguro de eliminar esta entrada? Se revertirá el stock de todos sus productos y no se puede deshacer.{% else %}¿Está seguro de eliminar esta operación? Se revertirá el stock de todos sus productos y no se puede deshacer.{% endif %}');">
+                            <form action="{% url 'movimientos.operacion_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('{% if tipo == 'ENTRADA' %}¿Está seguro de eliminar esta entrada? Se revertirá el stock de todos sus productos y no se puede deshacer.{% else %}¿Está seguro de eliminar esta operación? Se revertirá el stock de todos sus productos y no se puede deshacer.{% endif %}');">
                                 {% csrf_token %}
-                                <input type="hidden" name="lote_id" value="{{ lote.info.codigo_lote }}">
-                                <input type="hidden" name="fecha" value="{{ lote.info.fecha_movimiento|date:'Y-m-d H:i:s' }}">
-                                <input type="hidden" name="prov" value="{{ lote.info.proveedor__razonsocial }}">
+                                <input type="hidden" name="mov_id" value="{{ operacion.info.id }}">
+                                <input type="hidden" name="fecha" value="{{ operacion.info.fecha_movimiento|date:'Y-m-d H:i:s' }}">
+                                <input type="hidden" name="prov" value="{{ operacion.info.proveedor__razonsocial }}">
                                 <input type="hidden" name="tipo" value="{{ tipo }}">
                                 <button type="submit" class="btn btn-danger shadow-sm rounded-pill px-3 text-nowrap" title="{% if tipo == 'ENTRADA' %}Eliminar Entrada{% else %}Eliminar Operación Completa{% endif %}">
                                     <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
@@ -106,27 +106,19 @@
                             <thead class="table-light">
                                 <tr class="small text-muted text-uppercase">
                                     <th class="ps-4">Producto</th>
-                                    {% if tipo != 'ENTRADA' %}
-                                    <th class="text-center">Código</th>
-                                    {% endif %}
-                                    <th class="text-center">{% if tipo == 'ENTRADA' %}Total Unid. Entrantes{% else %}Total Unid. Salientes{% endif %}</th>
+                                <th class="text-center">{% if tipo == 'ENTRADA' %}Total Unid. Entrantes{% else %}Total Unid. Salientes{% endif %}</th>
                                     <th class="text-center">Unidad</th>
                                     <th class="text-center">Unid. x Empaque</th>
                                     <th class="text-center pe-4">Cant. Empaque</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in lote.detalles %}
+                                {% for item in operacion.detalles %}
                                 <tr>
                                     <td class="ps-4">
                                         <div class="fw-bold">{{ item.producto.nombre_producto }}</div>
                                         <div class="x-small text-muted">{{ item.producto.codigo_producto }}</div>
                                     </td>
-                                    {% if tipo != 'ENTRADA' %}
-                                    <td class="text-center">
-                                        <span class="badge bg-secondary">{{ item.codigo_lote|default:"-" }}</span>
-                                    </td>
-                                    {% endif %}
                                     <td class="text-center fw-bold {% if tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
                                         {{ item.cantidad }}
                                     </td>
@@ -193,8 +185,8 @@
             cancelButtonText: 'Cerrar'
         }).then((result) => {
             if (result.isConfirmed) {
-                const url = "{% url 'movimientos.exportar_lote_pdf' %}" + 
-                            "?lote={{ ultimo_pdf_params.lote }}" +
+                const url = "{% url 'movimientos.exportar_movimiento_pdf' %}" + 
+                            "?mov={{ ultimo_pdf_params.mov }}" +
                             "&fecha={{ ultimo_pdf_params.fecha }}" +
                             "&prov={{ ultimo_pdf_params.prov }}" +
                             "&tipo={{ tipo }}";

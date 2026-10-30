@@ -137,7 +137,7 @@ def compras_procesar(request):
         maximos = request.POST.getlist('maximo[]')
         pedido_id = request.POST.get('pedido_id')
         ahora = timezone.now()
-        lote_id = f"E-{ahora.strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+        codigo_pedido = f"E-{ahora.strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
         ordenes_creadas = 0
         try:
             with transaction.atomic():
@@ -150,7 +150,7 @@ def compras_procesar(request):
                         proveedor=proveedor,
                         fecha_pedido=ahora,
                         estado='PENDIENTE',
-                        codigo_lote=lote_id
+                        codigo_pedido=codigo_pedido
                     )
                 nuevas_relaciones = 0
                 for i in range(len(producto_ids)):
@@ -218,7 +218,7 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf.set_font("Helvetica", "B", 18)
     pdf.cell(0, 15, "COMPROBANTE PEDIDO", ln=True, align="C")
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, f"Código: {pedido.codigo_lote}", ln=True, align="C")
+    pdf.cell(0, 8, f"Código: {pedido.codigo_pedido}", ln=True, align="C")
     pdf.ln(5)
     pdf.set_fill_color(245, 245, 245)
     pdf.set_font("Helvetica", "B", 11)
@@ -234,8 +234,8 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     pdf.set_text_color(255, 255, 255)
     pdf.cell(100, 10, " Producto", 1, 0, "L", True)
     pdf.cell(30, 10, " Tipo", 1, 0, "C", True)
-    pdf.cell(30, 10, " U. x Req.", 1, 0, "C", True)
-    pdf.cell(30, 10, " Requerimiento", 1, 1, "C", True)
+    pdf.cell(30, 10, " U. x Empaque", 1, 0, "C", True)
+    pdf.cell(30, 10, " Cant. Empaque", 1, 1, "C", True)
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", "", 8)
     for det in pedido.detalles.all():
@@ -254,7 +254,7 @@ def exportar_pedido_unico_pdf(request, pedido_id):
     else:
         pdf_out = bytes(pdf_out)
     response = HttpResponse(pdf_out, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="comprobante_entrada_{pedido.codigo_lote}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="comprobante_entrada_{pedido.codigo_pedido}.pdf"'
     return response
 
 @login_required
@@ -304,7 +304,7 @@ def movimientos_historial_pedidos(request):
     q = request.GET.get('q', '').strip()
     qs = PedidoCompra.objects.select_related('proveedor').all()
     if q:
-        qs = qs.filter(Q(proveedor__razonsocial__icontains=q) | Q(codigo_lote__icontains=q))
+        qs = qs.filter(Q(proveedor__razonsocial__icontains=q) | Q(codigo_pedido__icontains=q))
     qs = qs.prefetch_related('detalles__producto').order_by('-fecha_pedido')
     paginator = Paginator(qs, 10)
     page_number = request.GET.get('page')
