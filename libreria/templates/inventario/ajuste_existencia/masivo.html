@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block title %}Ajuste Masivo de Existencia{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+          <li class="breadcrumb-item"><a href="{% url 'inventario.ajuste_existencia' %}">Ajuste de Existencia</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Ajuste Masivo</li>
+        </ol>
+      </nav>
+      <h2 class="mb-0 fw-bold">Ajuste <span class="text-primary">Masivo</span></h2>
+      <p class="text-muted mb-0">
+        Agrega productos y fija su existencia exacta. Límite: {{ max_productos }} productos por operación.
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'inventario.ajuste_cantidad_exacta' %}" class="btn btn-outline-success">
+        <i class="bi bi-123 me-1"></i> Ajuste individual
+      </a>
+      <a href="{% url 'inventario.ajuste_existencia' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Volver
+      </a>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-11">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-primary"></i>Productos a ajustar</h5>
+          <span class="badge bg-secondary rounded-pill" id="contador">0 / {{ max_productos }}</span>
+        </div>
+        <div class="card-body p-4">
+          <form method="post" id="form-masivo">
+            {% csrf_token %}
+
+            <label for="buscador-producto" class="form-label fw-bold">1. Buscar y agregar productos</label>
+            <div class="position-relative">
+              <div class="input-group input-group-lg">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="buscador-producto" class="form-control border-start-0"
+                       placeholder="Escriba el nombre o el código del producto..." autocomplete="off">
+              </div>
+              <div id="resultados-busqueda" class="list-group shadow position-absolute w-100 mt-1"
+                   style="z-index: 1050; display: none; max-height: 300px; overflow-y: auto;"></div>
+            </div>
+
+            <div id="aviso-limite" class="alert alert-warning border-0 mt-3 d-none">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              Ya alcanzaste el límite de {{ max_productos }} productos por ajuste.
+            </div>
+
+            <div class="table-responsive mt-4">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 45%;">Producto</th>
+                    <th>Stock actual</th>
+                    <th style="width: 180px;">Nueva cantidad</th>
+                    <th class="text-center">Quitar</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-productos">
+                  <tr id="fila-vacia">
+                    <td colspan="4" class="text-center text-muted py-4">
+                      <i class="bi bi-inbox fs-3 d-block mb-1"></i>
+                      Aún no has agregado productos.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center gap-3 mt-4 flex-wrap">
+              <button type="button" class="btn btn-outline-secondary" id="btn-vaciar">
+                <i class="bi bi-trash3 me-1"></i> Vaciar lista
+              </button>
+              <button type="submit" class="btn btn-primary btn-lg px-4" id="btn-actualizar" disabled>
+                <i class="bi bi-check-circle me-2"></i> Actualizar <span id="num-productos">0</span> producto(s)
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="alert alert-warning border-0 mt-3 mb-0">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        Esta acción reemplaza la cantidad actual de cada producto; no realiza sumas ni restas.
+        Se pueden ajustar hasta <strong>{{ max_productos }}</strong> productos por operación.
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const MAX_PRODUCTOS = {{ max_productos }};
+  const urlBusqueda = "{% url 'api.productos.stock_search' %}";
+  const buscador = document.getElementById('buscador-producto');
+  const resultados = document.getElementById('resultados-busqueda');
+  const tbody = document.getElementById('tabla-productos');
+  const contador = document.getElementById('contador');
+  const avisoLimite = document.getElementById('aviso-limite');
+  const btnVaciar = document.getElementById('btn-vaciar');
+  const btnActualizar = document.getElementById('btn-actualizar');
+  const numProductos = document.getElementById('num-productos');
+  const form = document.getElementById('form-masivo');
+
+  const seleccionados = new Map();
+  let debounceTimer = null;
+  let busquedaToken = 0;
+
+  function escaparHtml(texto) {
+    return String(texto ?? '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function ocultarResultados() {
+    resultados.style.display = 'none';
+  }
+
+  function actualizarEstado() {
+    const total = seleccionados.size;
+    contador.textContent = total + ' / ' + MAX_PRODUCTOS;
+    numProductos.textContent = total;
+    btnActualizar.disabled = total === 0;
+    avisoLimite.classList.toggle('d-none', total < MAX_PRODUCTOS);
+  }
+
+  function enfocarCantidad(id) {
+    const input = tbody.querySelector('input[name="cantidad[]"][data-id="' + id + '"]');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function renderTabla() {
+    tbody.innerHTML = '';
+
+    if (seleccionados.size === 0) {
+      const fila = document.createElement('tr');
+      fila.id = 'fila-vacia';
+      fila.innerHTML = '<td colspan="4" class="text-center text-muted py-4">' +
+        '<i class="bi bi-inbox fs-3 d-block mb-1"></i>Aún no has agregado productos.</td>';
+      tbody.appendChild(fila);
+      actualizarEstado();
+      return;
+    }
+
+    seleccionados.forEach(function (p) {
+      const fila = document.createElement('tr');
+      fila.innerHTML =
+        '<td>' +
+          '<div class="fw-bold">' + escaparHtml(p.nombre) + '</div>' +
+          '<small class="text-muted">' + escaparHtml(p.codigo) + '</small>' +
+        '</td>' +
+        '<td><span class="badge bg-secondary rounded-pill px-3">' + escaparHtml(p.stock) + '</span></td>' +
+        '<td>' +
+          '<input type="number" name="cantidad[]" data-id="' + p.id + '"' +
+                 ' class="form-control text-center fw-bold" min="0" step="1" required' +
+                 ' value="' + escaparHtml(p.cantidad) + '">' +
+        '</td>' +
+        '<td class="text-center">' +
+          '<input type="hidden" name="producto_id[]" value="' + p.id + '">' +
+          '<button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-id="' + p.id + '" title="Quitar producto">' +
+            '<i class="bi bi-x-lg"></i>' +
+          '</button>' +
+        '</td>';
+      tbody.appendChild(fila);
+    });
+
+    actualizarEstado();
+  }
+
+  function agregarProducto(p) {
+    if (seleccionados.has(p.id)) {
+      enfocarCantidad(p.id);
+      return;
+    }
+    if (seleccionados.size >= MAX_PRODUCTOS) {
+      avisoLimite.classList.remove('d-none');
+      return;
+    }
+
+    p.cantidad = p.stock;
+    seleccionados.set(p.id, p);
+    renderTabla();
+    setTimeout(function () { enfocarCantidad(p.id); }, 50);
+  }
+
+  async function buscarProductos(query) {
+    const token = ++busquedaToken;
+    try {
+      const respuesta = await fetch(urlBusqueda + '?q=' + encodeURIComponent(query));
+      const data = await respuesta.json();
+      if (token !== busquedaToken) return;
+
+      const lista = (data.productos || []).slice(0, 15);
+      resultados.innerHTML = '';
+
+      if (lista.length === 0) {
+        ocultarResultados();
+        return;
+      }
+
+      lista.forEach(function (p) {
+        const boton = document.createElement('button');
+        boton.type = 'button';
+        boton.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2';
+        boton.innerHTML =
+          '<div>' +
+            '<div class="fw-bold">' + escaparHtml(p.nombre) + '</div>' +
+            '<small class="text-muted">' + escaparHtml(p.codigo) + '</small>' +
+          '</div>' +
+          '<span class="badge bg-success rounded-pill">Stock: ' + escaparHtml(p.stock) + '</span>';
+        boton.addEventListener('click', function () {
+          agregarProducto(p);
+          buscador.value = '';
+          ocultarResultados();
+        });
+        resultados.appendChild(boton);
+      });
+
+      resultados.style.display = 'block';
+    } catch (error) {
+      if (token === busquedaToken) ocultarResultados();
+    }
+  }
+
+  buscador.addEventListener('input', function () {
+    const query = this.value.trim();
+    clearTimeout(debounceTimer);
+    if (query.length < 2) {
+      busquedaToken += 1;
+      ocultarResultados();
+      return;
+    }
+    debounceTimer = setTimeout(function () { buscarProductos(query); }, 250);
+  });
+
+  buscador.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+
+  tbody.addEventListener('input', function (e) {
+    if (e.target.matches('input[name="cantidad[]"]')) {
+      const producto = seleccionados.get(Number(e.target.dataset.id));
+      if (producto) producto.cantidad = e.target.value;
+    }
+  });
+
+  tbody.addEventListener('click', function (e) {
+    const boton = e.target.closest('.btn-quitar');
+    if (!boton) return;
+    seleccionados.delete(Number(boton.dataset.id));
+    renderTabla();
+  });
+
+  btnVaciar.addEventListener('click', function () {
+    seleccionados.clear();
+    renderTabla();
+    buscador.focus();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
+      ocultarResultados();
+    }
+  });
+
+  form.addEventListener('submit', function (e) {
+    if (seleccionados.size === 0) {
+      e.preventDefault();
+      buscador.focus();
+      return;
+    }
+    if (seleccionados.size > MAX_PRODUCTOS) {
+      e.preventDefault();
+      avisoLimite.classList.remove('d-none');
+      return;
+    }
+
+    const inputs = tbody.querySelectorAll('input[name="cantidad[]"]');
+    for (let i = 0; i < inputs.length; i++) {
+      const valor = parseInt(inputs[i].value, 10);
+      if (isNaN(valor) || valor < 0) {
+        e.preventDefault();
+        inputs[i].focus();
+        return;
+      }
+    }
+  });
+
+  renderTabla();
+});
+</script>
+<style>
+  .list-group-item:hover { background-color: #f8f9fa; cursor: pointer; }
+</style>
+{% endblock %}

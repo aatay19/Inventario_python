@@ -14,9 +14,14 @@
       <h2 class="mb-0 fw-bold">Ajuste de <span class="text-success">Cantidad Exacta</span></h2>
       <p class="text-muted mb-0">Selecciona un producto y fija su existencia total al valor indicado.</p>
     </div>
-    <a href="{% url 'inventario.ajuste_existencia' %}" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i> Volver
-    </a>
+    <div class="d-flex gap-2">
+      <a href="{% url 'inventario.ajuste_masivo' %}" class="btn btn-outline-primary">
+        <i class="bi bi-list-check me-1"></i> Ajuste masivo
+      </a>
+      <a href="{% url 'inventario.ajuste_existencia' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Volver
+      </a>
+    </div>
   </div>
 
   <div class="row justify-content-center">

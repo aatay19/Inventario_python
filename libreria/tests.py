@@ -83,3 +83,40 @@ class AjusteCantidadExactaTest(BaseInventarioTest):
         self.assertRedirects(resp, reverse('inventario.ajuste_cantidad_exacta'))
         p.refresh_from_db()
         self.assertEqual(p.cantidad, 10)
+
+
+class AjusteMasivoTest(BaseInventarioTest):
+    def _crear_producto_extra(self, cantidad=5):
+        return Inventario.objects.create(
+            codigo_producto='P2', nombre_producto='Producto 2',
+            cantidad=cantidad, cantidad_vencido=0, costo_actual=1,
+            stock_minimo=0, stock_maximo=100,
+        )
+
+    def test_actualiza_varios_productos(self):
+        p1 = self.crear_producto(cantidad=10)
+        p2 = self._crear_producto_extra(cantidad=5)
+
+        resp = self.client.post(reverse('inventario.ajuste_masivo'), {
+            'producto_id[]': [p1.id_producto, p2.id_producto],
+            'cantidad[]': ['25', '0'],
+        })
+
+        self.assertRedirects(resp, reverse('inventario.ajuste_masivo'))
+        p1.refresh_from_db()
+        p2.refresh_from_db()
+        self.assertEqual(p1.cantidad, 25)
+        self.assertEqual(p2.cantidad, 0)
+
+    def test_rechaza_mas_de_100_productos(self):
+        p = self.crear_producto(cantidad=10)
+
+        resp = self.client.post(reverse('inventario.ajuste_masivo'), {
+            'producto_id[]': [p.id_producto] * 101,
+            'cantidad[]': ['1'] * 101,
+        })
+
+        self.assertRedirects(resp, reverse('inventario.ajuste_masivo'))
+        p.refresh_from_db()
+        self.assertEqual(p.cantidad, 10)
+

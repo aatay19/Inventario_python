@@ -51,6 +51,7 @@ urlpatterns = [
     path('inventario/deposito-vencido', views.inventario_deposito_vencido, name='inventario.deposito_vencido'),
     path('inventario/ajuste-existencia', views.inventario_ajuste_existencia, name='inventario.ajuste_existencia'),
     path('inventario/ajuste-existencia/cantidad-exacta', views.inventario_ajuste_cantidad_exacta, name='inventario.ajuste_cantidad_exacta'),
+    path('inventario/ajuste-existencia/masivo', views.inventario_ajuste_masivo, name='inventario.ajuste_masivo'),
 
     # MovimientosInventario urls
     path('movimientos/', views.movimientos_inventario_index, name='movimientos.index'),

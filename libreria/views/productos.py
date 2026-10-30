@@ -345,7 +345,7 @@ def inventario_deposito_vencido(request):
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
 def inventario_ajuste_existencia(request):
-    return redirect('inventario.ajuste_cantidad_exacta')
+    return render(request, 'inventario/ajuste_existencia/index.html')
 
 
 def inventario_ajuste_cantidad_exacta(request):
@@ -377,6 +377,71 @@ def inventario_ajuste_cantidad_exacta(request):
         return redirect('inventario.ajuste_cantidad_exacta')
 
     return render(request, 'inventario/ajuste_existencia/cantidad_exacta.html')
+
+
+MAX_PRODUCTOS_AJUSTE_MASIVO = 100
+
+
+@login_required
+@user_passes_test(es_pleno_acceso, login_url='index')
+def inventario_ajuste_masivo(request):
+    if request.method == 'POST':
+        ids = request.POST.getlist('producto_id[]')
+        cantidades = request.POST.getlist('cantidad[]')
+
+        if not ids:
+            messages.error(request, 'Agrega al menos un producto para ajustar.')
+            return redirect('inventario.ajuste_masivo')
+
+        if len(ids) > MAX_PRODUCTOS_AJUSTE_MASIVO:
+            messages.error(
+                request,
+                f'Puedes ajustar como máximo {MAX_PRODUCTOS_AJUSTE_MASIVO} productos a la vez.',
+            )
+            return redirect('inventario.ajuste_masivo')
+
+        if len(ids) != len(cantidades):
+            messages.error(request, 'Los datos enviados no son válidos.')
+            return redirect('inventario.ajuste_masivo')
+
+        ajustes = {}
+        for producto_id, cantidad in zip(ids, cantidades):
+            try:
+                producto_id = int(producto_id)
+                cantidad = int(cantidad)
+            except (TypeError, ValueError):
+                messages.error(request, 'Todos los productos deben tener una cantidad entera válida.')
+                return redirect('inventario.ajuste_masivo')
+
+            if cantidad < 0:
+                messages.error(request, 'Las cantidades no pueden ser negativas.')
+                return redirect('inventario.ajuste_masivo')
+
+            if producto_id in ajustes:
+                messages.error(request, 'No se puede repetir el mismo producto en un ajuste masivo.')
+                return redirect('inventario.ajuste_masivo')
+
+            ajustes[producto_id] = cantidad
+
+        productos = Inventario.objects.filter(pk__in=ajustes.keys())
+        if productos.count() != len(ajustes):
+            messages.error(request, 'Uno o más productos seleccionados no existen.')
+            return redirect('inventario.ajuste_masivo')
+
+        with transaction.atomic():
+            for producto in Inventario.objects.select_for_update().filter(pk__in=ajustes.keys()):
+                producto.cantidad = ajustes[producto.pk]
+                producto.save(update_fields=['cantidad'])
+
+        messages.success(
+            request,
+            f'Se actualizó la existencia de {len(ajustes)} producto(s) correctamente.',
+        )
+        return redirect('inventario.ajuste_masivo')
+
+    return render(request, 'inventario/ajuste_existencia/masivo.html', {
+        'max_productos': MAX_PRODUCTOS_AJUSTE_MASIVO,
+    })
 
 
 @login_required
