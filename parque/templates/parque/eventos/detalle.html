@@ -1,5 +1,91 @@
 {% extends 'parque/layout/base_parque.html' %}
 
+{% block extra_css %}
+<style>
+    /* ============================================================
+       IMÁGENES AMPLIABLES · COMPROBANTES Y FACTURAS
+       ============================================================ */
+    .imagen-ampliable {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        margin-bottom: 0.5rem;
+        border-radius: 0.375rem;
+        overflow: hidden;
+        cursor: zoom-in;
+        text-decoration: none;
+    }
+
+    .imagen-ampliable img {
+        display: block;
+        max-height: 150px;
+        width: auto;
+        max-width: 100%;
+        transition: transform 0.2s ease;
+    }
+
+    .imagen-ampliable:hover img,
+    .imagen-ampliable:focus-visible img {
+        transform: scale(1.03);
+    }
+
+    .imagen-ampliable-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .imagen-ampliable:hover .imagen-ampliable-overlay,
+    .imagen-ampliable:focus-visible .imagen-ampliable-overlay {
+        opacity: 1;
+    }
+
+    .imagen-ampliable-icon {
+        position: absolute;
+        right: 0.5rem;
+        bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.65);
+        color: #fff;
+        font-size: 0.85rem;
+        pointer-events: none;
+    }
+
+    /* Visor ampliado */
+    #modalImagen .modal-content {
+        background: #111827;
+    }
+
+    #modalImagen .modal-body {
+        min-height: 160px;
+    }
+
+    #modalImagen .modal-body img {
+        max-height: 75vh;
+        object-fit: contain;
+    }
+
+    @media (max-width: 575.98px) {
+        .imagen-ampliable img {
+            max-height: 130px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <!-- Modal de confirmación amigable para desconfirmar abono -->
@@ -164,10 +250,7 @@
                                 </div>
                                 {% if evento.foto_abono1 %}
                                 <div class="mt-2 text-center">
-                                    <div class="position-relative d-inline-block">
-                                        <span class="badge bg-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Comprobante</span>
-                                        <img src="{{ evento.foto_abono1.url }}" alt="Comprobante Abono 1" class="img-fluid img-thumbnail mb-2" style="max-height: 150px;">
-                                    </div>
+                                    {% include 'parque/eventos/includes/imagen_ampliable.html' with imagen_url=evento.foto_abono1.url imagen_titulo="Comprobante · Abono 1" imagen_alt="Comprobante Abono 1" imagen_badge="Comprobante" imagen_badge_clase="bg-dark" %}
                                     <form method="post" action="{% url 'parque:borrar_foto_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 1?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash me-1"></i>Borrar comprobante</button>
@@ -176,10 +259,7 @@
                                 {% endif %}
                                 {% if evento.foto_factura_abono1 %}
                                 <div class="mt-2 text-center">
-                                    <div class="position-relative d-inline-block">
-                                        <span class="badge bg-warning text-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Factura</span>
-                                        <img src="{{ evento.foto_factura_abono1.url }}" alt="Factura Abono 1" class="img-fluid img-thumbnail mb-2" style="max-height: 150px;">
-                                    </div>
+                                    {% include 'parque/eventos/includes/imagen_ampliable.html' with imagen_url=evento.foto_factura_abono1.url imagen_titulo="Factura · Abono 1" imagen_alt="Factura Abono 1" imagen_badge="Factura" imagen_badge_clase="bg-warning text-dark" %}
                                     <form method="post" action="{% url 'parque:borrar_foto_factura_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 1?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-warning w-100"><i class="bi bi-trash me-1"></i>Borrar factura</button>
@@ -221,10 +301,7 @@
                                 </div>
                                 {% if evento.foto_abono2 %}
                                 <div class="mt-2 text-center">
-                                    <div class="position-relative d-inline-block">
-                                        <span class="badge bg-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Comprobante</span>
-                                        <img src="{{ evento.foto_abono2.url }}" alt="Comprobante Abono 2" class="img-fluid img-thumbnail mb-2" style="max-height: 150px;">
-                                    </div>
+                                    {% include 'parque/eventos/includes/imagen_ampliable.html' with imagen_url=evento.foto_abono2.url imagen_titulo="Comprobante · Abono 2" imagen_alt="Comprobante Abono 2" imagen_badge="Comprobante" imagen_badge_clase="bg-dark" %}
                                     <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 2?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash me-1"></i>Borrar comprobante</button>
@@ -233,10 +310,7 @@
                                 {% endif %}
                                 {% if evento.foto_factura_abono2 %}
                                 <div class="mt-2 text-center">
-                                    <div class="position-relative d-inline-block">
-                                        <span class="badge bg-warning text-dark position-absolute top-0 start-0 m-1 bg-opacity-75">Factura</span>
-                                        <img src="{{ evento.foto_factura_abono2.url }}" alt="Factura Abono 2" class="img-fluid img-thumbnail mb-2" style="max-height: 150px;">
-                                    </div>
+                                    {% include 'parque/eventos/includes/imagen_ampliable.html' with imagen_url=evento.foto_factura_abono2.url imagen_titulo="Factura · Abono 2" imagen_alt="Factura Abono 2" imagen_badge="Factura" imagen_badge_clase="bg-warning text-dark" %}
                                     <form method="post" action="{% url 'parque:borrar_foto_factura_abono2' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 2?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-warning w-100"><i class="bi bi-trash me-1"></i>Borrar factura</button>
@@ -269,8 +343,56 @@
     </div>
 </div>
 
+<!-- ============================================================
+     MODAL · VISOR AMPLIADO DE COMPROBANTES Y FACTURAS
+     ============================================================ -->
+<div class="modal fade" id="modalImagen" tabindex="-1" aria-labelledby="modalImagenTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 text-white">
+                <h6 class="modal-title fw-bold" id="modalImagenTitulo">Imagen</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center p-2 p-md-3">
+                <img id="modalImagenSrc" src="" alt="Imagen ampliada" class="img-fluid rounded">
+            </div>
+            <div class="modal-footer border-0 justify-content-between">
+                <span class="text-white-50 small d-none d-sm-inline">Usa “Abrir original” para verla en tamaño real.</span>
+                <div class="d-flex gap-2">
+                    <a id="modalImagenAbrir" href="#" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir original
+                    </a>
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Visor de imágenes de comprobantes y facturas
+    const modalImagen = document.getElementById('modalImagen');
+    if (modalImagen) {
+        modalImagen.addEventListener('show.bs.modal', function (event) {
+            const boton = event.relatedTarget;
+            if (!boton) return;
+
+            const url = boton.getAttribute('data-imagen-url');
+            const titulo = boton.getAttribute('data-imagen-titulo') || 'Imagen';
+
+            document.getElementById('modalImagenTitulo').textContent = titulo;
+            const imagen = document.getElementById('modalImagenSrc');
+            imagen.src = url;
+            imagen.alt = titulo;
+            document.getElementById('modalImagenAbrir').href = url;
+        });
+
+        modalImagen.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('modalImagenSrc').src = '';
+        });
+    }
+
     let formularioPendiente = null;
 
     function interceptarDesconfirmar(formEl) {

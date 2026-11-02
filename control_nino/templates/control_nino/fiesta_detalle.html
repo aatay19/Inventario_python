@@ -335,7 +335,7 @@
 
     function actualizar() {
         const ahoraServidor = Date.now() - offset;
-        const restante = totalSeg - Math.floor((ahoraServidor - inicio) / 1000);
+        const restante = Math.max(0, totalSeg - Math.floor((ahoraServidor - inicio) / 1000));
         tiempoEl.textContent = formato(restante);
 
         let estado;

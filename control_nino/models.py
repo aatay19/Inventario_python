@@ -25,19 +25,26 @@ class ControlNino(models.Model):
 
     def clean(self):
         super().clean()
-        if self.tiempo and self.tiempo > TIEMPO_MAXIMO_NINO:
-            raise ValidationError(f"Los niños no pueden tener un tiempo mayor a {TIEMPO_MAXIMO_NINO} minutos.")
+        tiempo_base = self.tiempo - (self.tiempo_adicional or 0)
+        if tiempo_base > TIEMPO_MAXIMO_NINO:
+            raise ValidationError(f"Los niños no pueden tener un tiempo inicial mayor a {TIEMPO_MAXIMO_NINO} minutos.")
 
     def __str__(self):
         return f"{self.nombre} ({self.tiempo} min)"
 
     @property
     def puede_agregar_45(self):
-        return not self.salio and self.tiempo + 45 <= TIEMPO_MAXIMO_NINO
+        if self.salio:
+            return False
+        # Si culminó su tiempo (está en 0), se le puede renovar +45 min (nuevo brazalete)
+        if self.segundos_restantes <= 0:
+            return True
+        # Si aún tiene tiempo corriendo, solo se suma si no supera el límite de 90 min de sesión activa
+        return self.tiempo + 45 <= TIEMPO_MAXIMO_NINO
 
     @property
     def tiempo_maximo_alcanzado(self):
-        return not self.salio and self.tiempo >= TIEMPO_MAXIMO_NINO
+        return not self.salio and self.segundos_restantes > 0 and self.tiempo >= TIEMPO_MAXIMO_NINO
 
     @property
     def fecha_fin(self):

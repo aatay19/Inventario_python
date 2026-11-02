@@ -2,62 +2,454 @@
 
 {% block title %}Calendario de Eventos – Control Parque{% endblock %}
 
-{% block content %}
-<!-- FullCalendar CSS -->
+{% block extra_css %}
+<!-- FullCalendar · estilos base -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+<style>
+    /* ============================================================
+       CALENDARIO DE EVENTOS · ESTILOS
+       ============================================================ */
+    /* ============================================================
+       1. CONTENEDOR, CABECERA Y LEYENDA
+       ============================================================ */
+    #calendar {
+        font-family: inherit;
+        font-size: 1rem;
+    }
 
+    .calendar-card {
+        border-radius: 1rem;
+    }
+
+    .btn-nueva-evento {
+        width: 100%;
+    }
+
+    .legend-badge {
+        font-size: 0.7rem;
+    }
+
+    /* ============================================================
+       2. FULLCALENDAR · BASE
+       ============================================================ */
+    .fc {
+        --fc-border-color: #e5e7eb;
+        --fc-today-bg-color: rgba(25, 135, 84, 0.07);
+        --fc-page-bg-color: #ffffff;
+        --fc-neutral-bg-color: #f8f9fa;
+        --fc-event-border-color: transparent;
+    }
+
+    /* ============================================================
+       3. BARRA DE HERRAMIENTAS
+       ============================================================ */
+    .fc .fc-toolbar {
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.9rem;
+    }
+
+    .fc .fc-toolbar.fc-footer-toolbar {
+        margin-top: 0.85rem;
+        margin-bottom: 0;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        text-transform: capitalize;
+    }
+
+    .fc .fc-button {
+        font-size: 0.9rem;
+        font-weight: 600;
+        padding: 0.45rem 0.8rem;
+        border-radius: 0.5rem;
+        text-transform: capitalize;
+    }
+
+    .fc .fc-button-primary {
+        background-color: #198754;
+        border-color: #198754;
+    }
+
+    .fc .fc-button-primary:not(:disabled):hover,
+    .fc .fc-button-primary:not(:disabled).fc-button-active {
+        background-color: #146c43;
+        border-color: #146c43;
+    }
+
+    .fc .fc-button-primary:focus {
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.3);
+    }
+
+    /* ============================================================
+       4. CABECERA DE DÍAS Y CELDAS
+       ============================================================ */
+    .fc .fc-col-header-cell-cushion {
+        display: block;
+        padding: 8px 4px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #495057;
+    }
+
+    .fc .fc-daygrid-day-frame {
+        min-height: 112px;
+    }
+
+    .fc .fc-daygrid-day-number {
+        padding: 5px 7px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #343a40;
+    }
+
+    .fc .fc-day-today {
+        background: rgba(25, 135, 84, 0.06) !important;
+    }
+
+    /* ============================================================
+       5. EVENTOS
+       ============================================================ */
+    .fc-event {
+        font-size: 0.84rem;
+        line-height: 1.25;
+        padding: 2px 5px;
+        cursor: pointer;
+    }
+
+    .fc .fc-daygrid-event {
+        margin: 1px 2px;
+        white-space: normal;
+    }
+
+    .fc-event-custom {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        overflow: hidden;
+    }
+
+    .fc-event-meta {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 3px;
+        line-height: 1.1;
+    }
+
+    .fc-event-meta:empty {
+        display: none;
+    }
+
+    .fc-event-time-custom {
+        font-size: 0.72rem;
+        font-weight: 700;
+        opacity: 0.95;
+    }
+
+    .fc-event-title-custom {
+        font-weight: 600;
+        overflow: hidden;
+    }
+
+    .fc-event-title-list {
+        font-weight: 600;
+    }
+
+    .fc .fc-daygrid-more-link {
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 2px 4px;
+    }
+
+    /* ============================================================
+       6. INDICADORES DE CONFIRMACIÓN
+       ============================================================ */
+    .dot-confirmed {
+        color: #20c997;
+        font-size: 1.5rem;
+        line-height: 0.9;
+        letter-spacing: -1px;
+        text-shadow: 0 0 5px rgba(0, 0, 0, 0.55);
+        font-weight: bold;
+    }
+
+    .dot-double {
+        letter-spacing: -4px;
+    }
+
+    .fc-event-meta .dot-confirmed {
+        font-size: 1rem;
+    }
+
+    .fc-list-event-time .confirm-dots {
+        display: inline-flex;
+        vertical-align: middle;
+        margin-left: 2px;
+    }
+
+    .fc-list-event-time .dot-confirmed {
+        font-size: 0.95rem;
+        vertical-align: middle;
+    }
+
+    /* ============================================================
+       7. VISTA DE LISTA
+       ============================================================ */
+    .fc .fc-list-day-cushion {
+        background: #f1f3f5;
+        padding: 0.65rem 1rem;
+    }
+
+    .fc .fc-list-event td {
+        padding: 0.6rem 0.75rem;
+    }
+
+    .fc .fc-list-event:hover td {
+        background: rgba(25, 135, 84, 0.07);
+        cursor: pointer;
+    }
+
+    .fc .fc-list-event-title {
+        font-size: 0.92rem;
+    }
+
+    .fc .fc-list-event-time {
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    /* ============================================================
+       8. MODAL DE DETALLE
+       ============================================================ */
+    .modal-evento-tabla td {
+        font-size: 0.95rem;
+    }
+
+    /* ============================================================
+       9. RESPONSIVE · TABLET
+       ============================================================ */
+    @media (max-width: 991.98px) {
+        .fc .fc-toolbar-title {
+            font-size: 1.2rem;
+        }
+
+        .fc .fc-button {
+            font-size: 0.82rem;
+            padding: 0.4rem 0.65rem;
+        }
+
+        .fc .fc-col-header-cell-cushion {
+            font-size: 0.72rem;
+        }
+
+        .fc .fc-daygrid-day-frame {
+            min-height: 96px;
+        }
+
+        .fc .fc-daygrid-day-number {
+            font-size: 0.84rem;
+        }
+
+        .fc-event {
+            font-size: 0.8rem;
+        }
+
+        .fc-event-time-custom {
+            font-size: 0.68rem;
+        }
+    }
+
+    /* ============================================================
+       10. RESPONSIVE · TELÉFONO
+       ============================================================ */
+    @media (max-width: 575.98px) {
+        #calendar {
+            font-size: 0.95rem;
+        }
+
+        .legend-badge {
+            font-size: 0.66rem;
+            padding: 0.3rem 0.55rem !important;
+        }
+
+        .fc .fc-toolbar {
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.4rem;
+        }
+
+        .fc .fc-toolbar.fc-footer-toolbar {
+            justify-content: center;
+        }
+
+        .fc .fc-toolbar-chunk {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.3rem;
+        }
+
+        .fc .fc-toolbar-chunk:first-child,
+        .fc .fc-toolbar-chunk:last-child {
+            flex: 0 0 auto;
+        }
+
+        .fc .fc-toolbar-chunk:nth-child(2) {
+            flex: 1 1 auto;
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1rem;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .fc .fc-button {
+            font-size: 0.76rem;
+            padding: 0.4rem 0.5rem;
+        }
+
+        .fc .fc-col-header-cell-cushion {
+            font-size: 0.68rem;
+            padding: 6px 1px;
+        }
+
+        .fc .fc-daygrid-day-frame {
+            min-height: 78px;
+        }
+
+        .fc .fc-daygrid-day-number {
+            font-size: 0.82rem;
+            padding: 3px 5px;
+        }
+
+        .fc-event {
+            font-size: 0.74rem;
+        }
+
+        .fc .fc-daygrid-event {
+            white-space: nowrap;
+        }
+
+        .fc-event-custom {
+            gap: 0;
+        }
+
+        .fc-event-time-custom {
+            font-size: 0.64rem;
+        }
+
+        .fc-event-title-custom {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fc .fc-daygrid-more-link {
+            font-size: 0.7rem;
+        }
+
+        .fc .fc-list-day-cushion {
+            font-size: 0.9rem;
+            padding: 0.7rem 0.75rem;
+        }
+
+        .fc .fc-list-event td {
+            padding: 0.7rem 0.6rem;
+        }
+
+        .fc .fc-list-event-title {
+            font-size: 0.95rem;
+        }
+
+        .fc .fc-list-event-time {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================================
+       11. RESPONSIVE · ESCRITORIO
+       ============================================================ */
+    @media (min-width: 768px) {
+        .btn-nueva-evento {
+            width: auto;
+        }
+
+        .legend-badge {
+            font-size: 0.8rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ============================================================
+     CALENDARIO DE EVENTOS · CONTENIDO
+     ============================================================ -->
 <div class="container-fluid">
 
-    <!-- Cabecera -->
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-8">
-            <h1 class="h3 mb-0 text-gray-800 fw-bold">
+    <!-- ========================================================
+         CABECERA
+         ======================================================== -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800 fw-bold">
                 <i class="bi bi-calendar3 me-2 text-success"></i>Calendario de Eventos
             </h1>
             <p class="text-muted small mb-0">Vista general de todas las reservas y eventos registrados.</p>
         </div>
-        <div class="col-md-4 text-md-end mt-3 mt-md-0">
-            <a href="{% url 'parque:crear_evento' %}" class="btn btn-success shadow-sm">
-                <i class="bi bi-plus-circle me-1"></i> Nueva Reserva/Evento
-            </a>
-        </div>
+        <a href="{% url 'parque:crear_evento' %}" class="btn btn-success shadow-sm btn-nueva-evento">
+            <i class="bi bi-plus-circle me-1"></i> Nueva Reserva/Evento
+        </a>
     </div>
 
-    <!-- Leyenda de colores -->
+    <!-- ========================================================
+         LEYENDA DE ESTADOS Y ABONOS
+         ======================================================== -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="d-flex flex-wrap gap-3 align-items-center">
+            <div class="d-flex flex-wrap gap-2 gap-md-3 align-items-center">
                 <span class="fw-semibold small text-muted">Estado:</span>
-                <span class="badge rounded-pill px-3 py-2" style="background:#0d6efd;">
+                <span class="badge rounded-pill px-3 py-2 legend-badge" style="background:#0d6efd;">
                     <i class="bi bi-circle-fill me-1"></i>Programado
                 </span>
-                <span class="badge rounded-pill px-3 py-2" style="background:#ffc107; color:#212529;">
+                <span class="badge rounded-pill px-3 py-2 legend-badge" style="background:#ffc107; color:#212529;">
                     <i class="bi bi-circle-fill me-1"></i>En Curso
                 </span>
-                <span class="badge rounded-pill px-3 py-2" style="background:#198754;">
+                <span class="badge rounded-pill px-3 py-2 legend-badge" style="background:#198754;">
                     <i class="bi bi-circle-fill me-1"></i>Finalizado
                 </span>
-                <span class="badge rounded-pill px-3 py-2" style="background:#dc3545;">
+                <span class="badge rounded-pill px-3 py-2 legend-badge" style="background:#dc3545;">
                     <i class="bi bi-circle-fill me-1"></i>Cancelado
                 </span>
 
-                <span class="text-muted ms-md-3">|</span>
+                <span class="text-muted d-none d-md-inline ms-md-2">|</span>
                 <span class="fw-semibold small text-muted">Abonos:</span>
-                <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                <span class="badge bg-light text-dark border rounded-pill px-3 py-2 legend-badge">
                     <span class="badge rounded-circle p-1 bg-success me-1 d-inline-block" style="width:18px;height:18px;"></span> A1 confirmado
                 </span>
-                <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                <span class="badge bg-light text-dark border rounded-pill px-3 py-2 legend-badge">
                     <span class="badge rounded-circle p-1 bg-success me-1 d-inline-block" style="width:18px;height:18px;"></span><span class="badge rounded-circle p-1 bg-success me-1 d-inline-block" style="width:18px;height:18px;"></span> A1 y A2 confirmados
                 </span>
             </div>
         </div>
     </div>
 
-    <!-- Calendario -->
+    <!-- ========================================================
+         CALENDARIO
+         ======================================================== -->
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-3">
+            <div class="card shadow-sm border-0 calendar-card">
+                <div class="card-body p-2 p-sm-3">
                     <div id="calendar"></div>
                 </div>
             </div>
@@ -65,7 +457,9 @@
     </div>
 </div>
 
-<!-- Modal de confirmación al desconfirmar -->
+<!-- ============================================================
+     MODAL · CONFIRMACIÓN PARA DESCONFIRMAR UN ABONO
+     ============================================================ -->
 <div class="modal fade" id="modalDesconfirmar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -101,39 +495,43 @@
     </div>
 </div>
 
-<!-- Modal de detalle del evento -->
+<!-- ============================================================
+     MODAL · DETALLE DEL EVENTO
+     ============================================================ -->
 <div class="modal fade" id="modalEvento" tabindex="-1" aria-labelledby="modalEventoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header border-0 pb-0" id="modalHeader">
                 <h5 class="modal-title fw-bold" id="modalEventoLabel">—</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <table class="table table-borderless table-sm mb-0">
-                    <tbody>
-                        <tr>
-                            <td class="text-muted fw-semibold" style="width:40%;">Estado</td>
-                            <td id="modalEstado">—</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted fw-semibold">Reserva / Persona</td>
-                            <td id="modalReserva">—</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted fw-semibold">Zona</td>
-                            <td id="modalZona">—</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted fw-semibold">Fecha inicio</td>
-                            <td id="modalStart">—</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted fw-semibold">Hora inicio</td>
-                            <td id="modalHora">—</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-borderless table-sm mb-0 modal-evento-tabla">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted fw-semibold" style="width:40%;">Estado</td>
+                                <td id="modalEstado">—</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted fw-semibold">Reserva / Persona</td>
+                                <td id="modalReserva">—</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted fw-semibold">Zona</td>
+                                <td id="modalZona">—</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted fw-semibold">Fecha inicio</td>
+                                <td id="modalStart">—</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted fw-semibold">Hora inicio</td>
+                                <td id="modalHora">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div class="modal-footer border-0 pt-0 flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
@@ -171,24 +569,216 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- FullCalendar JS -->
+{% block scripts %}
+<!-- ============================================================
+     CALENDARIO DE EVENTOS · SCRIPTS
+     ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/es.global.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+    // ============================================================
+    // 1. DATOS Y PUNTOS DE CORTE RESPONSIVE
+    // ============================================================
     const eventosData = {{ eventos_json|safe }};
 
+    // En teléfonos usamos la vista de lista (mucho más legible) y una barra
+    // de herramientas simplificada. En tablets y escritorio se mantiene el mes.
+    const mqPhone = window.matchMedia('(max-width: 575.98px)');
+    const isPhone = () => mqPhone.matches;
+
+    // ============================================================
+    // 2. CONFIGURACIÓN DE LA BARRA DE HERRAMIENTAS
+    // ============================================================
+    function toolbarFor(phone) {
+        return phone
+            ? {
+                headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+                footerToolbar: { center: 'dayGridMonth,listMonth' }
+            }
+            : {
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+                },
+                footerToolbar: false
+            };
+    }
+
+    // ============================================================
+    // 3. CONTENIDO PERSONALIZADO DE CADA EVENTO
+    // ============================================================
+    function construirContenidoEvento(arg) {
+        const esLista = arg.view.type.indexOf('list') === 0;
+
+        const title = document.createElement('span');
+        title.className = 'fc-event-title ' + (esLista ? 'fc-event-title-list' : 'fc-event-title-custom');
+        title.textContent = arg.event.title;
+
+        // En la vista de lista el título va en su propia celda, sin hora
+        // duplicada (la columna de hora ya la muestra FullCalendar).
+        if (esLista) {
+            return { domNodes: [title] };
+        }
+
+        const wrap = document.createElement('div');
+        wrap.className = 'fc-event-custom';
+
+        // Fila superior: hora + puntos de confirmación de abonos.
+        const meta = document.createElement('div');
+        meta.className = 'fc-event-meta';
+
+        if (arg.timeText) {
+            const time = document.createElement('span');
+            time.className = 'fc-event-time-custom';
+            time.textContent = arg.timeText;
+            meta.appendChild(time);
+        }
+
+        wrap.appendChild(meta);
+        wrap.appendChild(title);
+        return { domNodes: [wrap] };
+    }
+
+    // ============================================================
+    // 4. MODAL DE DETALLE AL HACER CLIC EN UN EVENTO
+    // ============================================================
+    function abrirModalEvento(info) {
+        const ev = info.event;
+        const props = ev.extendedProps;
+        const color = ev.backgroundColor || '#0d6efd';
+
+        document.getElementById('modalHeader').style.borderBottom = '4px solid ' + color;
+        document.getElementById('modalEventoLabel').textContent = ev.title;
+
+        document.getElementById('modalEstado').innerHTML =
+            '<span class="badge rounded-pill" style="background:' + color + ';color:' + (color === '#ffc107' ? '#212529' : '#fff') + '">' + props.estado + '</span>';
+        document.getElementById('modalReserva').textContent = props.nombre_reserva || '—';
+        document.getElementById('modalZona').textContent = props.zona || '—';
+
+        document.getElementById('modalStart').textContent = '—';
+        document.getElementById('modalHora').textContent = '—';
+        const start = ev.start;
+        if (start) {
+            const fechaStr = start.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+            document.getElementById('modalStart').textContent = fechaStr;
+            if (!ev.allDay) {
+                const horaStr = start.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
+                document.getElementById('modalHora').textContent = horaStr;
+            } else {
+                document.getElementById('modalHora').textContent = 'Todo el día';
+            }
+        }
+
+        // Acciones del evento
+        document.getElementById('modalLinkDetalle').href = props.url_detalle;
+        document.getElementById('modalLinkEditar').href = props.url_editar;
+
+        const linkPagar = document.getElementById('modalLinkPagar');
+        linkPagar.href = props.url_pagar_abono2;
+        linkPagar.className = 'btn btn-sm rounded-pill ' + (props.tiene_abono2 ? 'btn-outline-warning' : 'btn-outline-primary');
+        linkPagar.title = props.tiene_abono2 ? 'Actualizar Abono 2' : 'Pagar Abono 2';
+        linkPagar.innerHTML = '<i class="bi bi-cash-coin"></i> ' + (props.tiene_abono2 ? 'Actualizar Abono 2' : 'Pagar Abono 2');
+
+        const linkPdf = document.getElementById('modalLinkPdf');
+        linkPdf.href = props.url_pdf_abono2;
+        linkPdf.className = 'btn btn-sm rounded-pill ' + (props.tiene_abono2 ? 'btn-outline-warning' : 'btn-outline-secondary');
+        linkPdf.title = props.tiene_abono2 ? 'Imprimir Recibo Abono 2' : 'Recibo Abono 2 (sin datos aún)';
+
+        const formA1 = document.getElementById('modalFormA1');
+        if (formA1) {
+            const mostrarA1 = props.puede_confirmar && props.tiene_abono1;
+            formA1.classList.toggle('d-none', !mostrarA1);
+            if (mostrarA1) {
+                formA1.action = props.url_toggle_1;
+                const btnA1 = document.getElementById('modalBtnA1');
+                btnA1.className = 'btn btn-sm rounded-pill ' + (props.confirmado1 ? 'btn-success' : 'btn-outline-danger');
+                const textoPor1 = props.confirmado_por1 ? ` (por: ${props.confirmado_por1})` : '';
+                btnA1.title = props.confirmado1 ? `Abono 1 confirmado${textoPor1} - clic para quitar` : 'Confirmar Abono 1';
+                // Guardar estado en el formulario para el interceptor
+                formA1.dataset.estaConfirmado = props.confirmado1 ? '1' : '0';
+                formA1.dataset.label = 'Abono 1';
+            }
+        }
+
+        const formA2 = document.getElementById('modalFormA2');
+        if (formA2) {
+            const mostrarA2 = props.puede_confirmar && props.tiene_abono2;
+            formA2.classList.toggle('d-none', !mostrarA2);
+            if (mostrarA2) {
+                formA2.action = props.url_toggle_2;
+                const btnA2 = document.getElementById('modalBtnA2');
+                btnA2.className = 'btn btn-sm rounded-pill ' + (props.confirmado2 ? 'btn-success' : 'btn-outline-danger');
+                const textoPor2 = props.confirmado_por2 ? ` (por: ${props.confirmado_por2})` : '';
+                btnA2.title = props.confirmado2 ? `Abono 2 confirmado${textoPor2} - clic para quitar` : 'Confirmar Abono 2';
+                // Guardar estado en el formulario para el interceptor
+                formA2.dataset.estaConfirmado = props.confirmado2 ? '1' : '0';
+                formA2.dataset.label = 'Abono 2';
+            }
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEvento'));
+        modal.show();
+    }
+
+    // ============================================================
+    // 5. INDICADORES DE ABONOS CONFIRMADOS
+    // ============================================================
+    function agregarIndicadoresConfirmacion(info) {
+        const esLista = info.view.type.indexOf('list') === 0;
+
+        if (!esLista) {
+            info.el.style.borderRadius = '6px';
+            info.el.style.border = 'none';
+        }
+        info.el.style.cursor = 'pointer';
+
+        const props = info.event.extendedProps;
+        const c1 = props.confirmado1;
+        const c2 = props.confirmado2;
+
+        if (c1 || c2) {
+            const badgeContainer = document.createElement('span');
+            badgeContainer.className = 'confirm-dots d-inline-flex align-items-center gap-1';
+
+            if (c1 && c2) {
+                badgeContainer.title = 'Abonos 1 y 2 confirmados';
+                badgeContainer.innerHTML = '<span class="dot-confirmed dot-double">●●</span>';
+            } else if (c1) {
+                badgeContainer.title = 'Abono 1 confirmado';
+                badgeContainer.innerHTML = '<span class="dot-confirmed">●</span>';
+            } else if (c2) {
+                badgeContainer.title = 'Abono 2 confirmado';
+                badgeContainer.innerHTML = '<span class="dot-confirmed">●</span>';
+            }
+
+            // Ubicar el indicador junto a la hora: en la vista de lista va en
+            // la celda de hora y en el mes en la fila superior del evento.
+            let destino = esLista
+                ? info.el.querySelector('.fc-list-event-time')
+                : info.el.querySelector('.fc-event-meta');
+
+            destino = destino
+                || info.el.querySelector('.fc-event-title')
+                || info.el.querySelector('.fc-list-event-title')
+                || info.el;
+            destino.appendChild(badgeContainer);
+        }
+    }
+
+    // ============================================================
+    // 6. CREACIÓN DEL CALENDARIO
+    // ============================================================
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
         locale: 'es',
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
-        },
+        initialView: isPhone() ? 'listMonth' : 'dayGridMonth',
+        ...toolbarFor(isPhone()),
         buttonText: {
             today:    'Hoy',
             month:    'Mes',
@@ -203,120 +793,33 @@ document.addEventListener('DOMContentLoaded', function () {
             hour12: false
         },
         height: 'auto',
-        aspectRatio: window.innerWidth < 768 ? 0.9 : 1.8,
         eventDisplay: 'block',
-        dayMaxEvents: 3,
-        eventClick: function (info) {
-            const ev = info.event;
-            const props = ev.extendedProps;
-            const color = ev.backgroundColor || '#0d6efd';
-
-            document.getElementById('modalHeader').style.borderBottom = '4px solid ' + color;
-            document.getElementById('modalEventoLabel').textContent = ev.title;
-
-            document.getElementById('modalEstado').innerHTML =
-                '<span class="badge rounded-pill" style="background:' + color + ';color:' + (color === '#ffc107' ? '#212529' : '#fff') + '">' + props.estado + '</span>';
-            document.getElementById('modalReserva').textContent = props.nombre_reserva || '—';
-            document.getElementById('modalZona').textContent = props.zona || '—';
-
-            document.getElementById('modalStart').textContent = '—';
-            document.getElementById('modalHora').textContent = '—';
-            const start = ev.start;
-            if (start) {
-                const fechaStr = start.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
-                document.getElementById('modalStart').textContent = fechaStr;
-                if (!ev.allDay) {
-                    const horaStr = start.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    document.getElementById('modalHora').textContent = horaStr;
-                } else {
-                    document.getElementById('modalHora').textContent = 'Todo el día';
-                }
-            }
-
-            // Acciones del evento
-            document.getElementById('modalLinkDetalle').href = props.url_detalle;
-            document.getElementById('modalLinkEditar').href = props.url_editar;
-
-            const linkPagar = document.getElementById('modalLinkPagar');
-            linkPagar.href = props.url_pagar_abono2;
-            linkPagar.className = 'btn btn-sm rounded-pill ' + (props.tiene_abono2 ? 'btn-outline-warning' : 'btn-outline-primary');
-            linkPagar.title = props.tiene_abono2 ? 'Actualizar Abono 2' : 'Pagar Abono 2';
-            linkPagar.innerHTML = '<i class="bi bi-cash-coin"></i> ' + (props.tiene_abono2 ? 'Actualizar Abono 2' : 'Pagar Abono 2');
-
-            const linkPdf = document.getElementById('modalLinkPdf');
-            linkPdf.href = props.url_pdf_abono2;
-            linkPdf.className = 'btn btn-sm rounded-pill ' + (props.tiene_abono2 ? 'btn-outline-warning' : 'btn-outline-secondary');
-            linkPdf.title = props.tiene_abono2 ? 'Imprimir Recibo Abono 2' : 'Recibo Abono 2 (sin datos aún)';
-
-            const formA1 = document.getElementById('modalFormA1');
-            if (formA1) {
-                const mostrarA1 = props.puede_confirmar && props.tiene_abono1;
-                formA1.classList.toggle('d-none', !mostrarA1);
-                if (mostrarA1) {
-                    formA1.action = props.url_toggle_1;
-                    const btnA1 = document.getElementById('modalBtnA1');
-                    btnA1.className = 'btn btn-sm rounded-pill ' + (props.confirmado1 ? 'btn-success' : 'btn-outline-danger');
-                    const textoPor1 = props.confirmado_por1 ? ` (por: ${props.confirmado_por1})` : '';
-                    btnA1.title = props.confirmado1 ? `Abono 1 confirmado${textoPor1} - clic para quitar` : 'Confirmar Abono 1';
-                    // Guardar estado en el formulario para el interceptor
-                    formA1.dataset.estaConfirmado = props.confirmado1 ? '1' : '0';
-                    formA1.dataset.label = 'Abono 1';
-                }
-            }
-
-            const formA2 = document.getElementById('modalFormA2');
-            if (formA2) {
-                const mostrarA2 = props.puede_confirmar && props.tiene_abono2;
-                formA2.classList.toggle('d-none', !mostrarA2);
-                if (mostrarA2) {
-                    formA2.action = props.url_toggle_2;
-                    const btnA2 = document.getElementById('modalBtnA2');
-                    btnA2.className = 'btn btn-sm rounded-pill ' + (props.confirmado2 ? 'btn-success' : 'btn-outline-danger');
-                    const textoPor2 = props.confirmado_por2 ? ` (por: ${props.confirmado_por2})` : '';
-                    btnA2.title = props.confirmado2 ? `Abono 2 confirmado${textoPor2} - clic para quitar` : 'Confirmar Abono 2';
-                    // Guardar estado en el formulario para el interceptor
-                    formA2.dataset.estaConfirmado = props.confirmado2 ? '1' : '0';
-                    formA2.dataset.label = 'Abono 2';
-                }
-            }
-
-            const modal = new bootstrap.Modal(document.getElementById('modalEvento'));
-            modal.show();
-        },
-        eventDidMount: function(info) {
-            info.el.style.borderRadius = '6px';
-            info.el.style.border = 'none';
-            info.el.style.cursor = 'pointer';
-
-            const props = info.event.extendedProps;
-            const c1 = props.confirmado1;
-            const c2 = props.confirmado2;
-
-            if (c1 || c2) {
-                const badgeContainer = document.createElement('span');
-                badgeContainer.className = 'confirm-dots ms-auto ps-1 d-inline-flex align-items-center gap-1';
-
-                if (c1 && c2) {
-                    badgeContainer.title = 'Abonos 1 y 2 confirmados';
-                    badgeContainer.innerHTML = '<span class="dot-confirmed dot-double">●●</span>';
-                } else if (c1) {
-                    badgeContainer.title = 'Abono 1 confirmado';
-                    badgeContainer.innerHTML = '<span class="dot-confirmed">●</span>';
-                } else if (c2) {
-                    badgeContainer.title = 'Abono 2 confirmado';
-                    badgeContainer.innerHTML = '<span class="dot-confirmed">●</span>';
-                }
-
-                // Intentar añadir el badge dentro del contenedor del título o del evento
-                const titleEl = info.el.querySelector('.fc-event-title') || info.el;
-                titleEl.appendChild(badgeContainer);
-            }
-        }
+        dayMaxEvents: isPhone() ? 2 : 3,
+        eventContent: construirContenidoEvento,
+        eventClick: abrirModalEvento,
+        eventDidMount: agregarIndicadoresConfirmacion
     });
 
     calendar.render();
 
-    // ── Interceptor: alerta amigable al desconfirmar desde el calendario ──
+    // ============================================================
+    // 7. ADAPTACIÓN AL CAMBIAR DE TAMAÑO O GIRAR EL DISPOSITIVO
+    // ============================================================
+    let eraTelefono = isPhone();
+    window.addEventListener('resize', function () {
+        const ahoraTelefono = isPhone();
+        if (ahoraTelefono === eraTelefono) return;
+        eraTelefono = ahoraTelefono;
+
+        const toolbar = toolbarFor(ahoraTelefono);
+        calendar.setOption('headerToolbar', toolbar.headerToolbar);
+        calendar.setOption('footerToolbar', toolbar.footerToolbar);
+        calendar.setOption('dayMaxEvents', ahoraTelefono ? 2 : 3);
+    });
+
+    // ============================================================
+    // 8. CONFIRMACIÓN PARA DESCONFIRMAR UN ABONO
+    // ============================================================
     let formularioPendiente = null;
 
     function interceptarDesconfirmar(formEl) {
@@ -350,78 +853,4 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
-
-<style>
-    #calendar {
-        font-family: inherit;
-    }
-    .fc .fc-toolbar-title {
-        font-size: 1.2rem;
-        font-weight: 700;
-    }
-    .fc .fc-button-primary {
-        background-color: #198754;
-        border-color: #198754;
-    }
-    .fc .fc-button-primary:not(:disabled):hover,
-    .fc .fc-button-primary:not(:disabled).fc-button-active {
-        background-color: #146c43;
-        border-color: #146c43;
-    }
-    .fc .fc-button-primary:focus {
-        box-shadow: 0 0 0 0.2rem rgba(25,135,84,.3);
-    }
-    .fc-event {
-        font-size: 0.82rem;
-        padding: 1px 4px;
-    }
-    .dot-confirmed {
-        color: #20c997;
-        font-size: 1.5rem;
-        line-height: 0.9;
-        letter-spacing: -1px;
-        text-shadow: 0 0 5px rgba(0,0,0,0.55);
-        font-weight: bold;
-    }
-    .dot-double {
-        letter-spacing: -4px;
-    }
-    .fc-day-today {
-        background: rgba(25,135,84,0.06) !important;
-    }
-    .fc-list-event:hover td {
-        background: rgba(25,135,84,0.07);
-        cursor: pointer;
-    }
-
-    @media (max-width: 575.98px) {
-        .fc .fc-toolbar {
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        .fc .fc-toolbar-chunk {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 0.25rem;
-        }
-        .fc .fc-toolbar-title {
-            font-size: 1rem;
-        }
-        .fc .fc-button {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-        }
-        .fc .fc-col-header-cell-cushion {
-            font-size: 0.75rem;
-            padding: 4px 2px;
-        }
-        .fc .fc-daygrid-day-number {
-            font-size: 0.75rem;
-        }
-        .fc-event {
-            font-size: 0.7rem;
-        }
-    }
-</style>
 {% endblock %}

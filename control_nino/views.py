@@ -202,14 +202,18 @@ def agregar_tiempo_nino(request, pk):
         minutos = 45
 
     error = None
+    tiempo_culminado = nino.segundos_restantes <= 0
+
     if minutos != 45:
         error = 'Solo se permite agregar 45 minutos.'
     elif nino.salio:
         error = 'El niño ya tiene salida registrada.'
-    elif nino.tiempo >= TIEMPO_MAXIMO_NINO:
-        error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO_NINO} minutos."
-    elif nino.tiempo + minutos > TIEMPO_MAXIMO_NINO:
-        error = f"Los niños no pueden superar los {TIEMPO_MAXIMO_NINO} minutos en total."
+    elif not tiempo_culminado:
+        # Si aún tiene tiempo corriendo, solo se suma si no supera el límite de 90 min de sesión activa
+        if nino.tiempo >= TIEMPO_MAXIMO_NINO:
+            error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO_NINO} minutos continuos. Espera a que culmine su tiempo para renovar."
+        elif nino.tiempo + minutos > TIEMPO_MAXIMO_NINO:
+            error = f"Los niños no pueden superar los {TIEMPO_MAXIMO_NINO} minutos en total."
 
     if error:
         if es_ajax:
@@ -217,7 +221,6 @@ def agregar_tiempo_nino(request, pk):
         messages.error(request, error)
     else:
         tiempo_ant = nino.tiempo
-        tiempo_culminado = nino.segundos_restantes <= 0
         nino.tiempo += minutos
         nino.tiempo_adicional += minutos
         update_fields = ['tiempo', 'tiempo_adicional']
@@ -244,7 +247,16 @@ def agregar_tiempo_nino(request, pk):
             messages.success(request, f"Se agregaron {minutos} minutos al niño '{nino.nombre}'.")
 
     if es_ajax:
-        return JsonResponse({'ok': error is None, 'tiempo': nino.tiempo, 'error': error})
+        return JsonResponse({
+            'ok': error is None,
+            'tiempo': nino.tiempo,
+            'error': error,
+            'inicio_ms': nino.inicio_ms,
+            'segundos_restantes': nino.segundos_restantes,
+            'salida_est': nino.fecha_fin.strftime('%H:%M'),
+            'puede_agregar_45': nino.puede_agregar_45,
+            'tiempo_maximo_alcanzado': nino.tiempo_maximo_alcanzado,
+        })
 
     next_url = request.POST.get('next')
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
@@ -272,6 +284,12 @@ def marcar_salida(request, pk):
         if not nino.hora_salida:
             nino.hora_salida = timezone.now()
             nino.save(update_fields=['hora_salida'])
+            registrar_novedad_sistema(
+                titulo=f"Salida registrada: {nino.nombre}",
+                descripcion=f"Se marcó la salida de '{nino.nombre}'. Tiempo asignado: {nino.tiempo} min. Minutos de estancia: {nino.minutos_estancia} min.",
+                usuario=request.user,
+                nino=nino
+            )
             messages.success(request, f"Salida registrada para '{nino.nombre}'.")
         else:
             messages.info(request, f"'{nino.nombre}' ya tenía salida registrada.")
@@ -285,6 +303,12 @@ def deshacer_salida(request, pk):
     if request.method == 'POST':
         nino.hora_salida = None
         nino.save(update_fields=['hora_salida'])
+        registrar_novedad_sistema(
+            titulo=f"Salida cancelada: {nino.nombre}",
+            descripcion=f"Se deshizo la salida de '{nino.nombre}'. El niño regresó al monitoreo activo con {nino.tiempo} min asignados.",
+            usuario=request.user,
+            nino=nino
+        )
         messages.success(request, f"Salida de '{nino.nombre}' eliminada.")
     return redirect('control_nino:lista_control_ninos')
 
@@ -1295,6 +1319,12 @@ def marcar_salida_fiesta(request, pk):
         if not fiesta.hora_salida:
             fiesta.hora_salida = timezone.now()
             fiesta.save(update_fields=['hora_salida'])
+            registrar_novedad_sistema(
+                titulo=f"Salida confirmada: {fiesta.nombre}",
+                descripcion=f"Se marcó la salida de la fiesta '{fiesta.nombre}'.",
+                usuario=request.user,
+                fiesta=fiesta
+            )
             messages.success(request, f"Salida confirmada para la fiesta '{fiesta.nombre}'.")
         else:
             messages.info(request, f"La fiesta '{fiesta.nombre}' ya tenía salida confirmada.")
@@ -1308,6 +1338,12 @@ def deshacer_salida_fiesta(request, pk):
     if request.method == 'POST':
         fiesta.hora_salida = None
         fiesta.save(update_fields=['hora_salida'])
+        registrar_novedad_sistema(
+            titulo=f"Salida cancelada: {fiesta.nombre}",
+            descripcion=f"Se deshizo la salida de la fiesta '{fiesta.nombre}'. La fiesta regresó al monitoreo activo.",
+            usuario=request.user,
+            fiesta=fiesta
+        )
         messages.success(request, f"Salida de la fiesta '{fiesta.nombre}' eliminada.")
     return redirect('control_nino:lista_control_ninos')
 

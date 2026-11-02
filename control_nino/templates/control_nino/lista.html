@@ -124,7 +124,7 @@
                                     {% if nino.salio %}
                                     <span class="text-danger fw-bold">Salida: {{ nino.hora_salida|date:"H:i" }}</span>
                                     {% else %}
-                                    <span>Salida est.: {{ nino.fecha_fin|date:"H:i" }}</span>
+                                    <span class="salida-est-label">Salida est.: {{ nino.fecha_fin|date:"H:i" }}</span>
                                     {% endif %}
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
@@ -161,21 +161,20 @@
                                         </a>
                                         {% endif %}
                                     </div>
-                                    {% if nino.puede_agregar_45 %}
-                                    <div class="d-flex align-items-center gap-1 border-top pt-2 bloque-agregar-tiempo">
-                                        <span class="small me-1 etiq-agregar-tiempo">Agregar tiempo:</span>
-                                        <form method="post" action="{% url 'control_nino:agregar_tiempo_nino' nino.pk %}" class="d-inline" data-minutos="45">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="minutos" value="45">
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-agregar-nino py-0">+45 min</button>
-                                        </form>
+                                    <div class="contenedor-acciones-tiempo">
+                                        <div class="d-flex align-items-center gap-1 border-top pt-2 bloque-agregar-tiempo{% if not nino.puede_agregar_45 %} d-none{% endif %}">
+                                            <span class="small me-1 etiq-agregar-tiempo">Agregar tiempo:</span>
+                                            <form method="post" action="{% url 'control_nino:agregar_tiempo_nino' nino.pk %}" class="d-inline" data-minutos="45">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="minutos" value="45">
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="btn btn-sm btn-agregar-nino py-0">+45 min</button>
+                                            </form>
+                                        </div>
+                                        <div class="small border-top pt-2 etiq-agregar-tiempo opacity-75 bloque-tiempo-maximo{% if not nino.tiempo_maximo_alcanzado %} d-none{% endif %}">
+                                            Tiempo máximo alcanzado ({{ tiempo_maximo_nino|default:90 }} min).
+                                        </div>
                                     </div>
-                                    {% elif nino.tiempo_maximo_alcanzado %}
-                                    <div class="small border-top pt-2 etiq-agregar-tiempo opacity-75">
-                                        Tiempo máximo alcanzado ({{ tiempo_maximo_nino|default:90 }} min).
-                                    </div>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -654,9 +653,9 @@
     let resumenAbierto = false;
 
     function formato(seg) {
-        if (seg < 0) seg = 0;
+        if (seg <= 0) return '00:00';
         const m = Math.floor(seg / 60);
-        const s = seg % 60;
+        const s = Math.floor(seg % 60);
         return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
     }
 
@@ -751,27 +750,40 @@
                 return;
             }
             const claveVieja = it.id + '-' + it.inicioRaw + '-' + it.totalSeg;
+            if (data.inicio_ms) {
+                it.inicio = parseInt(data.inicio_ms, 10);
+                it.inicioRaw = String(data.inicio_ms);
+                it.card.dataset.inicio = String(data.inicio_ms);
+            }
             it.totalSeg = (data.tiempo || 0) * 60;
             if (it.totalEl) it.totalEl.textContent = data.tiempo + ' min';
+            const salidaEstEl = it.card.querySelector('.salida-est-label');
+            if (salidaEstEl && data.salida_est) {
+                salidaEstEl.textContent = 'Salida est.: ' + data.salida_est;
+            }
             alertadosSet.delete(claveVieja);
+            const claveNueva = it.id + '-' + it.inicioRaw + '-' + it.totalSeg;
+            alertadosSet.delete(claveNueva);
             try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
             actualizarBotonera(it);
+            actualizar();
         }).catch(function () { });
     }
 
     function actualizarBotonera(it) {
         const bloque = it.card.querySelector('.bloque-agregar-tiempo');
         if (!bloque) return;
-        const maxSegCard = it.card.dataset.tipo === 'fiesta' ? MAX_SEG : 90 * 60;
-        if (it.totalSeg >= maxSegCard) {
-            bloque.classList.add('d-none');
-            return;
+        if (it.card.dataset.tipo === 'fiesta') {
+            if (it.totalSeg >= MAX_SEG) {
+                bloque.classList.add('d-none');
+                return;
+            }
+            bloque.classList.remove('d-none');
+            bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
+                const minutos = parseInt(form.dataset.minutos, 10) || 0;
+                form.classList.toggle('d-none', it.totalSeg + minutos * 60 > MAX_SEG);
+            });
         }
-        bloque.classList.remove('d-none');
-        bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
-            const minutos = parseInt(form.dataset.minutos, 10) || 0;
-            form.classList.toggle('d-none', it.totalSeg + minutos * 60 > maxSegCard);
-        });
     }
 
     function mostrarAlertaResumen() {
@@ -905,11 +917,34 @@
                 continue;
             }
 
-            const restante = it.totalSeg - Math.floor((ahoraServidor - it.inicio) / 1000);
+            const restante = Math.max(0, it.totalSeg - Math.floor((ahoraServidor - it.inicio) / 1000));
             const txt = formato(restante);
             if (it.lastTime !== txt) {
                 if (it.tiempoEl) it.tiempoEl.textContent = txt;
                 it.lastTime = txt;
+            }
+
+            if (card.dataset.tipo === 'nino') {
+                const bloqueAgregar = card.querySelector('.bloque-agregar-tiempo');
+                const bloqueMax = card.querySelector('.bloque-tiempo-maximo');
+                if (bloqueAgregar && bloqueMax) {
+                    if (it.salida === '1') {
+                        bloqueAgregar.classList.add('d-none');
+                        bloqueMax.classList.add('d-none');
+                    } else if (restante <= 0) {
+                        // Estando en 0: SIEMPRE se puede renovar +45 min (nuevo brazalete)
+                        bloqueAgregar.classList.remove('d-none');
+                        bloqueMax.classList.add('d-none');
+                    } else if (it.totalSeg >= 90 * 60) {
+                        // Corriendo y ya tiene 90 min: no puede agregar más hasta culminar
+                        bloqueAgregar.classList.add('d-none');
+                        bloqueMax.classList.remove('d-none');
+                    } else {
+                        // Corriendo y tiene menos de 90 min: puede agregar
+                        bloqueAgregar.classList.remove('d-none');
+                        bloqueMax.classList.add('d-none');
+                    }
+                }
             }
 
             let estado;

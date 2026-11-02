@@ -1,0 +1,12 @@
+<a href="{{ imagen_url }}" target="_blank" rel="noopener"
+   class="imagen-ampliable"
+   data-bs-toggle="modal"
+   data-bs-target="#modalImagen"
+   data-imagen-url="{{ imagen_url }}"
+   data-imagen-titulo="{{ imagen_titulo }}"
+   title="Ampliar {{ imagen_titulo }}">
+    <span class="badge {{ imagen_badge_clase }} position-absolute top-0 start-0 m-1 bg-opacity-75">{{ imagen_badge }}</span>
+    <img src="{{ imagen_url }}" alt="{{ imagen_alt }}" class="img-fluid img-thumbnail">
+    <span class="imagen-ampliable-icon" aria-hidden="true"><i class="bi bi-arrows-fullscreen"></i></span>
+    <span class="imagen-ampliable-overlay" aria-hidden="true">Ampliar</span>
+</a>

@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad
+from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO_NINO
 
 
 class ControlNinoForm(forms.ModelForm):
@@ -41,8 +41,11 @@ class ControlNinoForm(forms.ModelForm):
 
     def clean_tiempo(self):
         tiempo = self.cleaned_data.get('tiempo')
-        if tiempo and tiempo > 90:
-            raise forms.ValidationError("Los niños no pueden tener un tiempo mayor a 90 minutos.")
+        tiempos_validos = [c[0] for c in ControlNino.TIEMPO_CHOICES]
+        if self.instance and self.instance.pk and tiempo == self.instance.tiempo:
+            return tiempo
+        if tiempo and tiempo not in tiempos_validos and tiempo > TIEMPO_MAXIMO_NINO:
+            raise forms.ValidationError(f"Los niños no pueden tener un tiempo mayor a {TIEMPO_MAXIMO_NINO} minutos.")
         return tiempo
 
 
