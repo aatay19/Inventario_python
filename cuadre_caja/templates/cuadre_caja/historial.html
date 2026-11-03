@@ -1,0 +1,157 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Historial de cierres | Cuadre de Caja{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Historial de cierres</h1>
+        <p class="text-muted mb-0">Consulta los cierres registrados por departamento, turno, cajera y fecha.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'cuadre_caja:reportes' %}" class="btn btn-success">
+            <i class="bi bi-bar-chart-line me-1"></i> Reportes
+        </a>
+        <a href="{% url 'cuadre_caja:index' %}" class="btn btn-outline-success">
+            <i class="bi bi-grid me-1"></i> Ir a departamentos
+        </a>
+    </div>
+</div>
+
+<div class="card cc-card mb-4">
+    <div class="card-body p-3 p-lg-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold">{{ form.departamento.label }}</label>
+                {{ form.departamento }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.turno.label }}</label>
+                {{ form.turno }}
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small fw-semibold">{{ form.cajera.label }}</label>
+                {{ form.cajera }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.desde.label }}</label>
+                {{ form.desde }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.hasta.label }}</label>
+                {{ form.hasta }}
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-funnel me-1"></i> Filtrar
+                </button>
+                <a href="{% url 'cuadre_caja:historial' %}" class="btn btn-light border">
+                    <i class="bi bi-x-lg me-1"></i> Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Cierres encontrados</div>
+                <div class="stat-valor">{{ total_registros }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en bolívares</div>
+                <div class="stat-valor">Bs {{ totales.total_bs|default:0|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en dólares</div>
+                <div class="stat-valor">USD {{ totales.total_usd|default:0|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card cc-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Fecha</th>
+                        <th>Turno</th>
+                        <th>Cajera</th>
+                        <th>Departamento</th>
+                        <th>Caja</th>
+                        <th class="text-end">Total Bs</th>
+                        <th class="text-end">Total USD</th>
+                        <th class="text-end">Equiv. Bs</th>
+                        <th class="text-end pe-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cierre in cierres %}
+                    <tr>
+                        <td class="ps-3 text-nowrap">{{ cierre.fecha|date:"d/m/Y" }}</td>
+                        <td><span class="badge bg-light text-secondary border">{{ cierre.get_turno_display }}</span></td>
+                        <td>{{ cierre.nombre_cajera }}</td>
+                        <td>{{ cierre.caja.departamento.nombre }}</td>
+                        <td>{{ cierre.caja.nombre }}</td>
+                        <td class="text-end monto">{{ cierre.total_bs|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ cierre.total_usd|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ cierre.total_equivalente_bs|floatformat:2 }}</td>
+                        <td class="text-end pe-3">
+                            <a href="{% url 'cuadre_caja:cierre_detalle' cierre.id %}"
+                                class="btn btn-sm btn-outline-success" title="Ver cierre">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            No hay cierres registrados con los filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if cierres.paginator.num_pages > 1 %}
+    <div class="card-footer bg-white border-0 py-3">
+        <nav aria-label="Paginación de cierres">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item {% if not cierres.has_previous %}disabled{% endif %}">
+                    {% if cierres.has_previous %}
+                    <a class="page-link" href="{% querystring page=cierres.previous_page_number %}">Anterior</a>
+                    {% else %}
+                    <span class="page-link">Anterior</span>
+                    {% endif %}
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ cierres.number }} de {{ cierres.paginator.num_pages }}</span>
+                </li>
+                <li class="page-item {% if not cierres.has_next %}disabled{% endif %}">
+                    {% if cierres.has_next %}
+                    <a class="page-link" href="{% querystring page=cierres.next_page_number %}">Siguiente</a>
+                    {% else %}
+                    <span class="page-link">Siguiente</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

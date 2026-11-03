@@ -1,0 +1,259 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Reportes | Cuadre de Caja{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Reportes</h1>
+        <p class="text-muted mb-0">
+            Resumen por departamento, caja y turno · <strong>{{ periodo_etiqueta }}</strong>
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <span class="cc-chip bg-white text-secondary border">
+            <i class="bi bi-calendar3 me-1"></i>
+            {{ fecha_inicio|date:"d/m/Y" }}{% if fecha_inicio != fecha_fin %} - {{ fecha_fin|date:"d/m/Y" }}{% endif %}
+        </span>
+        <a href="{% url 'cuadre_caja:historial' %}?desde={{ fecha_inicio|date:'Y-m-d' }}&hasta={{ fecha_fin|date:'Y-m-d' }}{% if turno %}&turno={{ turno }}{% endif %}{% if departamento %}&departamento={{ departamento.id }}{% endif %}"
+            class="btn btn-outline-success">
+            <i class="bi bi-clock-history me-1"></i> Ver en historial
+        </a>
+    </div>
+</div>
+
+<div class="card cc-card mb-4">
+    <div class="card-body p-3 p-lg-4">
+        <ul class="nav nav-pills gap-2 mb-4">
+            <li class="nav-item">
+                <a class="nav-link {% if periodo == 'DIA' %}active{% else %}bg-light text-dark{% endif %}"
+                    href="{% querystring periodo='DIA' %}">
+                    <i class="bi bi-calendar-day me-1"></i> Día
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if periodo == 'SEMANA' %}active{% else %}bg-light text-dark{% endif %}"
+                    href="{% querystring periodo='SEMANA' %}">
+                    <i class="bi bi-calendar-week me-1"></i> Semana
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if periodo == 'MES' %}active{% else %}bg-light text-dark{% endif %}"
+                    href="{% querystring periodo='MES' %}">
+                    <i class="bi bi-calendar-month me-1"></i> Mensual
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if periodo == 'ANIO' %}active{% else %}bg-light text-dark{% endif %}"
+                    href="{% querystring periodo='ANIO' %}">
+                    <i class="bi bi-calendar-range me-1"></i> Anual
+                </a>
+            </li>
+        </ul>
+
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.periodo.label }}</label>
+                {{ form.periodo }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.fecha.label }}</label>
+                {{ form.fecha }}
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.departamento.label }}</label>
+                {{ form.departamento }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.caja.label }}</label>
+                {{ form.caja }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.turno.label }}</label>
+                {{ form.turno }}
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-success flex-grow-1">
+                    <i class="bi bi-funnel me-1"></i> Filtrar
+                </button>
+                <a href="{% url 'cuadre_caja:reportes' %}" class="btn btn-light border" title="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+
+        {% if departamento or caja or turno %}
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            {% if departamento %}
+            <span class="badge bg-light text-secondary border">
+                <i class="bi bi-diagram-3 me-1"></i>{{ departamento.nombre }}
+            </span>
+            {% endif %}
+            {% if caja %}
+            <span class="badge bg-light text-secondary border">
+                <i class="bi bi-cash-register me-1"></i>{{ caja.nombre }}
+            </span>
+            {% endif %}
+            {% if turno %}
+            <span class="badge bg-light text-secondary border">
+                <i class="bi bi-clock me-1"></i>Turno {{ turno }}
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Cierres</div>
+                <div class="stat-valor">{{ total_general.cantidad }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en bolívares</div>
+                <div class="stat-valor">Bs {{ total_general.total_bs|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en dólares</div>
+                <div class="stat-valor">USD {{ total_general.total_usd|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Equivalente en Bs</div>
+                <div class="stat-valor">Bs {{ total_general.total_equivalente_bs|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if grupos %}
+<div class="card cc-card mb-4">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold">Resumen por departamento, caja y turno</h5>
+        <p class="small text-muted mb-0">Subtotales por cada nivel del periodo seleccionado.</p>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Caja</th>
+                        <th>Turno</th>
+                        <th class="text-end">Cierres</th>
+                        <th class="text-end">Total Bs</th>
+                        <th class="text-end">Total USD</th>
+                        <th class="text-end">Equiv. Bs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grupo in grupos %}
+                    <tr class="table-light">
+                        <td colspan="6" class="fw-bold text-uppercase small">
+                            <i class="bi bi-diagram-3 me-1"></i>{{ grupo.departamento.nombre }}
+                        </td>
+                    </tr>
+                    {% for caja_item in grupo.lista_cajas %}
+                    {% for turno_item in caja_item.lista_turnos %}
+                    <tr>
+                        {% if forloop.first %}
+                        <td rowspan="{{ caja_item.lista_turnos|length }}" class="fw-semibold">
+                            {{ caja_item.caja.nombre }}
+                        </td>
+                        {% endif %}
+                        <td>
+                            <span class="badge bg-light text-secondary border">{{ turno_item.turno }}</span>
+                        </td>
+                        <td class="text-end">{{ turno_item.cantidad }}</td>
+                        <td class="text-end monto">{{ turno_item.total_bs|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ turno_item.total_usd|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ turno_item.total_equivalente_bs|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="border-top">
+                        <td colspan="2" class="text-end small fw-semibold text-muted">
+                            Subtotal {{ caja_item.caja.nombre }}
+                        </td>
+                        <td class="text-end small fw-semibold">{{ caja_item.cantidad }}</td>
+                        <td class="text-end small fw-semibold monto">{{ caja_item.total_bs|floatformat:2 }}</td>
+                        <td class="text-end small fw-semibold monto">{{ caja_item.total_usd|floatformat:2 }}</td>
+                        <td class="text-end small fw-semibold monto">{{ caja_item.total_equivalente_bs|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="table-light fw-bold">
+                        <td colspan="2" class="text-end">Total {{ grupo.departamento.nombre }}</td>
+                        <td class="text-end">{{ grupo.cantidad }}</td>
+                        <td class="text-end monto">{{ grupo.total_bs|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ grupo.total_usd|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ grupo.total_equivalente_bs|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="2" class="text-end">Total general</td>
+                        <td class="text-end">{{ total_general.cantidad }}</td>
+                        <td class="text-end monto">Bs {{ total_general.total_bs|floatformat:2 }}</td>
+                        <td class="text-end monto">USD {{ total_general.total_usd|floatformat:2 }}</td>
+                        <td class="text-end monto">Bs {{ total_general.total_equivalente_bs|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card cc-card">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold">Resumen por turno</h5>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Turno</th>
+                        <th class="text-end">Cierres</th>
+                        <th class="text-end">Total Bs</th>
+                        <th class="text-end">Total USD</th>
+                        <th class="text-end">Equiv. Bs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resumen_turnos %}
+                    <tr>
+                        <td><span class="badge bg-light text-secondary border">{{ item.turno }}</span></td>
+                        <td class="text-end">{{ item.cantidad }}</td>
+                        <td class="text-end monto">{{ item.total_bs|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ item.total_usd|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ item.total_equivalente_bs|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card cc-card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox fs-1 text-muted"></i>
+        <p class="mb-0 mt-2 text-muted">
+            No hay cierres registrados para los filtros seleccionados.
+        </p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

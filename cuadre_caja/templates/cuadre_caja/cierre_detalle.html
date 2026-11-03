@@ -1,0 +1,443 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Cierre del {{ cierre.fecha|date:"d/m/Y" }} | {{ caja.nombre }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+
+        body {
+            background: #fff !important;
+        }
+
+        .cc-card {
+            box-shadow: none !important;
+            border: 1px solid #dee2e6 !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .card-header {
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+
+        .table {
+            font-size: 10.5px;
+        }
+
+        .progress {
+            border: 1px solid #dee2e6;
+        }
+
+        .progress-bar {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .stat-valor {
+            font-size: 1.1rem;
+        }
+
+        /* Galería de imágenes: 2 columnas fijas para que no se monten */
+        .cc-card-galeria {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+        }
+
+        .galeria-cierre {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 6mm !important;
+            margin: 0 !important;
+        }
+
+        .galeria-cierre .galeria-item {
+            width: auto !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .galeria-cierre .galeria-item img {
+            display: block;
+            width: 100% !important;
+            height: 50mm !important;
+            object-fit: cover !important;
+        }
+
+        .galeria-cierre .galeria-item .border {
+            overflow: hidden;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .galeria-cierre .galeria-item a {
+            display: block;
+        }
+
+        .firmas-cierre {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        a[href]::after {
+            content: "" !important;
+        }
+
+        .row.g-4.mt-5 {
+            margin-top: 1rem !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3 no-print">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'cuadre_caja:index' %}" class="text-decoration-none">Departamentos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'cuadre_caja:departamento_detalle' caja.departamento.slug %}" class="text-decoration-none">
+                {{ caja.departamento.nombre }}
+            </a>
+        </li>
+        <li class="breadcrumb-item"><a href="{% url 'cuadre_caja:historial' %}" class="text-decoration-none">Historial</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ caja.nombre }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Cierre de caja</h1>
+        <p class="text-muted mb-0">{{ caja.departamento.nombre }} · {{ caja.nombre }}</p>
+    </div>
+    <div class="d-flex gap-2 no-print">
+        <button type="button" class="btn btn-outline-danger" onclick="window.print()">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir / PDF
+        </button>
+        <a href="{% url 'cuadre_caja:departamento_detalle' caja.departamento.slug %}" class="btn btn-success">
+            <i class="bi bi-grid me-1"></i> Volver al departamento
+        </a>
+    </div>
+</div>
+
+<div class="card cc-card mb-4">
+    <div class="card-body p-3 p-lg-4">
+        <div class="row g-3">
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Fecha</div>
+                <div class="fw-bold">{{ cierre.fecha|date:"d/m/Y" }}</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Turno</div>
+                <div class="fw-bold">{{ cierre.get_turno_display }}</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Cajera</div>
+                <div class="fw-bold">{{ cierre.nombre_cajera }}</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Tasa del día</div>
+                <div class="fw-bold">{{ cierre.tasa|floatformat:2 }} Bs/USD</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Departamento</div>
+                <div class="fw-bold">{{ caja.departamento.nombre }}</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Caja</div>
+                <div class="fw-bold">{{ caja.nombre }}</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Registrado por</div>
+                <div class="fw-bold">{{ cierre.usuario.first_name|default:cierre.usuario.username|default:"—" }}</div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="stat-label">Fecha de registro</div>
+                <div class="fw-bold">{{ cierre.fecha_registro|date:"d/m/Y H:i" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card cc-card mb-4 border-start border-4 border-success">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold"><i class="bi bi-pie-chart me-2 text-success"></i>Montos por método de pago</h5>
+            <p class="small text-muted mb-0 mt-1">Distribución del cierre por método, igual que en el formulario.</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger no-print" onclick="window.print()">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir PDF
+        </button>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="row g-4">
+            <div class="col-12 col-xl-6">
+                <div class="card h-100 border-0 bg-light bg-opacity-50">
+                    <div class="card-header bg-white border-0 pt-3 px-3">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-success"></i>Montos en bolívares</h6>
+                    </div>
+                    <div class="card-body px-3 pb-3">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Método de pago</th>
+                                        <th class="text-end">Monto Bs</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fila in distribucion_bs %}
+                                    <tr>
+                                        <td class="fw-semibold">
+                                            {{ fila.metodo }}
+                                            {% if fila.bancos %}
+                                            <div class="mt-1 ps-2 border-start small text-muted fw-normal">
+                                                {% for banco in fila.bancos %}
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span><i class="bi bi-bank me-1"></i>{{ banco.banco }}</span>
+                                                    <span class="monto text-nowrap">Bs {{ banco.monto|floatformat:2 }}</span>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end monto fw-semibold">Bs {{ fila.monto|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="fw-bold border-top">
+                                        <td>Total Bs</td>
+                                        <td class="text-end monto">Bs {{ total_distribucion_bs|floatformat:2 }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-6">
+                <div class="card h-100 border-0 bg-light bg-opacity-50">
+                    <div class="card-header bg-white border-0 pt-3 px-3">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-currency-dollar me-2 text-primary"></i>Montos en dólares</h6>
+                    </div>
+                    <div class="card-body px-3 pb-3">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Método de pago</th>
+                                        <th class="text-end">Monto USD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fila in distribucion_usd %}
+                                    <tr>
+                                        <td class="fw-semibold">
+                                            {{ fila.metodo }}
+                                            {% if fila.bancos %}
+                                            <div class="mt-1 ps-2 border-start small text-muted fw-normal">
+                                                {% for banco in fila.bancos %}
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span><i class="bi bi-bank me-1"></i>{{ banco.banco }}</span>
+                                                    <span class="monto text-nowrap">USD {{ banco.monto|floatformat:2 }}</span>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end monto fw-semibold">USD {{ fila.monto|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="fw-bold border-top">
+                                        <td>Total USD</td>
+                                        <td class="text-end monto">USD {{ total_distribucion_usd|floatformat:2 }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en bolívares</div>
+                <div class="stat-valor">Bs {{ cierre.total_bs|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en dólares</div>
+                <div class="stat-valor">USD {{ cierre.total_usd|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card cc-card h-100 border-start border-4 border-success">
+            <div class="card-body">
+                <div class="stat-label mb-1">Equivalente en Bs</div>
+                <div class="stat-valor">Bs {{ cierre.total_equivalente_bs|floatformat:2 }}</div>
+                <div class="small text-muted">USD {{ cierre.total_equivalente_usd|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if cierre.observaciones %}
+<div class="card cc-card mb-4">
+    <div class="card-body p-3 p-lg-4">
+        <div class="stat-label mb-1">Observaciones</div>
+        <p class="mb-0">{{ cierre.observaciones|linebreaksbr }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if egresos %}
+<div class="card cc-card mb-4 border-start border-4 border-warning">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-down-circle me-2 text-warning"></i>Egresos y devoluciones (informativo)</h5>
+        <p class="small text-muted mb-0">No se restan de los totales del cierre.</p>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Cédula</th>
+                        <th>Teléfono</th>
+                        <th>Banco</th>
+                        <th>Moneda</th>
+                        <th class="text-end">Monto</th>
+                        <th>Referencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for egreso in egresos %}
+                    <tr>
+                        <td><span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span></td>
+                        <td>{{ egreso.cedula|default:"—" }}</td>
+                        <td>{{ egreso.telefono|default:"—" }}</td>
+                        <td>{{ egreso.banco|default:"—" }}</td>
+                        <td>{{ egreso.get_moneda_display }}</td>
+                        <td class="text-end monto fw-semibold">{{ egreso.monto|floatformat:2 }}</td>
+                        <td>{{ egreso.referencia|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold border-top">
+                        <td colspan="5">Total egresos / devoluciones</td>
+                        <td class="text-end monto">
+                            Bs {{ total_egresos_bs|floatformat:2 }} · USD {{ total_egresos_usd|floatformat:2 }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if cierre.transacciones.exists %}
+<div class="card cc-card mb-4 border-start border-4 border-primary">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-primary"></i>Transacciones del cierre</h5>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Método de pago</th>
+                        <th>Banco o entidad</th>
+                        <th class="text-end">Monto</th>
+                        <th>Referencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaccion in cierre.transacciones.all %}
+                    <tr>
+                        <td><span class="badge bg-light text-secondary border">{{ transaccion.get_metodo_pago_display }}</span></td>
+                        <td>{{ transaccion.banco }}</td>
+                        <td class="text-end monto">{{ transaccion.monto|floatformat:2 }}</td>
+                        <td>{{ transaccion.ref }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold border-top">
+                        <td colspan="2">Total transacciones</td>
+                        <td class="text-end monto">
+                            Bs {{ cierre.total_bs|floatformat:2 }} · USD {{ cierre.total_usd|floatformat:2 }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if imagenes %}
+<div class="card cc-card cc-card-galeria mb-4 border-start border-4 border-info">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-images me-2 text-info"></i>Imágenes del cierre</h5>
+        <p class="small text-muted mb-0">Evidencias adjuntas al cierre.</p>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="row g-3 galeria-cierre">
+            {% for imagen in imagenes %}
+            <div class="col-12 col-sm-6 col-lg-4 galeria-item">
+                <div class="border rounded p-2 h-100">
+                    <a href="{{ imagen.imagen.url }}" target="_blank" rel="noopener">
+                        <img src="{{ imagen.imagen.url }}" alt="{{ imagen.titulo }}" class="img-fluid rounded mb-2" style="width: 100%; height: 180px; object-fit: cover;">
+                    </a>
+                    <div class="fw-semibold small">{{ imagen.titulo }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4 mt-5 firmas-cierre">
+    <div class="col-6">
+        <div class="border-top pt-2 text-center small text-muted">Firma de la cajera</div>
+    </div>
+    <div class="col-6">
+        <div class="border-top pt-2 text-center small text-muted">Firma de supervisión</div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-center mt-4 mb-2 no-print">
+    <button type="button" class="btn btn-danger" onclick="window.print()">
+        <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir / Guardar PDF
+    </button>
+</div>
+{% endblock %}

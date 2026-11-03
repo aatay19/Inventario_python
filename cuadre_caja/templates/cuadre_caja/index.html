@@ -1,0 +1,75 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Cuadre de Caja | Inicio{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Cierre de Caja</h1>
+        <p class="text-muted mb-0">Selecciona un departamento para registrar los cierres de sus cajas.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <span class="cc-chip bg-white text-secondary border">
+            <i class="bi bi-calendar3 me-1"></i> {{ hoy|date:"d/m/Y" }}
+        </span>
+        <span class="cc-chip bg-white text-secondary border">
+            <i class="bi bi-grid-3x3-gap me-1"></i> {{ total_cajas }} cajas
+        </span>
+        <span class="cc-chip bg-success-subtle text-success-emphasis">
+            <i class="bi bi-check2-circle me-1"></i> {{ cierres_hoy }} cierres hoy
+        </span>
+    </div>
+</div>
+
+<div class="row g-4">
+    {% for bloque in departamentos %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href="{% url 'cuadre_caja:departamento_detalle' bloque.departamento.slug %}"
+            class="text-decoration-none text-reset d-block h-100">
+            <div class="card caja-card h-100">
+                <div class="card-body p-4 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="dep-icon">
+                            {% if bloque.departamento.slug == 'supermercado' %}
+                            <i class="bi bi-cart3"></i>
+                            {% elif bloque.departamento.slug == 'cafetin' %}
+                            <i class="bi bi-cup-hot"></i>
+                            {% elif bloque.departamento.slug == 'parque' %}
+                            <i class="bi bi-tree"></i>
+                            {% else %}
+                            <i class="bi bi-building"></i>
+                            {% endif %}
+                        </span>
+                        <span class="badge bg-light text-secondary">
+                            {{ bloque.total_cajas }} caja{{ bloque.total_cajas|pluralize:"s" }}
+                        </span>
+                    </div>
+
+                    <h3 class="fw-bold mt-3 mb-1">{{ bloque.departamento.nombre }}</h3>
+                    <p class="text-muted small mb-3">Registra el cierre diario de cada caja.</p>
+
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <span class="badge bg-success-subtle text-success-emphasis">
+                            <i class="bi bi-check2-circle me-1"></i>{{ bloque.cierres_hoy }} cierres hoy
+                        </span>
+                    </div>
+
+                    <div class="btn btn-outline-success w-100 mt-auto">
+                        Ver cajas <i class="bi bi-arrow-right ms-1"></i>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card cc-card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-inbox fs-1 text-muted"></i>
+                <p class="mb-0 mt-2 text-muted">No hay departamentos configurados.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -29,4 +29,5 @@ urlpatterns = [
     path('', include('libreria.urls')),
     path('parque/', include('parque.urls')),
     path('control-nino/', include('control_nino.urls')),
+    path('cuadre-caja/', include('cuadre_caja.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

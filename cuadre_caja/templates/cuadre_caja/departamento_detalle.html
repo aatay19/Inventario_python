@@ -1,0 +1,107 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}{{ departamento.nombre }} | Cuadre de Caja{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'cuadre_caja:index' %}" class="text-decoration-none">Departamentos</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ departamento.nombre }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <span class="dep-icon">
+            {% if departamento.slug == 'supermercado' %}
+            <i class="bi bi-cart3"></i>
+            {% elif departamento.slug == 'cafetin' %}
+            <i class="bi bi-cup-hot"></i>
+            {% elif departamento.slug == 'parque' %}
+            <i class="bi bi-tree"></i>
+            {% else %}
+            <i class="bi bi-building"></i>
+            {% endif %}
+        </span>
+        <div>
+            <h1 class="cc-title mb-0">{{ departamento.nombre }}</h1>
+            <p class="text-muted mb-0">Cierres de caja del {{ hoy|date:"d/m/Y" }}.</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <span class="cc-chip bg-white text-secondary border">
+            <i class="bi bi-grid-3x3-gap me-1"></i> {{ total_cajas }} cajas
+        </span>
+        <span class="cc-chip bg-success-subtle text-success-emphasis">
+            <i class="bi bi-check2-circle me-1"></i> {{ cierres_hoy }} cierres hoy
+        </span>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for item in cajas %}
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card caja-card h-100 border">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="caja-numero">{{ item.caja.numero }}</span>
+                        <div>
+                            <h6 class="mb-0 fw-bold">{{ item.caja.nombre }}</h6>
+                            <small class="text-muted">{{ departamento.nombre }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    {% if item.cierres_hoy.AM %}
+                    <span class="badge bg-success-subtle text-success-emphasis" title="Cajera: {{ item.cierres_hoy.AM.nombre_cajera }}">
+                        <i class="bi bi-check2 me-1"></i>AM
+                    </span>
+                    {% else %}
+                    <span class="badge bg-light text-secondary border">
+                        <i class="bi bi-dash me-1"></i>AM pendiente
+                    </span>
+                    {% endif %}
+
+                    {% if item.cierres_hoy.PM %}
+                    <span class="badge bg-success-subtle text-success-emphasis" title="Cajera: {{ item.cierres_hoy.PM.nombre_cajera }}">
+                        <i class="bi bi-check2 me-1"></i>PM
+                    </span>
+                    {% else %}
+                    <span class="badge bg-light text-secondary border">
+                        <i class="bi bi-dash me-1"></i>PM pendiente
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if item.ultimo_cierre %}
+                <div class="small text-muted mt-3">
+                    <div><i class="bi bi-clock-history me-1"></i>Último cierre</div>
+                    <div class="fw-semibold text-dark">
+                        {{ item.ultimo_cierre.fecha|date:"d/m/Y" }} · {{ item.ultimo_cierre.get_turno_display }}
+                    </div>
+                    <div>{{ item.ultimo_cierre.nombre_cajera }}</div>
+                </div>
+                {% else %}
+                <p class="small text-muted mt-3 mb-3">Sin cierres registrados.</p>
+                {% endif %}
+
+                <a href="{% url 'cuadre_caja:cerrar_caja' item.caja.id %}" class="btn btn-success w-100 mt-3">
+                    <i class="bi bi-clipboard-check me-1"></i> Registrar cierre
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card cc-card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-inbox fs-1 text-muted"></i>
+                <p class="mb-0 mt-2 text-muted">Este departamento no tiene cajas activas.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

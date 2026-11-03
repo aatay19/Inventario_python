@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'libreria',
     'parque',
     'control_nino',
+    'cuadre_caja',
 ]
 
 MIDDLEWARE = [
