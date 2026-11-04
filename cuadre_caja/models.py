@@ -5,14 +5,6 @@ from django.db import models
 from django.utils import timezone
 
 
-# Choices para el formato de billetes Bs (denominaciones individuales)
-class FormatoBilletesChoices(models.TextChoices):
-    DEFAULT = "10-20-50-100-200-500", "10-20-50-100-200-500 (default)"
-    SOLO_100 = "100-200-500", "100-200-500"
-    SOLO_10_50 = "10-50", "10-50"
-    PERSONALIZADO = "personalizado", "Personalizado"
-
-
 class Departamento(models.Model):
     """Área de la empresa que opera una o varias cajas."""
 
@@ -66,10 +58,10 @@ class TurnoChoices(models.TextChoices):
 class MetodoPagoChoices(models.TextChoices):
     EFECTIVO_BS = "EFECTIVO_BS", "Efectivo Bs"
     EFECTIVO_USD = "EFECTIVO_USD", "Efectivo USD"
-    PUNTO_VENTA = "PUNTO_VENTA", "Punto de venta"
-    PAGO_MOVIL = "PAGO_MOVIL", "Pago móvil"
+    PUNTO_VENTA = "PUNTO_VENTA", "Punto de Venta"
+    PAGO_MOVIL = "PAGO_MOVIL", "Pago Móvil"
     ZELLE = "ZELLE", "Zelle"
-    BIO_PAGO = "BIO_PAGO", "Bio pago"
+    BIO_PAGO = "BIO_PAGO", "BioPago"
     TRANSFERENCIA = "TRANSFERENCIA", "Transferencia"
     OTRO = "OTRO", "Otro"
 

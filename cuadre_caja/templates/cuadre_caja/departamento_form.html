@@ -1,0 +1,72 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Nuevo departamento | Cuadre de Caja{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'cuadre_caja:index' %}" class="text-decoration-none">Departamentos</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Nuevo departamento</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Registrar departamento</h1>
+        <p class="text-muted mb-0">Crea un área de la empresa y luego agrégale sus cajas.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 col-lg-7 col-xl-6">
+        <div class="card cc-card">
+            <div class="card-body p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2">
+                        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="{{ form.nombre.id_for_label }}" class="form-label fw-semibold">{{ form.nombre.label }}</label>
+                        {{ form.nombre }}
+                        {% for error in form.nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.slug.id_for_label }}" class="form-label fw-semibold">{{ form.slug.label }}</label>
+                        {{ form.slug }}
+                        <div class="form-text">{{ form.slug.help_text }}</div>
+                        {% for error in form.slug.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.orden.id_for_label }}" class="form-label fw-semibold">{{ form.orden.label }}</label>
+                        {{ form.orden }}
+                        <div class="form-text">Define el orden en que aparece en el panel principal.</div>
+                        {% for error in form.orden.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        {{ form.activo }}
+                        <label class="form-check-label" for="{{ form.activo.id_for_label }}">Departamento activo</label>
+                        {% for error in form.activo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check2-circle me-1"></i> Guardar departamento
+                        </button>
+                        <a href="{% url 'cuadre_caja:index' %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

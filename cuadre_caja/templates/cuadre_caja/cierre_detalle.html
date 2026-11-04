@@ -297,7 +297,7 @@
     <div class="col-12 col-md-4">
         <div class="card cc-card h-100 border-start border-4 border-success">
             <div class="card-body">
-                <div class="stat-label mb-1">Equivalente en Bs</div>
+                <div class="stat-label mb-1">Total en Bs</div>
                 <div class="stat-valor">Bs {{ cierre.total_equivalente_bs|floatformat:2 }}</div>
                 <div class="small text-muted">USD {{ cierre.total_equivalente_usd|floatformat:2 }}</div>
             </div>
@@ -422,6 +422,48 @@
             </div>
             {% endfor %}
         </div>
+    </div>
+</div>
+{% endif %}
+
+{% if conteo_metodos %}
+<div class="card cc-card mb-4 border-start border-4 border-secondary">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-secondary"></i>Conteo por método de pago</h5>
+        <p class="small text-muted mb-0">Cantidad de transacciones registradas por método.</p>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <ul class="list-group list-group-flush">
+            {% for item in conteo_metodos %}
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <span>{{ item.metodo }}</span>
+                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
+                    {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% if conteo_bancos %}
+<div class="card cc-card mb-4 border-start border-4 border-info">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-bank me-2 text-info"></i>Conteo por banco</h5>
+        <p class="small text-muted mb-0">Cantidad de transacciones registradas por banco.</p>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <ul class="list-group list-group-flush">
+            {% for item in conteo_bancos %}
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <span>{{ item.banco }}</span>
+                <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
+                    {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
     </div>
 </div>
 {% endif %}

@@ -11,8 +11,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .forms import (
+    BANCOS_CHOICES,
+    CajaForm,
     CierreCajaForm,
     CierreHistorialFiltroForm,
+    DepartamentoForm,
     EgresoCierreFormSet,
     CierreTransaccionFormSet,
     ImagenCierreFormSet,
@@ -259,6 +262,58 @@ def index(request):
 
 
 @login_required
+def departamento_crear(request):
+    """Registra un nuevo departamento."""
+    if request.method == "POST":
+        form = DepartamentoForm(request.POST)
+        if form.is_valid():
+            departamento = form.save()
+            messages.success(
+                request, f"Departamento “{departamento.nombre}” registrado."
+            )
+            return redirect("cuadre_caja:index")
+    else:
+        form = DepartamentoForm()
+
+    return render(
+        request,
+        "cuadre_caja/departamento_form.html",
+        {"form": form},
+    )
+
+
+@login_required
+def caja_crear(request, slug):
+    """Registra una nueva caja dentro de un departamento."""
+    departamento = get_object_or_404(Departamento, slug=slug, activo=True)
+
+    if request.method == "POST":
+        form = CajaForm(request.POST, departamento=departamento)
+        if form.is_valid():
+            caja = form.save(commit=False)
+            caja.departamento = departamento
+            caja.save()
+            messages.success(
+                request,
+                f"Caja “{caja.nombre}” registrada en {departamento.nombre}.",
+            )
+            return redirect(
+                "cuadre_caja:departamento_detalle", slug=departamento.slug
+            )
+    else:
+        form = CajaForm(departamento=departamento)
+
+    return render(
+        request,
+        "cuadre_caja/caja_form.html",
+        {
+            "form": form,
+            "departamento": departamento,
+        },
+    )
+
+
+@login_required
 def departamento_detalle(request, slug):
     """Muestra las cajas de un departamento y sus cierres del día."""
     departamento = get_object_or_404(Departamento, slug=slug, activo=True)
@@ -277,11 +332,27 @@ def departamento_detalle(request, slug):
 
     datos = []
     for caja in cajas:
+        cierres_hoy = cierres_por_caja.get(caja.id, {})
+        total_bs = sum(
+            (cierre.total_bs for cierre in cierres_hoy.values()),
+            Decimal("0.00"),
+        )
+        total_usd = sum(
+            (cierre.total_usd for cierre in cierres_hoy.values()),
+            Decimal("0.00"),
+        )
+        total_equivalente_bs = sum(
+            (cierre.total_equivalente_bs for cierre in cierres_hoy.values()),
+            Decimal("0.00"),
+        )
         datos.append(
             {
                 "caja": caja,
-                "cierres_hoy": cierres_por_caja.get(caja.id, {}),
+                "cierres_hoy": cierres_hoy,
                 "ultimo_cierre": ultimos_cierres.get(caja.id),
+                "total_bs": total_bs,
+                "total_usd": total_usd,
+                "total_equivalente_bs": total_equivalente_bs,
             }
         )
 
@@ -386,7 +457,6 @@ def cerrar_caja(request, caja_id):
             "egresos_formset": egresos_formset,
             "transacciones_formset": transacciones_formset,
             "imagenes_formset": imagenes_formset,
-            "formato_billetes_bs": form.data.get("formato_billetes_bs", "10-20-50-100-200-500"),
             "notas": form.data.get("notas", ""),
         },
     )
@@ -422,6 +492,43 @@ def cierre_detalle(request, cierre_id):
 
     transacciones = list(cierre.transacciones.all())
     imagenes = list(cierre.imagenes.all())
+
+    # Conteo de transacciones por método de pago (con respaldo en cierres antiguos).
+    conteo = Counter(t.metodo_pago for t in transacciones)
+    if not conteo and detalles:
+        conteo = Counter(d.metodo_pago for d in detalles)
+    conteo_metodos = [
+        {
+            "metodo": etiqueta,
+            "cantidad": conteo[valor],
+        }
+        for valor, etiqueta in MetodoPagoChoices.choices
+        if conteo.get(valor)
+    ]
+
+    # Conteo de transacciones por banco (agrupando variantes de mayúsculas).
+    etiquetas_banco = {
+        valor.lower(): etiqueta for valor, etiqueta in BANCOS_CHOICES if valor
+    }
+    conteo_por_banco = Counter()
+    for transaccion in transacciones:
+        banco = (transaccion.banco or "").strip()
+        if not banco:
+            continue
+        nombre = etiquetas_banco.get(banco.lower(), banco)
+        conteo_por_banco[nombre] += 1
+
+    orden_bancos = [etiqueta for valor, etiqueta in BANCOS_CHOICES if valor]
+    conteo_bancos = [
+        {"banco": nombre, "cantidad": conteo_por_banco[nombre]}
+        for nombre in orden_bancos
+        if conteo_por_banco.get(nombre)
+    ]
+    for nombre in sorted(conteo_por_banco):
+        if nombre not in orden_bancos:
+            conteo_bancos.append(
+                {"banco": nombre, "cantidad": conteo_por_banco[nombre]}
+            )
 
     distribucion_bs, total_distribucion_bs = _montos_por_metodo(
         transacciones, detalles, MONEDA_BS
@@ -465,6 +572,8 @@ def cierre_detalle(request, cierre_id):
             "total_egresos_usd": total_egresos_usd,
             "transacciones": transacciones,
             "imagenes": imagenes,
+            "conteo_metodos": conteo_metodos,
+            "conteo_bancos": conteo_bancos,
         },
     )
 

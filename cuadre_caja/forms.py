@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.utils import timezone
+from django.utils.text import slugify
 
 from .models import (
     Caja,
@@ -17,6 +18,116 @@ from .models import (
     TurnoChoices,
     CierreTransaccion,
 )
+
+
+BANCOS_CHOICES = [
+    ("", "Banco"),
+    ("Banesco", "Banesco"),
+    ("Mercantil", "Mercantil"),
+    ("Venezuela", "Venezuela"),
+]
+
+
+class DepartamentoForm(forms.ModelForm):
+    """Registro y edición de un departamento."""
+
+    slug = forms.SlugField(
+        label="Identificador",
+        required=False,
+        help_text="Si lo dejas vacío se genera desde el nombre.",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "supermercado",
+            }
+        ),
+    )
+
+    class Meta:
+        model = Departamento
+        fields = ["nombre", "slug", "orden", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre del departamento",
+                }
+            ),
+            "orden": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "min": "0",
+                    "placeholder": "0",
+                }
+            ),
+            "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def clean_slug(self):
+        slug = (self.cleaned_data.get("slug") or "").strip()
+        if not slug:
+            slug = slugify(self.cleaned_data.get("nombre", ""))
+        if not slug:
+            raise forms.ValidationError("Indica un identificador para el departamento.")
+
+        existentes = Departamento.objects.filter(slug=slug)
+        if self.instance.pk:
+            existentes = existentes.exclude(pk=self.instance.pk)
+        if existentes.exists():
+            raise forms.ValidationError(
+                "Ya existe un departamento con ese identificador."
+            )
+        return slug
+
+
+class CajaForm(forms.ModelForm):
+    """Registro de una caja dentro de un departamento."""
+
+    class Meta:
+        model = Caja
+        fields = ["nombre", "numero", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre de la caja",
+                }
+            ),
+            "numero": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "min": "1",
+                    "placeholder": "1",
+                }
+            ),
+            "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, departamento=None, **kwargs):
+        self.departamento = departamento
+        super().__init__(*args, **kwargs)
+        if departamento and not self.instance.pk and not self.initial.get("numero"):
+            ultimo = (
+                Caja.objects.filter(departamento=departamento)
+                .order_by("-numero")
+                .values_list("numero", flat=True)
+                .first()
+            )
+            self.initial["numero"] = (ultimo or 0) + 1
+
+    def clean_numero(self):
+        numero = self.cleaned_data.get("numero")
+        if self.departamento and numero:
+            existentes = Caja.objects.filter(
+                departamento=self.departamento, numero=numero
+            )
+            if self.instance.pk:
+                existentes = existentes.exclude(pk=self.instance.pk)
+            if existentes.exists():
+                raise forms.ValidationError(
+                    "Ya existe una caja con ese número en este departamento."
+                )
+        return numero
 
 
 class CierreCajaForm(forms.ModelForm):
@@ -154,15 +265,11 @@ class EgresoCierreForm(forms.ModelForm):
             }
         ),
     )
-    banco = forms.CharField(
+    banco = forms.ChoiceField(
         label="Banco",
         required=False,
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-control form-control-sm",
-                "placeholder": "Banco",
-            }
-        ),
+        choices=BANCOS_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
     moneda = forms.ChoiceField(
         label="Moneda",
@@ -264,7 +371,7 @@ EgresoCierreFormSet = forms.inlineformset_factory(
 
 
 class CierreTransaccionForm(forms.ModelForm):
-    """Fila de transacción (banco, monto, ref, notas, formato de billetes) dentro del cierre."""
+    """Fila de transacción (banco, monto, referencia y notas) dentro del cierre."""
 
     metodo_pago = forms.ChoiceField(
         label="Método de pago",
@@ -272,15 +379,11 @@ class CierreTransaccionForm(forms.ModelForm):
         choices=[("", "Método")] + list(MetodoPagoChoices.choices),
         widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
-    banco = forms.CharField(
+    banco = forms.ChoiceField(
         label="Banco o entidad",
         required=False,
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-control form-control-sm",
-                "placeholder": "Banco o entidad",
-            }
-        ),
+        choices=BANCOS_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
     monto = forms.DecimalField(
         label="Monto",
@@ -317,25 +420,10 @@ class CierreTransaccionForm(forms.ModelForm):
             }
         ),
     )
-    formato_billetes_bs = forms.ChoiceField(
-        label="Formato billetes Bs",
-        required=False,
-        choices=[
-            ("", "Selecciona"),
-            ("10", "10"),
-            ("20", "20"),
-            ("50", "50"),
-            ("100", "100"),
-            ("200", "200"),
-            ("500", "500"),
-        ],
-        initial="",
-        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
-    )
 
     class Meta:
         model = CierreTransaccion
-        fields = ["metodo_pago", "banco", "monto", "ref", "notas", "formato_billetes_bs"]
+        fields = ["metodo_pago", "banco", "monto", "ref", "notas"]
 
     def has_changed(self):
         """Ignora las filas completamente vacías del formset."""
@@ -343,7 +431,7 @@ class CierreTransaccionForm(forms.ModelForm):
             return False
         return any(
             (self.data.get(self.add_prefix(campo)) or "").strip()
-            for campo in ("metodo_pago", "banco", "monto", "ref", "notas", "formato_billetes_bs")
+            for campo in ("metodo_pago", "banco", "monto", "ref", "notas")
         )
 
     def clean(self):
@@ -352,8 +440,6 @@ class CierreTransaccionForm(forms.ModelForm):
         banco = (cleaned_data.get("banco") or "").strip()
         monto = cleaned_data.get("monto")
         ref = (cleaned_data.get("ref") or "").strip()
-        notas = (cleaned_data.get("notas") or "").strip()
-        formato = (cleaned_data.get("formato_billetes_bs") or "").strip()
 
         if not any([metodo, banco, monto, ref]):
             return cleaned_data
