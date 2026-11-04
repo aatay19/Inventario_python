@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Caja, CierreCaja, Departamento, DetalleCierre, EgresoCierre, ImagenCierre
+from .models import (
+    Caja,
+    CierreCaja,
+    Departamento,
+    DetalleCierre,
+    EgresoGeneral,
+    EgresoCierre,
+    ImagenCierre,
+)
 
 
 class CajaInline(admin.TabularInline):
@@ -32,8 +40,8 @@ class DetalleCierreInline(admin.TabularInline):
 class EgresoCierreInline(admin.TabularInline):
     model = EgresoCierre
     extra = 0
-    fields = ("tipo", "cedula", "telefono", "banco", "moneda", "monto", "referencia")
-    readonly_fields = ("tipo", "cedula", "telefono", "banco", "moneda", "monto", "referencia")
+    fields = ("tipo", "cedula", "telefono", "banco", "moneda", "monto", "referencia", "imagen")
+    readonly_fields = ("tipo", "cedula", "telefono", "banco", "moneda", "monto", "referencia", "imagen")
 
 
 class ImagenCierreInline(admin.TabularInline):
@@ -58,3 +66,21 @@ class CierreCajaAdmin(admin.ModelAdmin):
     search_fields = ("nombre_cajera",)
     date_hierarchy = "fecha"
     inlines = [DetalleCierreInline, EgresoCierreInline, ImagenCierreInline]
+
+
+@admin.register(EgresoGeneral)
+class EgresoGeneralAdmin(admin.ModelAdmin):
+    list_display = (
+        "fecha_registro",
+        "tipo",
+        "motivo",
+        "cedula",
+        "banco",
+        "moneda",
+        "monto",
+        "usuario",
+    )
+    list_filter = ("tipo", "moneda", "banco", "fecha_registro")
+    search_fields = ("motivo", "cedula", "telefono", "referencia")
+    date_hierarchy = "fecha_registro"
+    readonly_fields = ("fecha_registro", "usuario")

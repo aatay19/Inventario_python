@@ -136,9 +136,16 @@
                 <p class="small text-muted mt-3 mb-3">Sin cierres registrados.</p>
                 {% endif %}
 
+                {% if item.cierres_hoy.AM and item.cierres_hoy.PM %}
+                <button type="button" class="btn btn-success w-100 mt-3" disabled
+                    title="AM y PM ya registrados hoy para esta caja">
+                    <i class="bi bi-clipboard-check me-1"></i> Registrar cuadre de caja
+                </button>
+                {% else %}
                 <a href="{% url 'cuadre_caja:cerrar_caja' item.caja.id %}" class="btn btn-success w-100 mt-3">
-                    <i class="bi bi-clipboard-check me-1"></i> Registrar cierre
+                    <i class="bi bi-clipboard-check me-1"></i> Registrar cuadre de caja
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>

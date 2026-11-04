@@ -1,0 +1,226 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Egresos y devoluciones | Cuadre de Caja{% endblock %}
+
+{% block extra_css %}
+<style>
+    .miniatura-egreso {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Egresos y devoluciones</h1>
+        <p class="text-muted mb-0">
+            Registros independientes de los cuadres de caja.
+        </p>
+    </div>
+    <a href="{% url 'cuadre_caja:index' %}" class="btn btn-outline-success">
+        <i class="bi bi-grid me-1"></i> Ir a departamentos
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Registros</div>
+                <div class="stat-valor">{{ totales.cantidad }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en bolívares</div>
+                <div class="stat-valor">Bs {{ totales.total_bs|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Total en dólares</div>
+                <div class="stat-valor">USD {{ totales.total_usd|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card cc-card mb-4">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold">
+            <i class="bi bi-plus-circle me-2 text-success"></i>Registrar egreso o devolución
+        </h5>
+        <p class="small text-muted mb-0">
+            Este registro no pertenece a ningún cuadre de caja.
+        </p>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-4">
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger py-2">
+                {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.tipo.id_for_label }}" class="form-label fw-semibold">{{ form.tipo.label }}</label>
+                    {{ form.tipo }}
+                    {% for error in form.tipo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12 col-md-9">
+                    <label for="{{ form.motivo.id_for_label }}" class="form-label fw-semibold">{{ form.motivo.label }}</label>
+                    {{ form.motivo }}
+                    {% for error in form.motivo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.cedula.id_for_label }}" class="form-label fw-semibold">{{ form.cedula.label }}</label>
+                    {{ form.cedula }}
+                    {% for error in form.cedula.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.telefono.id_for_label }}" class="form-label fw-semibold">{{ form.telefono.label }}</label>
+                    {{ form.telefono }}
+                    {% for error in form.telefono.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.banco.id_for_label }}" class="form-label fw-semibold">{{ form.banco.label }}</label>
+                    {{ form.banco }}
+                    {% for error in form.banco.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.moneda.id_for_label }}" class="form-label fw-semibold">{{ form.moneda.label }}</label>
+                    {{ form.moneda }}
+                    {% for error in form.moneda.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.monto.id_for_label }}" class="form-label fw-semibold">{{ form.monto.label }}</label>
+                    {{ form.monto }}
+                    {% for error in form.monto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12 col-md-5">
+                    <label for="{{ form.referencia.id_for_label }}" class="form-label fw-semibold">{{ form.referencia.label }}</label>
+                    {{ form.referencia }}
+                    {% for error in form.referencia.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12 col-md-4">
+                    <label for="{{ form.imagen.id_for_label }}" class="form-label fw-semibold">{{ form.imagen.label }}</label>
+                    {{ form.imagen }}
+                    {% for error in form.imagen.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-4">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check2-circle me-1"></i> Registrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card cc-card">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <h5 class="mb-0 fw-bold">
+            <i class="bi bi-list-ul me-2 text-secondary"></i>Registros realizados
+        </h5>
+        <p class="small text-muted mb-0">
+            Egresos y devoluciones independientes de los cuadres de caja.
+        </p>
+    </div>
+    <div class="card-body px-0 pb-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Fecha</th>
+                        <th>Tipo</th>
+                        <th>Motivo</th>
+                        <th>Cédula</th>
+                        <th>Teléfono</th>
+                        <th>Banco</th>
+                        <th>Moneda</th>
+                        <th class="text-end">Monto</th>
+                        <th>Referencia</th>
+                        <th>Imagen</th>
+                        <th class="pe-3">Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for egreso in egresos %}
+                    <tr>
+                        <td class="ps-3 text-nowrap">{{ egreso.fecha_registro|date:"d/m/Y H:i" }}</td>
+                        <td><span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span></td>
+                        <td>{{ egreso.motivo }}</td>
+                        <td>{{ egreso.cedula|default:"—" }}</td>
+                        <td>{{ egreso.telefono|default:"—" }}</td>
+                        <td>{{ egreso.banco|default:"—" }}</td>
+                        <td>{{ egreso.get_moneda_display }}</td>
+                        <td class="text-end monto fw-semibold">{{ egreso.monto|floatformat:2 }}</td>
+                        <td>{{ egreso.referencia|default:"—" }}</td>
+                        <td>
+                            {% if egreso.imagen %}
+                            <a href="{{ egreso.imagen.url }}" target="_blank" rel="noopener">
+                                <img src="{{ egreso.imagen.url }}" alt="Imagen del egreso" class="miniatura-egreso">
+                            </a>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="pe-3">
+                            {{ egreso.usuario.first_name|default:egreso.usuario.username|default:"—" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            No hay egresos ni devoluciones registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if egresos.paginator.num_pages > 1 %}
+    <div class="card-footer bg-white border-0 py-3">
+        <nav aria-label="Paginación de egresos">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item {% if not egresos.has_previous %}disabled{% endif %}">
+                    {% if egresos.has_previous %}
+                    <a class="page-link" href="{% querystring page=egresos.previous_page_number %}">Anterior</a>
+                    {% else %}
+                    <span class="page-link">Anterior</span>
+                    {% endif %}
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ egresos.number }} de {{ egresos.paginator.num_pages }}</span>
+                </li>
+                <li class="page-item {% if not egresos.has_next %}disabled{% endif %}">
+                    {% if egresos.has_next %}
+                    <a class="page-link" href="{% querystring page=egresos.next_page_number %}">Siguiente</a>
+                    {% else %}
+                    <span class="page-link">Siguiente</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

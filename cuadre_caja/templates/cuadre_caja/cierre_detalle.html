@@ -4,6 +4,14 @@
 
 {% block extra_css %}
 <style>
+    .miniatura-egreso {
+        width: 54px;
+        height: 54px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+
     @media print {
         @page {
             size: A4 portrait;
@@ -332,6 +340,7 @@
                         <th>Moneda</th>
                         <th class="text-end">Monto</th>
                         <th>Referencia</th>
+                        <th>Imagen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -344,6 +353,15 @@
                         <td>{{ egreso.get_moneda_display }}</td>
                         <td class="text-end monto fw-semibold">{{ egreso.monto|floatformat:2 }}</td>
                         <td>{{ egreso.referencia|default:"—" }}</td>
+                        <td>
+                            {% if egreso.imagen %}
+                            <a href="{{ egreso.imagen.url }}" target="_blank" rel="noopener">
+                                <img src="{{ egreso.imagen.url }}" alt="Imagen del egreso" class="miniatura-egreso">
+                            </a>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -353,6 +371,7 @@
                         <td class="text-end monto">
                             Bs {{ total_egresos_bs|floatformat:2 }} · USD {{ total_egresos_usd|floatformat:2 }}
                         </td>
+                        <td></td>
                         <td></td>
                     </tr>
                 </tfoot>

@@ -139,6 +139,106 @@
     </div>
 </div>
 
+<div class="card cc-card mb-4 border-start border-4 border-warning">
+    <div class="card-body">
+        <div class="row g-3 align-items-center">
+            <div class="col-12 col-lg-5">
+                <div class="stat-label mb-1">Total de egresos y devoluciones de los cuadres de caja</div>
+                <p class="small text-muted mb-0">
+                    Total registrado en la sección “Egresos y devoluciones” de cada cuadre del periodo.
+                    Es informativo y no se resta de los totales.
+                </p>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-label mb-1">En bolívares</div>
+                <div class="stat-valor">Bs {{ totales_salidas.total_bs|floatformat:2 }}</div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-label mb-1">En dólares</div>
+                <div class="stat-valor">USD {{ totales_salidas.total_usd|floatformat:2 }}</div>
+            </div>
+            <div class="col-12 col-lg-1 text-lg-end">
+                <span class="badge bg-light text-secondary border">
+                    {{ totales_salidas.cantidad }} registro{{ totales_salidas.cantidad|pluralize }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card cc-card mb-4 border-start border-4 border-danger">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-arrow-down-circle me-2 text-danger"></i>Total de egresos y devoluciones independientes
+            </h5>
+            <p class="small text-muted mb-0">
+                Registros de la sección “Egresos” que no pertenecen a ningún cuadre de caja.
+                Se filtran solo por el periodo de fechas.
+            </p>
+        </div>
+        <a href="{% url 'cuadre_caja:egresos' %}" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-box-arrow-up-right me-1"></i> Ver sección
+        </a>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+                <div class="stat-label mb-1">En bolívares</div>
+                <div class="stat-valor">Bs {{ totales_independientes.total_bs|floatformat:2 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-label mb-1">En dólares</div>
+                <div class="stat-valor">USD {{ totales_independientes.total_usd|floatformat:2 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-label mb-1">Registros</div>
+                <div class="stat-valor">{{ totales_independientes.cantidad }}</div>
+            </div>
+        </div>
+
+        {% if egresos_independientes %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Motivo</th>
+                        <th>Banco</th>
+                        <th>Moneda</th>
+                        <th class="text-end">Monto</th>
+                        <th>Referencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for egreso in egresos_independientes %}
+                    <tr>
+                        <td class="text-nowrap">{{ egreso.fecha_registro|date:"d/m/Y H:i" }}</td>
+                        <td><span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span></td>
+                        <td>{{ egreso.motivo }}</td>
+                        <td>{{ egreso.banco|default:"—" }}</td>
+                        <td>{{ egreso.get_moneda_display }}</td>
+                        <td class="text-end monto">{{ egreso.monto|floatformat:2 }}</td>
+                        <td>{{ egreso.referencia|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if totales_independientes.cantidad > 10 %}
+        <p class="small text-muted mt-2 mb-0">
+            Mostrando los últimos 10 registros de {{ totales_independientes.cantidad }}.
+        </p>
+        {% endif %}
+        {% else %}
+        <p class="text-muted small mb-0">
+            No hay egresos ni devoluciones independientes en el periodo.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
 {% if grupos %}
 <div class="card cc-card mb-4">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">

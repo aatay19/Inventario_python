@@ -22,6 +22,7 @@ urlpatterns = [
         name="caja_crear",
     ),
     path("caja/<int:caja_id>/cerrar/", views.cerrar_caja, name="cerrar_caja"),
+    path("egresos/", views.egresos, name="egresos"),
     path("cierre/<int:cierre_id>/", views.cierre_detalle, name="cierre_detalle"),
     path("historial/", views.historial, name="historial"),
     path("reportes/", views.reportes, name="reportes"),

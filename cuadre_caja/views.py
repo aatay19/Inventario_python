@@ -1,12 +1,12 @@
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Prefetch, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -16,6 +16,7 @@ from .forms import (
     CierreCajaForm,
     CierreHistorialFiltroForm,
     DepartamentoForm,
+    EgresoGeneralForm,
     EgresoCierreFormSet,
     CierreTransaccionFormSet,
     ImagenCierreFormSet,
@@ -26,6 +27,7 @@ from .models import (
     CierreCaja,
     Departamento,
     DetalleCierre,
+    EgresoGeneral,
     MONEDA_BS,
     MONEDA_POR_METODO,
     MONEDA_USD,
@@ -33,6 +35,10 @@ from .models import (
     EgresoCierre,
     CierreTransaccion,
     TurnoChoices,
+)
+from .permissions import (
+    cuadre_caja_required,
+    supervisor_required,
 )
 
 
@@ -219,7 +225,7 @@ def _resumen_cierres(cierres):
     return lista_departamentos, total_general, list(resumen_turnos.values())
 
 
-@login_required
+@cuadre_caja_required
 def index(request):
     """Panel principal: muestra los departamentos disponibles."""
     hoy = timezone.localdate()
@@ -261,7 +267,7 @@ def index(request):
     )
 
 
-@login_required
+@supervisor_required
 def departamento_crear(request):
     """Registra un nuevo departamento."""
     if request.method == "POST":
@@ -282,7 +288,7 @@ def departamento_crear(request):
     )
 
 
-@login_required
+@supervisor_required
 def caja_crear(request, slug):
     """Registra una nueva caja dentro de un departamento."""
     departamento = get_object_or_404(Departamento, slug=slug, activo=True)
@@ -313,7 +319,7 @@ def caja_crear(request, slug):
     )
 
 
-@login_required
+@cuadre_caja_required
 def departamento_detalle(request, slug):
     """Muestra las cajas de un departamento y sus cierres del día."""
     departamento = get_object_or_404(Departamento, slug=slug, activo=True)
@@ -369,17 +375,73 @@ def departamento_detalle(request, slug):
     )
 
 
-@login_required
+@cuadre_caja_required
+def egresos(request):
+    """Registra egresos o devoluciones independientes de los cuadres de caja."""
+    if request.method == "POST":
+        form = EgresoGeneralForm(request.POST, request.FILES)
+        if form.is_valid():
+            egreso = form.save(commit=False)
+            egreso.usuario = request.user
+            egreso.save()
+            messages.success(
+                request,
+                f"{egreso.get_tipo_display()} registrado correctamente.",
+            )
+            return redirect("cuadre_caja:egresos")
+        messages.error(request, "Revisa los datos del egreso o devolución.")
+    else:
+        form = EgresoGeneralForm()
+
+    registros = EgresoGeneral.objects.select_related("usuario")
+    totales = registros.aggregate(
+        cantidad=Count("id"),
+        total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
+        total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
+    )
+    totales["total_bs"] = totales["total_bs"] or Decimal("0.00")
+    totales["total_usd"] = totales["total_usd"] or Decimal("0.00")
+
+    paginator = Paginator(registros, 20)
+    pagina = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "cuadre_caja/egresos.html",
+        {
+            "form": form,
+            "egresos": pagina,
+            "totales": totales,
+            "total_registros": paginator.count,
+        },
+    )
+
+
+@cuadre_caja_required
 def cerrar_caja(request, caja_id):
     """Registra el cierre diario de una caja."""
     caja = get_object_or_404(
         Caja.objects.select_related("departamento"), pk=caja_id, activo=True
     )
 
+    hoy = timezone.localdate()
+    turnos_registrados = CierreCaja.objects.filter(
+        caja=caja, fecha=hoy
+    ).values_list("turno", flat=True)
+
+    # Si ya existen ambos turnos (AM y PM) para esta caja hoy, no se permite registrar otro cuadre.
+    if TurnoChoices.AM in turnos_registrados and TurnoChoices.PM in turnos_registrados:
+        messages.error(
+            request,
+            f"La caja “{caja.nombre}” ya tiene los turnos AM y PM registrados para hoy "
+            f"({hoy:%d/%m/%Y}). No se puede registrar otro cuadre.",
+        )
+        return redirect("cuadre_caja:departamento_detalle", caja.departamento.slug)
+
     if request.method == "POST":
         form = CierreCajaForm(request.POST, caja=caja)
         egresos_formset = EgresoCierreFormSet(
-            request.POST, prefix="egresos", instance=CierreCaja()
+            request.POST, request.FILES, prefix="egresos", instance=CierreCaja()
         )
         transacciones_formset = CierreTransaccionFormSet(
             request.POST, prefix="transacciones", instance=CierreCaja()
@@ -428,7 +490,9 @@ def cerrar_caja(request, caja_id):
                 f"Cierre registrado para {caja.nombre} "
                 f"({cierre.get_turno_display()}).",
             )
-            return redirect("cuadre_caja:cierre_detalle", cierre_id=cierre.id)
+            return redirect(
+                "cuadre_caja:departamento_detalle", caja.departamento.slug
+            )
 
         messages.error(request, "Revisa los datos del cierre.")
     else:
@@ -462,7 +526,7 @@ def cerrar_caja(request, caja_id):
     )
 
 
-@login_required
+@cuadre_caja_required
 def cierre_detalle(request, cierre_id):
     """Comprobante de un cierre registrado."""
     cierre = get_object_or_404(
@@ -578,7 +642,7 @@ def cierre_detalle(request, cierre_id):
     )
 
 
-@login_required
+@supervisor_required
 def historial(request):
     """Listado de cierres con filtros por departamento, turno, cajera y fecha."""
     form = CierreHistorialFiltroForm(request.GET or None)
@@ -624,7 +688,7 @@ def historial(request):
     )
 
 
-@login_required
+@supervisor_required
 def reportes(request):
     """Reportes por turno, caja y departamento para día, semana, mes o año."""
     hoy = timezone.localdate()
@@ -671,6 +735,38 @@ def reportes(request):
 
     grupos, total_general, resumen_turnos = _resumen_cierres(cierres)
 
+    # Egresos y devoluciones registrados dentro de los cuadres filtrados.
+    salidas = EgresoCierre.objects.filter(cierre__in=cierres)
+    totales_salidas = salidas.aggregate(
+        cantidad=Count("id"),
+        total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
+        total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
+    )
+    totales_salidas["total_bs"] = totales_salidas["total_bs"] or Decimal("0.00")
+    totales_salidas["total_usd"] = totales_salidas["total_usd"] or Decimal("0.00")
+
+    # Egresos y devoluciones independientes (no pertenecen a ningún cuadre).
+    inicio_dt = timezone.make_aware(datetime.combine(fecha_inicio, time.min))
+    fin_dt = timezone.make_aware(
+        datetime.combine(fecha_fin + timedelta(days=1), time.min)
+    )
+    independientes = EgresoGeneral.objects.filter(
+        fecha_registro__gte=inicio_dt,
+        fecha_registro__lt=fin_dt,
+    ).select_related("usuario")
+    totales_independientes = independientes.aggregate(
+        cantidad=Count("id"),
+        total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
+        total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
+    )
+    totales_independientes["total_bs"] = (
+        totales_independientes["total_bs"] or Decimal("0.00")
+    )
+    totales_independientes["total_usd"] = (
+        totales_independientes["total_usd"] or Decimal("0.00")
+    )
+    egresos_independientes = independientes.order_by("-fecha_registro")[:10]
+
     etiquetas_periodo = {
         ReporteFiltroForm.PERIODO_DIA: "Día",
         ReporteFiltroForm.PERIODO_SEMANA: "Semana",
@@ -694,12 +790,15 @@ def reportes(request):
             "grupos": grupos,
             "total_general": total_general,
             "resumen_turnos": resumen_turnos,
+            "totales_salidas": totales_salidas,
+            "totales_independientes": totales_independientes,
+            "egresos_independientes": egresos_independientes,
             "total_cierres": len(cierres),
         },
     )
 
 
-@login_required
+@supervisor_required
 def reporte_dia(request, fecha_str):
     """Reporte de cierres por día."""
     try:
@@ -742,7 +841,7 @@ def reporte_dia(request, fecha_str):
     )
 
 
-@login_required
+@supervisor_required
 def reporte_semanal(request):
     """Reporte semanal de cierres."""
     from datetime import timedelta
@@ -784,7 +883,7 @@ def reporte_semanal(request):
     )
 
 
-@login_required
+@supervisor_required
 def reporte_mensual(request):
     """Reporte mensual de cierres."""
     from calendar import monthrange
@@ -826,7 +925,7 @@ def reporte_mensual(request):
     )
 
 
-@login_required
+@supervisor_required
 def reporte_anual(request):
     """Reporte anual de cierres."""
     hoy = timezone.localdate()

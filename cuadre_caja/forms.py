@@ -8,6 +8,7 @@ from .models import (
     Caja,
     CierreCaja,
     Departamento,
+    EgresoGeneral,
     EgresoCierre,
     ImagenCierre,
     MONEDA_BS,
@@ -306,6 +307,13 @@ class EgresoCierreForm(forms.ModelForm):
             }
         ),
     )
+    imagen = forms.ImageField(
+        label="Imagen",
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={"class": "form-control form-control-sm", "accept": "image/*"}
+        ),
+    )
 
     class Meta:
         model = EgresoCierre
@@ -317,12 +325,15 @@ class EgresoCierreForm(forms.ModelForm):
             "moneda",
             "monto",
             "referencia",
+            "imagen",
         ]
 
     def has_changed(self):
         """Ignora las filas completamente vacías del formset."""
         if not self.is_bound:
             return False
+        if self.files.get(self.add_prefix("imagen")):
+            return True
         return any(
             (self.data.get(self.add_prefix(campo)) or "").strip()
             for campo in (
@@ -341,12 +352,13 @@ class EgresoCierreForm(forms.ModelForm):
         tipo = cleaned_data.get("tipo")
         moneda = cleaned_data.get("moneda")
         monto = cleaned_data.get("monto")
+        imagen = cleaned_data.get("imagen")
         datos = [
             (cleaned_data.get(campo) or "").strip()
             for campo in ("cedula", "telefono", "banco", "referencia")
         ]
 
-        if not any([tipo, moneda, monto, *datos]):
+        if not any([tipo, moneda, monto, imagen, *datos]):
             return cleaned_data
 
         if not tipo:
@@ -368,6 +380,114 @@ EgresoCierreFormSet = forms.inlineformset_factory(
     min_num=0,
     validate_min=False,
 )
+
+
+class EgresoGeneralForm(forms.ModelForm):
+    """Registro independiente de un egreso o devolución, con motivo."""
+
+    tipo = forms.ChoiceField(
+        label="Tipo",
+        required=True,
+        choices=TipoSalidaChoices.choices,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    cedula = forms.CharField(
+        label="Cédula",
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "V-12345678",
+            }
+        ),
+    )
+    telefono = forms.CharField(
+        label="Teléfono",
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "0414-1234567",
+            }
+        ),
+    )
+    banco = forms.ChoiceField(
+        label="Banco",
+        required=False,
+        choices=BANCOS_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    moneda = forms.ChoiceField(
+        label="Moneda",
+        required=True,
+        choices=[
+            (MONEDA_BS, "Bolívares (Bs)"),
+            (MONEDA_USD, "Dólares (USD)"),
+        ],
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    monto = forms.DecimalField(
+        label="Monto",
+        required=True,
+        max_digits=14,
+        decimal_places=2,
+        min_value=0,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control text-end",
+                "step": "0.01",
+                "min": "0",
+                "placeholder": "0.00",
+            }
+        ),
+    )
+    referencia = forms.CharField(
+        label="Referencia",
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nro. de referencia",
+            }
+        ),
+    )
+    imagen = forms.ImageField(
+        label="Imagen",
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={"class": "form-control", "accept": "image/*"}
+        ),
+    )
+    motivo = forms.CharField(
+        label="Motivo",
+        required=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Motivo del egreso o devolución",
+            }
+        ),
+    )
+
+    class Meta:
+        model = EgresoGeneral
+        fields = [
+            "tipo",
+            "cedula",
+            "telefono",
+            "banco",
+            "moneda",
+            "monto",
+            "referencia",
+            "imagen",
+            "motivo",
+        ]
+
+    def clean_monto(self):
+        monto = self.cleaned_data.get("monto")
+        if monto is not None and monto <= 0:
+            raise forms.ValidationError("El monto debe ser mayor a cero.")
+        return monto
 
 
 class CierreTransaccionForm(forms.ModelForm):

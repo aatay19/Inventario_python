@@ -257,6 +257,12 @@ class EgresoCierre(models.Model):
         default="",
         verbose_name="Referencia",
     )
+    imagen = models.ImageField(
+        upload_to="cuadre_caja/egresos/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name="Imagen",
+    )
 
     class Meta:
         ordering = ["id"]
@@ -266,6 +272,91 @@ class EgresoCierre(models.Model):
     def __str__(self):
         identificacion = self.cedula or self.get_tipo_display()
         return f"{identificacion} - {self.monto}"
+
+    @property
+    def monto_bs(self):
+        return self.monto if self.moneda == MONEDA_BS else Decimal("0.00")
+
+    @property
+    def monto_usd(self):
+        return self.monto if self.moneda == MONEDA_USD else Decimal("0.00")
+
+
+class EgresoGeneral(models.Model):
+    """Egreso o devolución registrado fuera de un cuadre de caja."""
+
+    tipo = models.CharField(
+        max_length=12,
+        choices=TipoSalidaChoices.choices,
+        default=TipoSalidaChoices.EGRESO,
+        verbose_name="Tipo",
+    )
+    cedula = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        verbose_name="Cédula",
+    )
+    telefono = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        verbose_name="Teléfono",
+    )
+    banco = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Banco",
+    )
+    moneda = models.CharField(
+        max_length=3,
+        choices=[(MONEDA_BS, "Bolívares"), (MONEDA_USD, "Dólares")],
+        default=MONEDA_BS,
+        verbose_name="Moneda",
+    )
+    monto = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name="Monto",
+    )
+    referencia = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Referencia",
+    )
+    imagen = models.ImageField(
+        upload_to="cuadre_caja/egresos_generales/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name="Imagen",
+    )
+    motivo = models.CharField(
+        max_length=200,
+        verbose_name="Motivo",
+    )
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de registro",
+    )
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="egresos_generales",
+        verbose_name="Usuario",
+    )
+
+    class Meta:
+        ordering = ["-fecha_registro", "-id"]
+        verbose_name = "Egreso general"
+        verbose_name_plural = "Egresos generales"
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.motivo} - {self.monto}"
 
     @property
     def monto_bs(self):

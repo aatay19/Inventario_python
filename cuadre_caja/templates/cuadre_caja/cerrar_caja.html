@@ -296,6 +296,7 @@
                                     <th style="min-width: 130px;">Moneda</th>
                                     <th class="text-end" style="min-width: 120px;">Monto</th>
                                     <th style="min-width: 140px;">Referencia</th>
+                                    <th style="min-width: 170px;">Imagen</th>
                                     <th style="width: 44px;"></th>
                                 </tr>
                             </thead>
@@ -330,6 +331,10 @@
                                         {{ egreso_form.referencia }}
                                         {% for error in egreso_form.referencia.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                                     </td>
+                                    <td>
+                                        {{ egreso_form.imagen }}
+                                        {% for error in egreso_form.imagen.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                    </td>
                                     <td class="text-center">
                                         <span class="d-none">{{ egreso_form.DELETE }}</span>
                                         <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-egreso" title="Quitar fila">
@@ -355,6 +360,7 @@
                             <td>{{ egresos_formset.empty_form.moneda }}</td>
                             <td>{{ egresos_formset.empty_form.monto }}</td>
                             <td>{{ egresos_formset.empty_form.referencia }}</td>
+                            <td>{{ egresos_formset.empty_form.imagen }}</td>
                             <td class="text-center">
                                 <span class="d-none">{{ egresos_formset.empty_form.DELETE }}</span>
                                 <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-egreso" title="Quitar fila">
