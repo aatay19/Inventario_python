@@ -251,19 +251,23 @@
                                 {% if evento.foto_abono1 %}
                                 <div class="mt-2 text-center">
                                     {% include 'parque/eventos/imagen_ampliable.html' with imagen_url=evento.foto_abono1.url imagen_titulo="Comprobante · Abono 1" imagen_alt="Comprobante Abono 1" imagen_badge="Comprobante" imagen_badge_clase="bg-dark" %}
+                                    {% if request.user.perfilusuario.rol|lower != 'admin' %}
                                     <form method="post" action="{% url 'parque:borrar_foto_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 1?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash me-1"></i>Borrar comprobante</button>
                                     </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% if evento.foto_factura_abono1 %}
                                 <div class="mt-2 text-center">
                                     {% include 'parque/eventos/imagen_ampliable.html' with imagen_url=evento.foto_factura_abono1.url imagen_titulo="Factura · Abono 1" imagen_alt="Factura Abono 1" imagen_badge="Factura" imagen_badge_clase="bg-warning text-dark" %}
+                                    {% if request.user.perfilusuario.rol|lower != 'admin' %}
                                     <form method="post" action="{% url 'parque:borrar_foto_factura_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 1?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-warning w-100"><i class="bi bi-trash me-1"></i>Borrar factura</button>
                                     </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                             </div>
@@ -302,19 +306,23 @@
                                 {% if evento.foto_abono2 %}
                                 <div class="mt-2 text-center">
                                     {% include 'parque/eventos/imagen_ampliable.html' with imagen_url=evento.foto_abono2.url imagen_titulo="Comprobante · Abono 2" imagen_alt="Comprobante Abono 2" imagen_badge="Comprobante" imagen_badge_clase="bg-dark" %}
+                                    {% if request.user.perfilusuario.rol|lower != 'admin' %}
                                     <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 2?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash me-1"></i>Borrar comprobante</button>
                                     </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% if evento.foto_factura_abono2 %}
                                 <div class="mt-2 text-center">
                                     {% include 'parque/eventos/imagen_ampliable.html' with imagen_url=evento.foto_factura_abono2.url imagen_titulo="Factura · Abono 2" imagen_alt="Factura Abono 2" imagen_badge="Factura" imagen_badge_clase="bg-warning text-dark" %}
+                                    {% if request.user.perfilusuario.rol|lower != 'admin' %}
                                     <form method="post" action="{% url 'parque:borrar_foto_factura_abono2' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 2?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-warning w-100"><i class="bi bi-trash me-1"></i>Borrar factura</button>
                                     </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                             </div>
@@ -333,9 +341,11 @@
                         <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-warning">
                             <i class="bi bi-pencil"></i> Editar Información
                         </a>
+                        {% if request.user.perfilusuario.rol|lower != 'admin' %}
                         <a href="{% url 'parque:eliminar_evento' evento.pk %}" class="btn btn-danger">
                             <i class="bi bi-trash"></i> Eliminar
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -64,6 +64,7 @@
                         </div>
                         <div class="col-xl-5 col-md-12 text-md-end d-flex flex-wrap justify-content-xl-end gap-2 mt-2 mt-xl-0">
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
+                            {% if user.perfilusuario.rol|lower != 'admin' %}
                             <!-- Botón de Eliminar -->
                             <form action="{% url 'compras.eliminar_pedido' %}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar TODO este pedido? Esta acción es solo informativa y no afecta el inventario físico.');">
                                 {% csrf_token %}
@@ -72,6 +73,7 @@
                                     <i class="bi bi-trash3-fill fs-6 me-1"></i> Eliminar
                                 </button>
                             </form>
+                            {% endif %}
                             <!-- Botón de Editar -->
                             <a href="{% url 'compras.editar' pedido.id_pedido %}" class="btn btn-outline-primary shadow-sm rounded-pill px-3 text-nowrap" title="Editar Pedido">
                                 <i class="bi bi-pencil-square fs-6 me-1"></i> Editar

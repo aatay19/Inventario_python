@@ -81,7 +81,7 @@
                                class="btn btn-outline-danger shadow-sm rounded-pill px-3 text-nowrap" target="_blank" title="Comprobante PDF">
                                 <i class="bi bi-file-earmark-pdf-fill fs-6 me-1"></i> PDF
                             </a>
-                            {% if user.perfilusuario.rol|lower != 'consulta' %}
+                            {% if user.perfilusuario.rol|lower != 'consulta' and user.perfilusuario.rol|lower != 'admin' %}
                             <form action="{% url 'movimientos.operacion_eliminar' %}" method="post" class="d-inline" onsubmit="return confirm('{% if tipo == 'ENTRADA' %}¿Está seguro de eliminar esta entrada? Se revertirá el stock de todos sus productos y no se puede deshacer.{% else %}¿Está seguro de eliminar esta operación? Se revertirá el stock de todos sus productos y no se puede deshacer.{% endif %}');">
                                 {% csrf_token %}
                                 <input type="hidden" name="mov_id" value="{{ operacion.info.id }}">

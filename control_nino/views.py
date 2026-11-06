@@ -12,6 +12,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
 
+from libreria.views.auth import eliminar_permitido
 from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO, TIEMPO_MAXIMO_NINO
 from .forms import ControlNinoForm, FiestaForm, NovedadManualForm
 from .permissions import control_nino_required, control_nino_gestion_required
@@ -266,6 +267,7 @@ def agregar_tiempo_nino(request, pk):
 
 @login_required
 @control_nino_required
+@eliminar_permitido('control_nino:lista_control_ninos')
 def eliminar_control_nino(request, pk):
     nino = get_object_or_404(ControlNino, pk=pk)
     if request.method == 'POST':
@@ -1402,6 +1404,7 @@ def agregar_tiempo_fiesta(request, pk):
 
 @login_required
 @control_nino_required
+@eliminar_permitido('control_nino:lista_control_ninos')
 def eliminar_fiesta(request, pk):
     fiesta = get_object_or_404(Fiesta, pk=pk)
     if request.method == 'POST':

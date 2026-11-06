@@ -12,13 +12,15 @@ from datetime import timedelta
 
 @login_required
 def index(request):
-    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol == 'consulta':
-        if not request.session.get('consulta_redirected'):
-            request.session['consulta_redirected'] = True
-            return redirect('movimientos.index')
+    perfil = getattr(request.user, 'perfilusuario', None)
+    rol = perfil.rol.lower() if perfil else None
 
-    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol == 'almacenista':
+    if rol == 'almacenista':
         return redirect('movimientos.entrada')
+
+    # Los roles exclusivos de caja solo ven el módulo de Cuadre de Caja.
+    if rol in {'supervisor_caja', 'cuadre_caja'}:
+        return redirect('cuadre_caja:index')
 
     total_proveedores = Proveedor.objects.count()
     total_productos = Inventario.objects.count()
@@ -41,9 +43,6 @@ def index(request):
     }
 
     cantidad_movs = 5
-    if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol.lower() == 'consulta':
-        cantidad_movs = 10
-        
     ultimos_movimientos = MovimientosInventario.objects.exclude(tipo_movimiento='PEDIDO').select_related('producto', 'proveedor').order_by('-fecha_movimiento')[:cantidad_movs]
 
     productos_bajo_stock = Inventario.objects.filter(

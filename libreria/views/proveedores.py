@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
 from django.contrib import messages
 from django.core.paginator import Paginator
-from .auth import es_pleno_acceso
+from .auth import eliminar_permitido, es_pleno_acceso
 from ..models import Proveedor
 from ..forms import ProveedorForm, ImportarArchivoForm
 
@@ -63,6 +63,7 @@ def proveedores_editar(request, id):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+@eliminar_permitido('proveedores.index')
 def proveedores_eliminar(request, id):
     proveedores = Proveedor.objects.get(id=id)
     proveedores.delete()

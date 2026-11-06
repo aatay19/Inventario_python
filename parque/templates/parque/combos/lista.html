@@ -35,7 +35,9 @@
                     <div class="d-flex justify-content-end align-items-center border-top pt-3 mt-auto">
                         <div class="btn-group">
                             <a href="{% url 'parque:editar_combo' combo.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                            {% if request.user.perfilusuario.rol|lower != 'admin' %}
                             <a href="{% url 'parque:eliminar_combo' combo.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -53,6 +53,12 @@ class SalidaViewTest(BaseInventarioTest):
 
 
 class EliminarMovimientoTest(BaseInventarioTest):
+    def setUp(self):
+        super().setUp()
+        # El rol Administrador no puede eliminar; se usa Soporte para probar el borrado.
+        self.user.perfilusuario.rol = 'soporte'
+        self.user.perfilusuario.save()
+
     def test_eliminar_salida_repone_stock(self):
         p = self.crear_producto(cantidad=5)
         mov = MovimientosInventario.objects.create(
@@ -61,6 +67,19 @@ class EliminarMovimientoTest(BaseInventarioTest):
         self.client.post(reverse('movimientos.eliminar', args=[mov.id_movimiento]))
         p.refresh_from_db()
         self.assertEqual(p.cantidad, 10)
+
+
+class AdminNoPuedeEliminarTest(BaseInventarioTest):
+    def test_admin_no_puede_eliminar_movimiento(self):
+        p = self.crear_producto(cantidad=5)
+        mov = MovimientosInventario.objects.create(
+            producto=p, tipo_movimiento='SALIDA', cantidad=5,
+        )
+        resp = self.client.post(reverse('movimientos.eliminar', args=[mov.id_movimiento]))
+        self.assertRedirects(resp, reverse('movimientos.index'))
+        self.assertTrue(MovimientosInventario.objects.filter(pk=mov.pk).exists())
+        p.refresh_from_db()
+        self.assertEqual(p.cantidad, 5)
 
 
 class AjusteCantidadExactaTest(BaseInventarioTest):

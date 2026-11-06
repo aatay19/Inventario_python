@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import user_passes_test
 
-ROLES_CUADRE = {'admin', 'soporte', 'supervisor', 'cuadre_caja'}
-ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor'}
+ROLES_CUADRE = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
+ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor_caja'}
 
 
 def _tiene_perfil(user, roles):
@@ -29,14 +29,14 @@ def puede_gestionar_cuadre(user):
 
 
 def es_supervisor_o_superior(user):
-    """Acceso restringido a supervisor y roles superiores."""
+    """Acceso restringido a Supervisor de Caja y roles superiores."""
     return _tiene_perfil(user, ROLES_SUPERVISOR)
 
 
 cuadre_caja_required = user_passes_test(
-    puede_gestionar_cuadre, login_url='cuadre_caja:index'
+    puede_gestionar_cuadre, login_url='index'
 )
 
 supervisor_required = user_passes_test(
-    es_supervisor_o_superior, login_url='cuadre_caja:index'
+    es_supervisor_o_superior, login_url='index'
 )

@@ -145,9 +145,9 @@ class MovimientosInventario(models.Model):
 class PerfilUsuario(models.Model):
     ROL_CHOICES = [
         ('admin', 'Administrador'),
-        ('supervisor', 'Supervisor'),
+        ('supervisor_inventario', 'Supervisor de Inventario'),
+        ('supervisor_caja', 'Supervisor de Caja'),
         ('inventario', 'Inventario'),
-        ('consulta', 'Consulta'),
         ('soporte', 'Soporte'),
         ('parque', 'Parque'),
         ('almacenista', 'Almacenista'),
@@ -157,7 +157,7 @@ class PerfilUsuario(models.Model):
  
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Usuario")
     cedula = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="Cédula")
-    rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='inventario', verbose_name="Rol")
+    rol = models.CharField(max_length=30, choices=ROL_CHOICES, default='inventario', verbose_name="Rol")
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
     direccion = models.TextField(blank=True, verbose_name="Dirección")
 

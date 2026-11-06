@@ -63,6 +63,7 @@
             <a href="{% url 'inventario.index' %}?proveedor_id={{ proveedor.id }}" class="btn btn-outline-info btn-sm" title="Ver Productos"><i class="fas fa-box-open"></i></a>
             {% if user.perfilusuario.rol|lower != 'consulta' %}
             <a href="{% url 'proveedores.editar' proveedor.id %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+            {% if user.perfilusuario.rol|lower != 'admin' %}
             <button type="button" class="btn btn-outline-danger btn-sm" title="Eliminar" data-bs-toggle="modal" data-bs-target="#deleteModal{{ proveedor.id }}">
               <i class="fas fa-trash-alt"></i>
             </button>
@@ -86,6 +87,7 @@
                 </div>
               </div>
             </div>
+            {% endif %}
             {% endif %}
           </td>
         </tr>

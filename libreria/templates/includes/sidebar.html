@@ -45,7 +45,7 @@
             </a>
         </li>
 
-        {% elif user.perfilusuario.rol|lower in 'admin,inventario,consulta,soporte,supervisor' %}
+        {% elif user.perfilusuario.rol|lower in 'admin,inventario,soporte,supervisor_inventario' %}
         {# ===== SIDEBAR COMPLETO PARA OTROS ROLES ===== #}
 
         <!-- PRODUCTOS -->
@@ -86,7 +86,7 @@
         </li>
 
         <!-- PEDIDOS / COMPRAS -->
-        {% if user.perfilusuario.rol|lower in 'admin,consulta,soporte,supervisor' %}
+        {% if user.perfilusuario.rol|lower in 'admin,soporte,supervisor_inventario' %}
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle px-3 py-2" href="#">
                 <span><i class="bi bi-cart-plus me-3 opacity-75"></i> Pedidos / Compras</span>

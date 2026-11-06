@@ -48,9 +48,11 @@
                                     <a href="{% url 'parque:editar_brazalete' brazalete.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    {% if request.user.perfilusuario.rol|lower != 'admin' %}
                                     <a href="{% url 'parque:eliminar_brazalete' brazalete.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
                                         <i class="bi bi-trash"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

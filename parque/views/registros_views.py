@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
+from libreria.views.auth import eliminar_permitido
 from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEvento, ProductoEnCombo
 from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm, Abono2Form
 
@@ -209,6 +210,7 @@ def finalizar_evento(request, pk):
 
 # ... Resto de CRUD de productos y combos se mantiene igual ...
 @login_required
+@eliminar_permitido('parque:lista_eventos')
 def eliminar_evento(request, pk):
     evento = get_object_or_404(Evento, pk=pk)
     if request.method == 'POST':
@@ -467,6 +469,7 @@ def pagar_abono2(request, pk):
 
 
 @login_required
+@eliminar_permitido('parque:calendario')
 def borrar_foto_abono1(request, pk):
     """Borra solo la foto del Abono 1 sin afectar ningÃƒÂºn otro dato del evento."""
     evento = get_object_or_404(Evento, pk=pk)
@@ -484,6 +487,7 @@ def borrar_foto_abono1(request, pk):
 
 
 @login_required
+@eliminar_permitido('parque:calendario')
 def borrar_foto_abono2(request, pk):
     """Borra solo la foto del Abono 2 sin afectar ningÃƒÂºn otro dato del evento."""
     evento = get_object_or_404(Evento, pk=pk)
@@ -499,6 +503,7 @@ def borrar_foto_abono2(request, pk):
     return redirect('parque:detalle_evento', pk=pk)
 
 @login_required
+@eliminar_permitido('parque:calendario')
 def borrar_foto_factura_abono1(request, pk):
     """Borra solo la foto de factura del Abono 1 sin afectar ningun otro dato del evento."""
     evento = get_object_or_404(Evento, pk=pk)
@@ -515,6 +520,7 @@ def borrar_foto_factura_abono1(request, pk):
 
 
 @login_required
+@eliminar_permitido('parque:calendario')
 def borrar_foto_factura_abono2(request, pk):
     """Borra solo la foto de factura del Abono 2 sin afectar ningun otro dato del evento."""
     evento = get_object_or_404(Evento, pk=pk)
@@ -599,6 +605,7 @@ def editar_producto(request, pk):
     return render(request, 'parque/productos/form.html', {'form': form, 'titulo': 'Editar Producto'})
 
 @login_required
+@eliminar_permitido('parque:lista_productos')
 def eliminar_producto(request, pk):
     producto = get_object_or_404(ProductoParque, pk=pk)
     if request.method == 'POST':
@@ -685,6 +692,7 @@ def editar_combo(request, pk):
     })
 
 @login_required
+@eliminar_permitido('parque:lista_combos')
 def eliminar_combo(request, pk):
     combo = get_object_or_404(ComboParque, pk=pk)
     if request.method == 'POST':
@@ -724,6 +732,7 @@ def editar_brazalete(request, pk):
     return render(request, 'parque/brazaletes/form.html', {'form': form, 'titulo': 'Editar ConfiguraciÃƒÂ³n'})
 
 @login_required
+@eliminar_permitido('parque:lista_brazaletes')
 def eliminar_brazalete(request, pk):
     brazalete = get_object_or_404(Brazalete, pk=pk)
     if request.method == 'POST':

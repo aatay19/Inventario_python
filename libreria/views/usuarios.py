@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
 from django.contrib import messages
 from django.core.paginator import Paginator
-from .auth import es_admin
+from .auth import eliminar_permitido, es_admin
 from ..models import PerfilUsuario
 from ..forms import UserForm, PerfilUsuarioForm
 
@@ -65,6 +65,7 @@ def usuarios_editar(request, id):
 
 @login_required
 @user_passes_test(es_admin, login_url='index')
+@eliminar_permitido('usuarios.index')
 def usuarios_eliminar(request, id):
     perfil = get_object_or_404(PerfilUsuario, id=id)
     perfil.user.delete()
