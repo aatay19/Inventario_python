@@ -119,62 +119,73 @@
 
     <div class="row g-4">
         <div class="col-12 col-xl-8">
-            <div class="card cc-card mb-4">
-                <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-secondary"></i>Transacciones por método</h5>
-                    <p class="small text-muted mb-0 mt-1">Añade filas por cada método de pago: banco/entidad, monto, referencia y notas.</p>
-                </div>
-                <div class="card-body px-3 px-lg-4 pb-3">
-                    <input type="hidden" name="transacciones-TOTAL_FORMS" id="id_transacciones-TOTAL_FORMS"
-                        value="{{ transacciones_total_forms }}">
-                    <input type="hidden" name="transacciones-INITIAL_FORMS" value="{{ transacciones_initial_forms }}">
-                    <input type="hidden" name="transacciones-MIN_NUM_FORMS" value="0">
-                    <input type="hidden" name="transacciones-MAX_NUM_FORMS" value="1000">
+            {# ── Management form del formset de transacciones ── #}
+            <input type="hidden" name="transacciones-TOTAL_FORMS" id="id_transacciones-TOTAL_FORMS"
+                value="{{ transacciones_total_forms }}">
+            <input type="hidden" name="transacciones-INITIAL_FORMS" value="{{ transacciones_initial_forms }}">
+            <input type="hidden" name="transacciones-MIN_NUM_FORMS" value="0">
+            <input type="hidden" name="transacciones-MAX_NUM_FORMS" value="1000">
 
-                    {% if transacciones_formset.non_form_errors %}
-                    <div class="alert alert-danger py-2">
-                        {% for error in transacciones_formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
+            {% if transacciones_formset.non_form_errors %}
+            <div class="alert alert-danger py-2 mb-3">
+                {% for error in transacciones_formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            {# ══════ Transacciones en BOLÍVARES ══════ #}
+            <h6 class="fw-bold text-secondary mb-2 mt-1">
+                <i class="bi bi-currency-exchange me-1"></i> Transacciones en bolívares
+            </h6>
+            {% for tarjeta in tarjetas_metodo %}
+            {% if tarjeta.moneda != "USD" %}
+            <div class="card cc-card mb-3">
+                <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-credit-card text-secondary"></i>
+                        <span class="fw-semibold">{{ tarjeta.etiqueta }}</span>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis small">Bs</span>
                     </div>
-                    {% endif %}
-
-                    <div class="table-responsive tabla-transacciones-scroll">
-                        <table class="table align-middle mb-0" id="tabla-transacciones">
-                            <thead>
+                    <button type="button"
+                        class="btn btn-sm btn-outline-teal btn-agregar-fila"
+                        data-metodo="{{ tarjeta.valor }}"
+                        style="border-color:#0f766e;color:#0f766e;">
+                        <i class="bi bi-plus-lg me-1"></i>Añadir transacción
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th style="min-width: 180px;">Método de pago</th>
-                                    <th style="min-width: 200px;">Banco o entidad</th>
-                                    <th class="text-end" style="min-width: 130px;">Monto</th>
-                                    <th style="min-width: 200px;">Referencia</th>
-                                    <th style="min-width: 150px;">Notas</th>
-                                    <th style="width: 44px;"></th>
+                                    <th style="min-width:160px;">Banco / Entidad</th>
+                                    <th style="min-width:110px;">Monto (Bs)</th>
+                                    <th style="min-width:140px;">Referencia</th>
+                                    <th style="min-width:140px;">Notas</th>
+                                    <th style="width:44px;"></th>
                                 </tr>
                             </thead>
-                            <tbody id="cuerpo-transacciones">
-                                {% for transaccion_form in filas_transaccion %}
+                            <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
+                                {% for f in tarjeta.forms %}
                                 <tr class="fila-transaccion">
+                                    {{ f.metodo_pago.as_hidden }}
                                     <td>
-                                        {{ transaccion_form.metodo_pago }}
-                                        {% for error in transaccion_form.metodo_pago.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        {{ f.banco }}
+                                        {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                     </td>
                                     <td>
-                                        {{ transaccion_form.banco }}
-                                        {% for error in transaccion_form.banco.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        {{ f.monto }}
+                                        {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                     </td>
                                     <td>
-                                        {{ transaccion_form.monto }}
-                                        {% for error in transaccion_form.monto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        {{ f.ref }}
+                                        {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                     </td>
                                     <td>
-                                        {{ transaccion_form.ref }}
-                                        {% for error in transaccion_form.ref.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ transaccion_form.notas }}
-                                        {% for error in transaccion_form.notas.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        {{ f.notas }}
+                                        {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                     </td>
                                     <td class="text-center">
-                                        <span class="d-none">{{ transaccion_form.DELETE }}</span>
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-transaccion" title="Quitar fila">
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </td>
@@ -183,31 +194,107 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <button type="button" class="btn btn-outline-success btn-sm mt-3" id="btn-agregar-transaccion">
-                        <i class="bi bi-plus-lg me-1"></i> Agregar transacción
-                    </button>
-                    <div class="form-text mt-1">
-                        <i class="bi bi-keyboard me-1"></i> Presiona Enter en un campo de la fila para agregar otra transacción.
-                    </div>
-
-                    <template id="plantilla-transaccion">
-                        <tr class="fila-transaccion">
-                            <td>{{ transacciones_formset.empty_form.metodo_pago }}</td>
-                            <td>{{ transacciones_formset.empty_form.banco }}</td>
-                            <td>{{ transacciones_formset.empty_form.monto }}</td>
-                            <td>{{ transacciones_formset.empty_form.ref }}</td>
-                            <td>{{ transacciones_formset.empty_form.notas }}</td>
-                            <td class="text-center">
-                                <span class="d-none">{{ transacciones_formset.empty_form.DELETE }}</span>
-                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-transaccion" title="Quitar fila">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </template>
                 </div>
             </div>
+            {% endif %}
+            {% endfor %}
+
+            {# ══════ Transacciones en DÓLARES ══════ #}
+            <h6 class="fw-bold text-secondary mb-2 mt-3">
+                <i class="bi bi-currency-dollar me-1"></i> Transacciones en dólares
+            </h6>
+            {% for tarjeta in tarjetas_metodo %}
+            {% if tarjeta.moneda == "USD" %}
+            <div class="card cc-card mb-3">
+                <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-currency-dollar text-secondary"></i>
+                        <span class="fw-semibold">{{ tarjeta.etiqueta }}</span>
+                        <span class="badge bg-info-subtle text-info-emphasis small">USD</span>
+                    </div>
+                    <button type="button"
+                        class="btn btn-sm btn-agregar-fila"
+                        data-metodo="{{ tarjeta.valor }}"
+                        style="border:1px solid #0e7490;color:#0e7490;">
+                        <i class="bi bi-plus-lg me-1"></i>Añadir transacción
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="min-width:160px;">Banco / Entidad</th>
+                                    <th style="min-width:110px;">Monto (USD)</th>
+                                    <th style="min-width:140px;">Referencia</th>
+                                    <th style="min-width:140px;">Notas</th>
+                                    <th style="width:44px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
+                                {% for f in tarjeta.forms %}
+                                <tr class="fila-transaccion">
+                                    {{ f.metodo_pago.as_hidden }}
+                                    <td>
+                                        {{ f.banco }}
+                                        {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                    </td>
+                                    <td>
+                                        {{ f.monto }}
+                                        {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                    </td>
+                                    <td>
+                                        {{ f.ref }}
+                                        {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                    </td>
+                                    <td>
+                                        {{ f.notas }}
+                                        {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {# ── Plantilla de nueva fila (usada por el JS) ── #}
+            <template id="plantilla-fila-transaccion">
+                <tr class="fila-transaccion">
+                    <input type="hidden" name="transacciones-__prefix__-metodo_pago" id="id_transacciones-__prefix__-metodo_pago" value="__metodo__">
+                    <td>
+                        <select name="transacciones-__prefix__-banco" id="id_transacciones-__prefix__-banco" class="form-select form-select-sm">
+                            {% for val, lbl in bancos_choices %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" name="transacciones-__prefix__-monto" id="id_transacciones-__prefix__-monto"
+                               class="form-control form-control-sm text-end" step="0.01" min="0" placeholder="0.00" value="">
+                    </td>
+                    <td>
+                        <input type="text" name="transacciones-__prefix__-ref" id="id_transacciones-__prefix__-ref"
+                               class="form-control form-control-sm" placeholder="Referencia"
+                               inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
+                    </td>
+                    <td>
+                        <input type="text" name="transacciones-__prefix__-notas" id="id_transacciones-__prefix__-notas"
+                               class="form-control form-control-sm" placeholder="Notas">
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            </template>
 
             <div class="row g-4">
                 <div class="col-12 col-md-6">
@@ -569,7 +656,7 @@
             PAGO_MOVIL: 'bs',
             BIO_PAGO: 'bs',
             TRANSFERENCIA: 'bs',
-            CASHEA: 'bs',
+            CASHEA: 'usd',
             EFECTIVO_USD: 'usd',
             ZELLE: 'usd',
         };
@@ -577,12 +664,13 @@
         function recalcularDesdeTransacciones() {
             const acumulado = {};
 
-            document.querySelectorAll('#cuerpo-transacciones .fila-transaccion').forEach(function (fila) {
-                const selectMetodo = fila.querySelector('select[name$="-metodo_pago"]');
+            document.querySelectorAll('.fila-transaccion').forEach(function (fila) {
+                // El método de pago puede estar en un hidden input o en un select
+                const metodoEl = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
                 const inputMonto = fila.querySelector('input[name$="-monto"]');
-                if (!selectMetodo || !inputMonto) return;
+                if (!metodoEl || !inputMonto) return;
 
-                const metodo = selectMetodo.value;
+                const metodo = metodoEl.value;
                 const monto = numero(inputMonto.value);
                 if (!metodo || !monto) return;
 
@@ -648,24 +736,42 @@
 
         function actualizarConteoMetodos() {
             const conteo = {};
-            document.querySelectorAll('#cuerpo-transacciones .fila-transaccion').forEach(function (fila) {
-                const selectMetodo = fila.querySelector('select[name$="-metodo_pago"]');
-                if (!selectMetodo || !selectMetodo.value) return;
-                conteo[selectMetodo.value] = (conteo[selectMetodo.value] || 0) + 1;
+            // Etiquetas de métodos de pago desde las tarjetas
+            const etiquetasMetodo = {};
+            document.querySelectorAll('.fila-transaccion').forEach(function (fila) {
+                const metodoEl = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
+                const inputMonto = fila.querySelector('input[name$="-monto"]');
+                if (!metodoEl || !metodoEl.value) return;
+                const monto = numero(inputMonto ? inputMonto.value : 0);
+                if (!monto) return;
+                conteo[metodoEl.value] = (conteo[metodoEl.value] || 0) + 1;
+                // Tomar etiqueta del header de la tarjeta
+                if (!etiquetasMetodo[metodoEl.value]) {
+                    const header = fila.querySelector('.card-header .fw-semibold');
+                    if (header) etiquetasMetodo[metodoEl.value] = header.textContent.trim();
+                }
             });
-
-            renderizarConteo(
-                listaConteoMetodos,
-                conteo,
-                document.querySelector('#cuerpo-transacciones select[name$="-metodo_pago"]'),
-                'Aún no hay métodos de pago agregados.',
-                false
-            );
+            // Renderizar con etiquetas propias
+            if (!listaConteoMetodos) return;
+            const valores = Object.keys(conteo);
+            if (!valores.length) {
+                listaConteoMetodos.innerHTML = '<li class="list-group-item px-0 text-muted small">Aún no hay métodos de pago con monto.</li>';
+                return;
+            }
+            listaConteoMetodos.innerHTML = valores.map(function (v) {
+                const cant = conteo[v];
+                const etiqueta = etiquetasMetodo[v] || v;
+                return '<li class="list-group-item d-flex justify-content-between align-items-center px-0">' +
+                    '<span>' + etiqueta + '</span>' +
+                    '<span class="badge bg-success-subtle text-success-emphasis rounded-pill">' +
+                    (cant === 1 ? '1 transacción' : cant + ' transacciones') +
+                    '</span></li>';
+            }).join('');
         }
 
         function actualizarConteoBancos() {
             const conteo = {};
-            document.querySelectorAll('#cuerpo-transacciones .fila-transaccion').forEach(function (fila) {
+            document.querySelectorAll('.fila-transaccion').forEach(function (fila) {
                 const selectBanco = fila.querySelector('select[name$="-banco"]');
                 const inputMonto = fila.querySelector('input[name$="-monto"]');
                 if (!selectBanco || !selectBanco.value) return;
@@ -677,8 +783,8 @@
             renderizarConteo(
                 listaConteoBancos,
                 conteo,
-                document.querySelector('#cuerpo-transacciones select[name$="-banco"]'),
-                'Aún no hay bancos agregados.',
+                document.querySelector('.fila-transaccion select[name$="-banco"]'),
+                'Aún no hay bancos con monto.',
                 true
             );
         }
@@ -710,9 +816,9 @@
 
         function datosBorrador() {
             const transacciones = [];
-            document.querySelectorAll('#cuerpo-transacciones .fila-transaccion').forEach(function (fila) {
-                const selectMetodo = fila.querySelector('select[name$="-metodo_pago"]');
-                if (!selectMetodo || !selectMetodo.value) return;
+            document.querySelectorAll('.fila-transaccion').forEach(function (fila) {
+                const metodoEl = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
+                if (!metodoEl || !metodoEl.value) return;
 
                 const selectBanco = fila.querySelector('select[name$="-banco"]');
                 const inputMonto = fila.querySelector('input[name$="-monto"]');
@@ -722,7 +828,7 @@
                 if (monto <= 0) return;
 
                 transacciones.push({
-                    metodo_pago: selectMetodo.value,
+                    metodo_pago: metodoEl.value,
                     banco: selectBanco ? selectBanco.value : '',
                     monto: monto,
                     ref: inputRef ? inputRef.value : '',
@@ -824,11 +930,8 @@
         if (borradorUrl) {
             form.addEventListener('input', programarGuardadoBorrador);
             form.addEventListener('change', programarGuardadoBorrador);
-            form.addEventListener('click', function (evento) {
-                if (evento.target.closest('.btn-quitar-transaccion, #btn-agregar-transaccion')) {
-                    programarGuardadoBorrador();
-                }
-            });
+            // Las tarjetas de transacción son fijas; el guardado de borrador
+            // se activa con los listeners de input/change ya registrados arriba.
 
             // Al cambiar de pestaña se guarda de inmediato el borrador,
             // para que otra pestaña abierta en paralelo vea lo mismo.
@@ -872,50 +975,97 @@
             });
         }
 
+        // ── Reindexar y gestionar filas de transacción por método ───────────
         const totalFormsTransacciones = document.getElementById('id_transacciones-TOTAL_FORMS');
-        const cuerpoTransacciones = document.getElementById('cuerpo-transacciones');
-        const plantillaTransaccion = document.getElementById('plantilla-transaccion');
-        const btnAgregarTransaccion = document.getElementById('btn-agregar-transaccion');
+        const plantillaFila = document.getElementById('plantilla-fila-transaccion');
 
-        if (btnAgregarTransaccion && totalFormsTransacciones && cuerpoTransacciones && plantillaTransaccion) {
-            btnAgregarTransaccion.addEventListener('click', function () {
-                const indice = parseInt(totalFormsTransacciones.value, 10) || 0;
-                const fila = plantillaTransaccion.innerHTML.replace(/__prefix__/g, indice);
-                cuerpoTransacciones.insertAdjacentHTML('beforeend', fila);
-                totalFormsTransacciones.value = indice + 1;
-                recalcularDesdeTransacciones();
+        function reindexarTransacciones() {
+            const filas = document.querySelectorAll('.cuerpo-metodo tr.fila-transaccion');
+            filas.forEach(function (fila, idx) {
+                fila.querySelectorAll('input, select, textarea').forEach(function (el) {
+                    if (el.name && el.name.startsWith('transacciones-')) {
+                        el.name = el.name.replace(/^transacciones-\d+-/, 'transacciones-' + idx + '-');
+                    }
+                    if (el.id && el.id.startsWith('id_transacciones-')) {
+                        el.id = el.id.replace(/^id_transacciones-\d+-/, 'id_transacciones-' + idx + '-');
+                    }
+                });
             });
-
-            // Enter en un campo de la fila agrega otra transacción, igual que el botón.
-            cuerpoTransacciones.addEventListener('keydown', function (evento) {
-                if (evento.key !== 'Enter') return;
-                if (!evento.target.matches('input')) return;
-                evento.preventDefault();
-                btnAgregarTransaccion.click();
-
-                const filas = cuerpoTransacciones.querySelectorAll('.fila-transaccion');
-                const nuevaFila = filas[filas.length - 1];
-                if (nuevaFila) {
-                    const primerCampo = nuevaFila.querySelector('select[name$="-metodo_pago"]');
-                    if (primerCampo) primerCampo.focus();
-                }
-            });
-
-            cuerpoTransacciones.addEventListener('input', recalcularDesdeTransacciones);
-            cuerpoTransacciones.addEventListener('change', recalcularDesdeTransacciones);
-
-            cuerpoTransacciones.addEventListener('click', function (evento) {
-                const boton = evento.target.closest('.btn-quitar-transaccion');
-                if (!boton) return;
-                const fila = boton.closest('tr');
-                const eliminar = fila.querySelector('input[type="checkbox"][name$="-DELETE"]');
-                if (eliminar) {
-                    eliminar.checked = true;
-                }
-                fila.remove();
-                recalcularDesdeTransacciones();
-            });
+            if (totalFormsTransacciones) {
+                totalFormsTransacciones.value = filas.length;
+            }
         }
+
+        // Botones "Añadir transacción" (uno por cada método)
+        document.querySelectorAll('.btn-agregar-fila').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const metodo = this.dataset.metodo;
+                const tbody = document.getElementById('cuerpo-' + metodo);
+                if (!tbody || !plantillaFila) return;
+
+                // Usamos un marcador temporal y reindexamos inmediatamente
+                const html = plantillaFila.innerHTML
+                    .replace(/__prefix__/g, 'TEMP')
+                    .replace(/__metodo__/g, metodo);
+                tbody.insertAdjacentHTML('beforeend', html);
+                reindexarTransacciones();
+                recalcularDesdeTransacciones();
+                programarGuardadoBorrador();
+
+                // Foco al campo monto o banco de la nueva fila
+                const nuevaFila = tbody.lastElementChild;
+                if (nuevaFila) {
+                    const primerInput = nuevaFila.querySelector('select, input:not([type="hidden"])');
+                    if (primerInput) primerInput.focus();
+                }
+            });
+        });
+
+        // Botón "quitar fila" — delegado en el document
+        document.addEventListener('click', function (evento) {
+            const btn = evento.target.closest('.btn-quitar-fila');
+            if (!btn) return;
+            const fila = btn.closest('tr.fila-transaccion');
+            if (fila) {
+                fila.remove();
+                reindexarTransacciones();
+                recalcularDesdeTransacciones();
+                programarGuardadoBorrador();
+            }
+        });
+
+        // ── Prevenir envío con Enter y añadir nueva transacción en el método actual ──
+        form.addEventListener('keydown', function (evento) {
+            if (evento.key !== 'Enter') return;
+
+            // En áreas de texto de varias líneas sí se permite el Enter normal
+            if (evento.target.tagName.toLowerCase() === 'textarea') return;
+
+            // Siempre prevenimos que Enter mande a guardar el formulario
+            evento.preventDefault();
+
+            // Si está dentro de una fila de transacción de un método, añade una nueva fila
+            const cuerpoMetodo = evento.target.closest('.cuerpo-metodo');
+            if (cuerpoMetodo) {
+                const metodo = cuerpoMetodo.dataset.metodo;
+                const btnAgregar = document.querySelector('.btn-agregar-fila[data-metodo="' + metodo + '"]');
+                if (btnAgregar) {
+                    btnAgregar.click();
+                }
+            }
+        });
+
+        // Recalcular al cambiar cualquier campo dentro de una tabla de método
+        document.addEventListener('input', function (evento) {
+            if (evento.target.closest('.cuerpo-metodo')) {
+                recalcularDesdeTransacciones();
+            }
+        });
+        document.addEventListener('change', function (evento) {
+            if (evento.target.closest('.cuerpo-metodo')) {
+                recalcularDesdeTransacciones();
+            }
+        });
 
         const totalFormsImagenes = document.getElementById('id_imagenes-TOTAL_FORMS');
         const cuerpoImagenes = document.getElementById('cuerpo-imagenes');
@@ -981,6 +1131,7 @@
                 if (resultado.isConfirmed) {
                     borradorDesactivado = true;
                     clearTimeout(temporizadorBorrador);
+                    reindexarTransacciones();
                     form.submit();
                 }
             });

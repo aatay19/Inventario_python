@@ -690,34 +690,34 @@ def cerrar_caja(request, caja_id, turno=None):
             and transacciones_formset.is_valid()
             and imagenes_formset.is_valid()
         ):
-            # First save the closure
             cierre = form.save(commit=False)
             cierre.caja = caja
             cierre.fecha = form.fecha
             cierre.usuario = request.user
             cierre.save()
 
-            # Save egresos
             egresos_formset.instance = cierre
             egresos_formset.save()
 
-            # Save imagenes
             imagenes_formset.instance = cierre
             imagenes_formset.save()
 
-            # Save transacciones and calculate totals
-            transacciones = transacciones_formset.save(commit=False)
+            transacciones_guardadas = transacciones_formset.save(commit=False)
             total_bs = Decimal("0.00")
             total_usd = Decimal("0.00")
-            for t in transacciones:
+            for t in transacciones_guardadas:
                 t.cierre = cierre
                 t.save()
-                total_bs += t.monto_bs
-                total_usd += t.monto_usd
+                if MONEDA_POR_METODO.get(t.metodo_pago) == MONEDA_USD:
+                    total_usd += t.monto or Decimal("0.00")
+                else:
+                    total_bs += t.monto or Decimal("0.00")
 
-            # Update closure totals
             cierre.total_bs = total_bs
             cierre.total_usd = total_usd
+            cierre.total_equivalente_bs = total_bs + (
+                total_usd * (cierre.tasa or Decimal("1"))
+            )
             cierre.save()
 
             # El cuadre ya quedó registrado: se descarta el borrador compartido.
@@ -738,23 +738,21 @@ def cerrar_caja(request, caja_id, turno=None):
     else:
         borrador = _borrador_vigente(caja, hoy, turno) if turno else None
         datos_iniciales = {}
-        transacciones_iniciales = None
+        # Filas del borrador agrupadas por método (múltiples por método)
+        metodo_filas = {}
         if borrador:
             datos_iniciales = {
                 "nombre_cajera": borrador.nombre_cajera,
                 "tasa": borrador.tasa or None,
                 "observaciones": borrador.observaciones,
             }
-            transacciones_iniciales = [
-                {
-                    "metodo_pago": t.metodo_pago,
+            for t in borrador.transacciones.all():
+                metodo_filas.setdefault(t.metodo_pago, []).append({
                     "banco": t.banco,
                     "monto": t.monto,
                     "ref": t.ref,
                     "notas": t.notas,
-                }
-                for t in borrador.transacciones.all()
-            ]
+                })
             if borrador.usuario_id and borrador.usuario_id != request.user.id:
                 messages.warning(
                     request,
@@ -773,36 +771,70 @@ def cerrar_caja(request, caja_id, turno=None):
         egresos_formset = EgresoCierreFormSet(
             prefix="egresos", instance=CierreCaja()
         )
+        imagenes_formset = ImagenCierreFormSet(
+            prefix="imagenes", instance=CierreCaja()
+        )
+
+        # Construir tarjetas con múltiples filas por método.
+        # Se usa índice global para los prefijos (transacciones-0, -1, -2...)
+        # de forma que el formset del POST los recoja todos sin conflictos.
+        global_index = 0
+        tarjetas_metodo = []
+        for valor, etiqueta in MetodoPagoChoices.choices:
+            # Al menos 1 fila vacía por método (aunque no haya borrador)
+            filas_datos = metodo_filas.get(valor, [{}])
+            forms_fila = []
+            for datos in filas_datos:
+                forms_fila.append(
+                    CierreTransaccionForm(
+                        initial={
+                            "metodo_pago": valor,
+                            "banco": datos.get("banco", ""),
+                            "monto": datos.get("monto", ""),
+                            "ref": datos.get("ref", ""),
+                            "notas": datos.get("notas", ""),
+                        },
+                        prefix=f"transacciones-{global_index}",
+                    )
+                )
+                global_index += 1
+            tarjetas_metodo.append({
+                "valor": valor,
+                "etiqueta": etiqueta,
+                "moneda": MONEDA_POR_METODO.get(valor, MONEDA_BS),
+                "forms": forms_fila,
+            })
+
+        transacciones_total_forms = global_index
+        transacciones_initial_forms = 0
+
+        # Formset vacío sólo para el management_form
         transacciones_formset = CierreTransaccionFormSet(
             prefix="transacciones",
             instance=CierreCaja(),
-        )
-        imagenes_formset = ImagenCierreFormSet(
-            prefix="imagenes", instance=CierreCaja()
         )
 
     filas_bs, filas_usd = _filas_formulario(form)
 
     if request.method == "POST":
-        filas_transaccion = list(transacciones_formset.forms)
+        # Reconstruir tarjetas agrupando los forms bound por método de pago.
+        metodo_forms = {valor: [] for valor, _ in MetodoPagoChoices.choices}
+        for f in transacciones_formset.forms:
+            metodo = request.POST.get(f"{f.prefix}-metodo_pago", "")
+            if metodo in metodo_forms:
+                metodo_forms[metodo].append(f)
+
+        tarjetas_metodo = [
+            {
+                "valor": valor,
+                "etiqueta": etiqueta,
+                "moneda": MONEDA_POR_METODO.get(valor, MONEDA_BS),
+                "forms": metodo_forms.get(valor, []),
+            }
+            for valor, etiqueta in MetodoPagoChoices.choices
+        ]
         transacciones_total_forms = transacciones_formset.total_form_count()
         transacciones_initial_forms = transacciones_formset.initial_form_count()
-    else:
-        # El formset inline no usa el parámetro `initial`: sus filas iniciales
-        # provienen de la instancia guardada. Por eso las filas restauradas del
-        # borrador se construyen aquí con su propio prefijo.
-        filas_transaccion = [
-            CierreTransaccionForm(
-                initial=datos,
-                prefix=f"transacciones-{indice}",
-            )
-            for indice, datos in enumerate(transacciones_iniciales or [])
-        ]
-        filas_transaccion.append(
-            CierreTransaccionForm(prefix=f"transacciones-{len(filas_transaccion)}")
-        )
-        transacciones_total_forms = len(filas_transaccion)
-        transacciones_initial_forms = 0
 
     return render(
         request,
@@ -816,11 +848,13 @@ def cerrar_caja(request, caja_id, turno=None):
             "filas_usd": filas_usd,
             "egresos_formset": egresos_formset,
             "transacciones_formset": transacciones_formset,
-            "filas_transaccion": filas_transaccion,
+            "tarjetas_metodo": tarjetas_metodo,
             "transacciones_total_forms": transacciones_total_forms,
             "transacciones_initial_forms": transacciones_initial_forms,
             "imagenes_formset": imagenes_formset,
-            "notas": form.data.get("notas", ""),
+            "MONEDA_BS": MONEDA_BS,
+            "MONEDA_USD": MONEDA_USD,
+            "bancos_choices": BANCOS_CHOICES,
         },
     )
 
@@ -1226,7 +1260,7 @@ def reporte_mensual(request):
 
 @supervisor_required
 def reporte_anual(request):
-    """Reporte anual de cierres."""
+    """Annual report of closures."""
     hoy = timezone.localdate()
     primer_dia = hoy.replace(month=1, day=1)
     ultimo_dia = hoy.replace(month=12, day=31)
