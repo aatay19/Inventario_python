@@ -13,15 +13,17 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div class="d-flex align-items-center gap-3">
         <span class="dep-icon">
-            {% if departamento.slug == 'supermercado' %}
-            <i class="bi bi-cart3"></i>
-            {% elif departamento.slug == 'cafetin' %}
-            <i class="bi bi-cup-hot"></i>
-            {% elif departamento.slug == 'parque' %}
-            <i class="bi bi-tree"></i>
-            {% else %}
-            <i class="bi bi-building"></i>
-            {% endif %}
+            {% with slug=departamento.slug|lower nombre=departamento.nombre|lower %}
+                {% if 'super' in slug or 'super' in nombre %}
+                <i class="bi bi-cart3"></i>
+                {% elif 'cafe' in slug or 'cafe' in nombre %}
+                <i class="bi bi-cup-hot"></i>
+                {% elif 'parque' in slug or 'parque' in nombre %}
+                <i class="bi bi-tree"></i>
+                {% else %}
+                <i class="bi bi-building"></i>
+                {% endif %}
+            {% endwith %}
         </span>
         <div>
             <h1 class="cc-title mb-0">{{ departamento.nombre }}</h1>
@@ -36,15 +38,16 @@
             <i class="bi bi-grid-3x3-gap me-1"></i> {{ total_cajas }} cajas
         </span>
         <span class="cc-chip bg-success-subtle text-success-emphasis">
-            <i class="bi bi-check2-circle me-1"></i> {{ cierres_hoy }} cierres hoy
+            <i class="bi bi-check2-circle me-1"></i> <span class="js-cierres-hoy">{{ cierres_hoy }}</span> cierres hoy
         </span>
     </div>
 </div>
 
-<div class="row g-3">
+<div class="row g-3" id="panel-cajas"
+    data-estado-url="{% url 'cuadre_caja:departamento_estado' departamento.slug %}">
     {% for item in cajas %}
     <div class="col-12 col-sm-6 col-xl-4">
-        <div class="card caja-card h-100 border">
+        <div class="card caja-card h-100 border" data-caja="{{ item.caja.id }}">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start gap-2">
                     <div class="d-flex align-items-center gap-2">
@@ -57,25 +60,27 @@
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-3">
-                    {% if item.cierres_hoy.AM %}
-                    <span class="badge bg-success-subtle text-success-emphasis" title="Cajera: {{ item.cierres_hoy.AM.nombre_cajera }}">
+                    <span class="badge bg-success-subtle text-success-emphasis js-badge" data-turno="AM"
+                        data-estado="registrado" title="Cajera: {{ item.cierres_hoy.AM.nombre_cajera }}"
+                        {% if not item.cierres_hoy.AM %}style="display: none;"{% endif %}>
                         <i class="bi bi-check2 me-1"></i>AM
                     </span>
-                    {% else %}
-                    <span class="badge bg-light text-secondary border">
+                    <span class="badge bg-light text-secondary border js-badge" data-turno="AM"
+                        data-estado="pendiente"
+                        {% if item.cierres_hoy.AM %}style="display: none;"{% endif %}>
                         <i class="bi bi-dash me-1"></i>AM pendiente
                     </span>
-                    {% endif %}
 
-                    {% if item.cierres_hoy.PM %}
-                    <span class="badge bg-success-subtle text-success-emphasis" title="Cajera: {{ item.cierres_hoy.PM.nombre_cajera }}">
+                    <span class="badge bg-success-subtle text-success-emphasis js-badge" data-turno="PM"
+                        data-estado="registrado" title="Cajera: {{ item.cierres_hoy.PM.nombre_cajera }}"
+                        {% if not item.cierres_hoy.PM %}style="display: none;"{% endif %}>
                         <i class="bi bi-check2 me-1"></i>PM
                     </span>
-                    {% else %}
-                    <span class="badge bg-light text-secondary border">
+                    <span class="badge bg-light text-secondary border js-badge" data-turno="PM"
+                        data-estado="pendiente"
+                        {% if item.cierres_hoy.PM %}style="display: none;"{% endif %}>
                         <i class="bi bi-dash me-1"></i>PM pendiente
                     </span>
-                    {% endif %}
                 </div>
 
                 <div class="mt-3">
@@ -93,35 +98,60 @@
                             <tbody>
                                 <tr>
                                     <td><span class="badge bg-light text-secondary border">AM</span></td>
-                                    {% if item.cierres_hoy.AM %}
-                                    <td class="text-end">{{ item.cierres_hoy.AM.total_bs|floatformat:2 }}</td>
-                                    <td class="text-end">{{ item.cierres_hoy.AM.total_usd|floatformat:2 }}</td>
-                                    <td class="text-end fw-semibold">{{ item.cierres_hoy.AM.total_equivalente_bs|floatformat:2 }}</td>
-                                    {% else %}
-                                    <td colspan="3" class="text-end text-muted small">Sin cierre</td>
-                                    {% endif %}
+                                    <td class="text-end js-turno" data-turno="AM" data-campo="bs">
+                                        {% if item.cierres_hoy.AM %}{{ item.cierres_hoy.AM.total_bs|floatformat:2 }}{% else %}&mdash;{% endif %}
+                                    </td>
+                                    <td class="text-end js-turno" data-turno="AM" data-campo="usd">
+                                        {% if item.cierres_hoy.AM %}{{ item.cierres_hoy.AM.total_usd|floatformat:2 }}{% else %}&mdash;{% endif %}
+                                    </td>
+                                    <td class="text-end fw-semibold js-turno" data-turno="AM" data-campo="equiv">
+                                        {% if item.cierres_hoy.AM %}{{ item.cierres_hoy.AM.total_equivalente_bs|floatformat:2 }}{% else %}&mdash;{% endif %}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td><span class="badge bg-light text-secondary border">PM</span></td>
-                                    {% if item.cierres_hoy.PM %}
-                                    <td class="text-end">{{ item.cierres_hoy.PM.total_bs|floatformat:2 }}</td>
-                                    <td class="text-end">{{ item.cierres_hoy.PM.total_usd|floatformat:2 }}</td>
-                                    <td class="text-end fw-semibold">{{ item.cierres_hoy.PM.total_equivalente_bs|floatformat:2 }}</td>
-                                    {% else %}
-                                    <td colspan="3" class="text-end text-muted small">Sin cierre</td>
-                                    {% endif %}
+                                    <td class="text-end js-turno" data-turno="PM" data-campo="bs">
+                                        {% if item.cierres_hoy.PM %}{{ item.cierres_hoy.PM.total_bs|floatformat:2 }}{% else %}&mdash;{% endif %}
+                                    </td>
+                                    <td class="text-end js-turno" data-turno="PM" data-campo="usd">
+                                        {% if item.cierres_hoy.PM %}{{ item.cierres_hoy.PM.total_usd|floatformat:2 }}{% else %}&mdash;{% endif %}
+                                    </td>
+                                    <td class="text-end fw-semibold js-turno" data-turno="PM" data-campo="equiv">
+                                        {% if item.cierres_hoy.PM %}{{ item.cierres_hoy.PM.total_equivalente_bs|floatformat:2 }}{% else %}&mdash;{% endif %}
+                                    </td>
                                 </tr>
                             </tbody>
                             <tfoot>
                                 <tr class="fw-bold border-top">
                                     <td>Total caja</td>
-                                    <td class="text-end">{{ item.total_bs|floatformat:2 }}</td>
-                                    <td class="text-end">{{ item.total_usd|floatformat:2 }}</td>
-                                    <td class="text-end">{{ item.total_equivalente_bs|floatformat:2 }}</td>
+                                    <td class="text-end js-caja" data-campo="bs">{{ item.total_bs|floatformat:2 }}</td>
+                                    <td class="text-end js-caja" data-campo="usd">{{ item.total_usd|floatformat:2 }}</td>
+                                    <td class="text-end js-caja" data-campo="equiv">{{ item.total_equivalente_bs|floatformat:2 }}</td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
+                </div>
+
+                <div class="mt-2">
+                    {% for turno, borrador in item.borradores.items %}
+                    <div class="alert alert-warning py-2 px-2 mb-1 js-borrador" data-turno="{{ turno }}"
+                        {% if not borrador %}style="display: none;"{% endif %}>
+                        <div class="small fw-semibold">
+                            <i class="bi bi-pencil-square me-1"></i>{{ turno }} en proceso (sin guardar)
+                        </div>
+                        <div class="small">
+                            <span class="js-borrador-usuario">{{ borrador.usuario|default:"" }}</span>
+                            &middot; <span class="js-borrador-hora">{{ borrador.actualizado|default:"" }}</span>
+                            &middot; <span class="js-borrador-transacciones">{{ borrador.transacciones|default:0 }}</span> trans.
+                        </div>
+                        <div class="small fw-semibold">
+                            Bs <span class="js-borrador-bs">{{ borrador.total_bs|default:"0.00" }}</span>
+                            &middot; USD <span class="js-borrador-usd">{{ borrador.total_usd|default:"0.00" }}</span>
+                            &middot; Total Bs <span class="js-borrador-equiv">{{ borrador.total_equivalente_bs|default:"0.00" }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
 
                 {% if item.ultimo_cierre %}
@@ -136,16 +166,24 @@
                 <p class="small text-muted mt-3 mb-3">Sin cierres registrados.</p>
                 {% endif %}
 
-                {% if item.cierres_hoy.AM and item.cierres_hoy.PM %}
-                <button type="button" class="btn btn-success w-100 mt-3" disabled
-                    title="AM y PM ya registrados hoy para esta caja">
-                    <i class="bi bi-clipboard-check me-1"></i> Registrar cuadre de caja
-                </button>
-                {% else %}
-                <a href="{% url 'cuadre_caja:cerrar_caja' item.caja.id %}" class="btn btn-success w-100 mt-3">
-                    <i class="bi bi-clipboard-check me-1"></i> Registrar cuadre de caja
-                </a>
-                {% endif %}
+                <div class="row g-2 mt-1">
+                    <div class="col-6">
+                        <a href="{% if item.cierres_hoy.AM %}#{% else %}{% url 'cuadre_caja:cerrar_caja_turno' item.caja.id 'AM' %}{% endif %}"
+                            data-href="{% url 'cuadre_caja:cerrar_caja_turno' item.caja.id 'AM' %}"
+                            class="btn btn-sm btn-success w-100 js-btn-turno{% if item.cierres_hoy.AM %} disabled{% endif %}"
+                            data-turno="AM" {% if item.cierres_hoy.AM %}aria-disabled="true" tabindex="-1"{% endif %}>
+                            <i class="bi bi-sunrise me-1"></i> Cuadre de caja AM
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{% if item.cierres_hoy.PM %}#{% else %}{% url 'cuadre_caja:cerrar_caja_turno' item.caja.id 'PM' %}{% endif %}"
+                            data-href="{% url 'cuadre_caja:cerrar_caja_turno' item.caja.id 'PM' %}"
+                            class="btn btn-sm btn-primary w-100 js-btn-turno{% if item.cierres_hoy.PM %} disabled{% endif %}"
+                            data-turno="PM" {% if item.cierres_hoy.PM %}aria-disabled="true" tabindex="-1"{% endif %}>
+                            <i class="bi bi-sunset me-1"></i> Cuadre de caja PM
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -163,4 +201,119 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const panel = document.getElementById('panel-cajas');
+        if (!panel) return;
+
+        const url = panel.dataset.estadoUrl;
+        if (!url) return;
+
+        function mostrar(elemento, visible) {
+            if (!elemento) return;
+            elemento.style.display = visible ? '' : 'none';
+        }
+
+        function valorTotal(datos, campo) {
+            const clave = campo === 'equiv' ? 'total_equivalente_bs' : 'total_' + campo;
+            return datos[clave] || '0.00';
+        }
+
+        function formatearMonto(valor) {
+            const numero = parseFloat(String(valor || '0').replace(',', '.'));
+            if (isNaN(numero)) return '0,00';
+            return numero.toLocaleString('es-VE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function actualizarTurno(card, turno, datos) {
+            const registrado = !!(datos && datos.registrado);
+            const cajera = registrado ? (datos.cajera || '') : '';
+
+            card.querySelectorAll('.js-badge').forEach(function (badge) {
+                if (badge.dataset.turno !== turno) return;
+                const esRegistrado = badge.dataset.estado === 'registrado';
+                mostrar(badge, esRegistrado === registrado);
+                if (esRegistrado && registrado) {
+                    badge.title = 'Cajera: ' + cajera;
+                }
+            });
+
+            card.querySelectorAll('.js-turno').forEach(function (celda) {
+                if (celda.dataset.turno !== turno) return;
+                celda.textContent = registrado ? formatearMonto(valorTotal(datos, celda.dataset.campo)) : '\u2014';
+            });
+
+            const boton = card.querySelector('.js-btn-turno[data-turno="' + turno + '"]');
+            if (boton) {
+                boton.classList.toggle('disabled', registrado);
+                boton.setAttribute('aria-disabled', registrado ? 'true' : 'false');
+                boton.setAttribute('tabindex', registrado ? '-1' : '');
+                boton.setAttribute('href', registrado ? '#' : boton.dataset.href);
+            }
+        }
+
+        function actualizarBorrador(card, turno, datos) {
+            const bloque = card.querySelector('.js-borrador[data-turno="' + turno + '"]');
+            if (!bloque) return;
+            mostrar(bloque, !!datos);
+            if (!datos) return;
+
+            const campos = {
+                'js-borrador-usuario': datos.usuario || '',
+                'js-borrador-hora': datos.actualizado || '',
+                'js-borrador-transacciones': datos.transacciones || 0,
+                'js-borrador-bs': formatearMonto(datos.total_bs),
+                'js-borrador-usd': formatearMonto(datos.total_usd),
+                'js-borrador-equiv': formatearMonto(datos.total_equivalente_bs),
+            };
+            Object.keys(campos).forEach(function (clase) {
+                const elemento = bloque.querySelector('.' + clase);
+                if (elemento) elemento.textContent = campos[clase];
+            });
+        }
+
+        function actualizar(estado) {
+            if (!estado || !estado.cajas) return;
+
+            const contador = document.querySelector('.js-cierres-hoy');
+            if (contador) contador.textContent = estado.cierres_hoy;
+
+            document.querySelectorAll('#panel-cajas [data-caja]').forEach(function (card) {
+                const datos = estado.cajas[card.dataset.caja];
+                if (!datos) return;
+
+                ['AM', 'PM'].forEach(function (turno) {
+                    actualizarTurno(card, turno, datos.turnos[turno]);
+                    actualizarBorrador(card, turno, datos.borradores[turno]);
+                });
+
+                card.querySelectorAll('.js-caja').forEach(function (celda) {
+                    celda.textContent = formatearMonto(valorTotal(datos, celda.dataset.campo));
+                });
+            });
+        }
+
+        let refrescando = false;
+        function refrescar() {
+            if (document.hidden || refrescando) return;
+            refrescando = true;
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (respuesta) { return respuesta.ok ? respuesta.json() : null; })
+                .then(function (estado) { if (estado) actualizar(estado); })
+                .catch(function () { /* se reintenta en el siguiente ciclo */ })
+                .finally(function () { refrescando = false; });
+        }
+
+        setInterval(refrescar, 4000);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) refrescar();
+        });
+    });
+</script>
 {% endblock %}

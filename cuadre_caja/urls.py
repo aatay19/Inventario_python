@@ -22,6 +22,21 @@ urlpatterns = [
         name="caja_crear",
     ),
     path("caja/<int:caja_id>/cerrar/", views.cerrar_caja, name="cerrar_caja"),
+    path(
+        "caja/<int:caja_id>/cerrar/<str:turno>/",
+        views.cerrar_caja,
+        name="cerrar_caja_turno",
+    ),
+    path(
+        "caja/<int:caja_id>/borrador/<str:turno>/",
+        views.borrador_guardar,
+        name="borrador_guardar",
+    ),
+    path(
+        "departamento/<slug:slug>/estado/",
+        views.departamento_estado,
+        name="departamento_estado",
+    ),
     path("egresos/", views.egresos, name="egresos"),
     path("cierre/<int:cierre_id>/", views.cierre_detalle, name="cierre_detalle"),
     path("historial/", views.historial, name="historial"),

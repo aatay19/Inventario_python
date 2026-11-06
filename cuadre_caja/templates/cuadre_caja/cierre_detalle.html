@@ -470,7 +470,7 @@
 <div class="card cc-card mb-4 border-start border-4 border-info">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
         <h5 class="mb-0 fw-bold"><i class="bi bi-bank me-2 text-info"></i>Conteo por banco</h5>
-        <p class="small text-muted mb-0">Cantidad de transacciones registradas por banco.</p>
+        <p class="small text-muted mb-0">Monto total registrado por banco.</p>
     </div>
     <div class="card-body px-3 px-lg-4 pb-3">
         <ul class="list-group list-group-flush">
@@ -478,7 +478,7 @@
             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                 <span>{{ item.banco }}</span>
                 <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
-                    {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
+                    Bs {{ item.monto|floatformat:2 }}
                 </span>
             </li>
             {% endfor %}

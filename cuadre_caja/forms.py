@@ -168,15 +168,20 @@ class CierreCajaForm(forms.ModelForm):
             "observaciones": "Observaciones",
         }
 
-    def __init__(self, *args, caja=None, **kwargs):
+    def __init__(self, *args, caja=None, turno=None, **kwargs):
         self.caja = caja
+        self.turno_fijo = turno if turno in dict(TurnoChoices.choices) else None
         super().__init__(*args, **kwargs)
 
         # La fecha no se elige: se toma del servidor al momento de registrar.
         self.fecha = self.instance.fecha if self.instance.pk else timezone.localdate()
 
-        # Inicializar turno
-        if not self.is_bound:
+        if self.turno_fijo:
+            # El turno viene fijado desde el botón AM/PM del departamento.
+            self.fields["turno"].widget = forms.HiddenInput()
+            self.fields["turno"].initial = self.turno_fijo
+        elif not self.is_bound:
+            # Inicializar turno
             self.fields["turno"].initial = (
                 TurnoChoices.AM if timezone.localtime().hour < 12 else TurnoChoices.PM
             )
@@ -208,6 +213,11 @@ class CierreCajaForm(forms.ModelForm):
         cleaned_data = super().clean()
         fecha = self.fecha
         turno = cleaned_data.get("turno")
+
+        # Si el turno fue fijado por el botón AM/PM, ese es el turno del cierre.
+        if self.turno_fijo:
+            turno = self.turno_fijo
+            cleaned_data["turno"] = turno
 
         if self.caja and fecha and turno:
             existentes = CierreCaja.objects.filter(
@@ -304,6 +314,9 @@ class EgresoCierreForm(forms.ModelForm):
             attrs={
                 "class": "form-control form-control-sm",
                 "placeholder": "Nro. de referencia",
+                "inputmode": "numeric",
+                "pattern": "[0-9]*",
+                "oninput": "this.value = this.value.replace(/\\D/g, '')",
             }
         ),
     )
@@ -369,6 +382,12 @@ class EgresoCierreForm(forms.ModelForm):
             self.add_error("monto", "El monto debe ser mayor a cero.")
 
         return cleaned_data
+
+    def clean_referencia(self):
+        ref = (self.cleaned_data.get("referencia") or "").strip()
+        if ref and not ref.isdigit():
+            raise forms.ValidationError("La referencia solo puede contener números.")
+        return ref
 
 
 EgresoCierreFormSet = forms.inlineformset_factory(
@@ -448,6 +467,9 @@ class EgresoGeneralForm(forms.ModelForm):
             attrs={
                 "class": "form-control",
                 "placeholder": "Nro. de referencia",
+                "inputmode": "numeric",
+                "pattern": "[0-9]*",
+                "oninput": "this.value = this.value.replace(/\\D/g, '')",
             }
         ),
     )
@@ -489,6 +511,12 @@ class EgresoGeneralForm(forms.ModelForm):
             raise forms.ValidationError("El monto debe ser mayor a cero.")
         return monto
 
+    def clean_referencia(self):
+        ref = (self.cleaned_data.get("referencia") or "").strip()
+        if ref and not ref.isdigit():
+            raise forms.ValidationError("La referencia solo puede contener números.")
+        return ref
+
 
 class CierreTransaccionForm(forms.ModelForm):
     """Fila de transacción (banco, monto, referencia y notas) dentro del cierre."""
@@ -527,6 +555,9 @@ class CierreTransaccionForm(forms.ModelForm):
             attrs={
                 "class": "form-control form-control-sm",
                 "placeholder": "Número de referencia",
+                "inputmode": "numeric",
+                "pattern": "[0-9]*",
+                "oninput": "this.value = this.value.replace(/\\D/g, '')",
             }
         ),
     )
@@ -570,6 +601,12 @@ class CierreTransaccionForm(forms.ModelForm):
             self.add_error("monto", "El monto debe ser mayor a cero.")
 
         return cleaned_data
+
+    def clean_ref(self):
+        ref = (self.cleaned_data.get("ref") or "").strip()
+        if ref and not ref.isdigit():
+            raise forms.ValidationError("La referencia solo puede contener números.")
+        return ref
 
 
 CierreTransaccionFormSet = forms.inlineformset_factory(

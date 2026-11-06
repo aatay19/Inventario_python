@@ -1,14 +1,17 @@
 from collections import Counter
 from datetime import datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q, Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 
 from .forms import (
     BANCOS_CHOICES,
@@ -18,11 +21,14 @@ from .forms import (
     DepartamentoForm,
     EgresoGeneralForm,
     EgresoCierreFormSet,
+    CierreTransaccionForm,
     CierreTransaccionFormSet,
     ImagenCierreFormSet,
     ReporteFiltroForm,
 )
 from .models import (
+    BorradorCierre,
+    BorradorTransaccion,
     Caja,
     CierreCaja,
     Departamento,
@@ -40,6 +46,9 @@ from .permissions import (
     cuadre_caja_required,
     supervisor_required,
 )
+
+# Tiempo durante el cual se considera activo un borrador de cuadre.
+BORRADOR_VIGENCIA = timedelta(minutes=10)
 
 
 def _filas_formulario(form):
@@ -319,9 +328,58 @@ def caja_crear(request, slug):
     )
 
 
+def _decimal(valor, cuantia="0.01"):
+    """Convierte un valor de formulario/JSON a Decimal de forma segura."""
+    try:
+        return Decimal(str(valor if valor not in (None, "") else "0")).quantize(
+            Decimal(cuantia)
+        )
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal("0.00")
+
+
+def _borrador_vigente(caja, fecha, turno):
+    """Borrador activo para una caja, fecha y turno."""
+    limite = timezone.now() - BORRADOR_VIGENCIA
+    return (
+        BorradorCierre.objects.select_related("usuario")
+        .prefetch_related("transacciones")
+        .filter(
+            caja=caja,
+            fecha=fecha,
+            turno=turno,
+            actualizado_en__gte=limite,
+        )
+        .first()
+    )
+
+
+def _limpiar_borradores_vencidos():
+    """Elimina los borradores que superaron los 10 minutos de vigencia."""
+    limite = timezone.now() - BORRADOR_VIGENCIA
+    BorradorCierre.objects.filter(actualizado_en__lt=limite).delete()
+
+
+def _resumen_borrador(borrador):
+    """Datos del borrador listos para el template o el JSON del estado."""
+    if not borrador:
+        return None
+    return {
+        "turno": borrador.turno,
+        "usuario": borrador.usuario.get_username() if borrador.usuario else "",
+        "actualizado": timezone.localtime(borrador.actualizado_en).strftime("%H:%M"),
+        "transacciones": borrador.cantidad_transacciones,
+        "total_bs": f"{borrador.total_bs:.2f}",
+        "total_usd": f"{borrador.total_usd:.2f}",
+        "total_equivalente_bs": f"{borrador.total_equivalente_bs:.2f}",
+    }
+
+
 @cuadre_caja_required
+@never_cache
 def departamento_detalle(request, slug):
     """Muestra las cajas de un departamento y sus cierres del día."""
+    _limpiar_borradores_vencidos()
     departamento = get_object_or_404(Departamento, slug=slug, activo=True)
     hoy = timezone.localdate()
     cajas = list(departamento.cajas.filter(activo=True).order_by("numero"))
@@ -335,6 +393,19 @@ def departamento_detalle(request, slug):
         "caja_id", "-fecha", "-fecha_registro"
     ):
         ultimos_cierres.setdefault(cierre.caja_id, cierre)
+
+    limite_borradores = timezone.now() - BORRADOR_VIGENCIA
+    borradores_hoy = {
+        (borrador.caja_id, borrador.turno): borrador
+        for borrador in BorradorCierre.objects.filter(
+            caja__in=cajas,
+            fecha=hoy,
+            actualizado_en__gte=limite_borradores,
+        )
+        .select_related("usuario")
+        .prefetch_related("transacciones")
+        if borrador.turno not in cierres_por_caja.get(borrador.caja_id, {})
+    }
 
     datos = []
     for caja in cajas:
@@ -359,6 +430,12 @@ def departamento_detalle(request, slug):
                 "total_bs": total_bs,
                 "total_usd": total_usd,
                 "total_equivalente_bs": total_equivalente_bs,
+                "borradores": {
+                    turno: _resumen_borrador(
+                        borradores_hoy.get((caja.id, turno))
+                    )
+                    for turno in (TurnoChoices.AM, TurnoChoices.PM)
+                },
             }
         )
 
@@ -373,6 +450,149 @@ def departamento_detalle(request, slug):
             "cierres_hoy": sum(len(item["cierres_hoy"]) for item in datos),
         },
     )
+
+
+@cuadre_caja_required
+@never_cache
+def departamento_estado(request, slug):
+    """Estado en vivo de las cajas de un departamento (JSON para auto-refresh)."""
+    departamento = get_object_or_404(Departamento, slug=slug, activo=True)
+    hoy = timezone.localdate()
+    cajas = list(departamento.cajas.filter(activo=True).order_by("numero"))
+
+    cierres_por_caja = {}
+    for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy):
+        cierres_por_caja.setdefault(cierre.caja_id, {})[cierre.turno] = cierre
+
+    limite_borradores = timezone.now() - BORRADOR_VIGENCIA
+    borradores_hoy = {
+        (borrador.caja_id, borrador.turno): borrador
+        for borrador in BorradorCierre.objects.filter(
+            caja__in=cajas,
+            fecha=hoy,
+            actualizado_en__gte=limite_borradores,
+        )
+        .select_related("usuario")
+        .prefetch_related("transacciones")
+        if borrador.turno not in cierres_por_caja.get(borrador.caja_id, {})
+    }
+
+    datos = {}
+    total_cierres = 0
+    for caja in cajas:
+        cierres_hoy = cierres_por_caja.get(caja.id, {})
+        turnos = {}
+        for turno in (TurnoChoices.AM, TurnoChoices.PM):
+            cierre = cierres_hoy.get(turno)
+            if cierre:
+                turnos[turno] = {
+                    "registrado": True,
+                    "cajera": cierre.nombre_cajera,
+                    "total_bs": f"{cierre.total_bs:.2f}",
+                    "total_usd": f"{cierre.total_usd:.2f}",
+                    "total_equivalente_bs": f"{cierre.total_equivalente_bs:.2f}",
+                }
+            else:
+                turnos[turno] = {"registrado": False}
+
+        total_cierres += len(cierres_hoy)
+        datos[str(caja.id)] = {
+            "turnos": turnos,
+            "total_bs": f"{sum((c.total_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}",
+            "total_usd": f"{sum((c.total_usd for c in cierres_hoy.values()), Decimal('0.00')):.2f}",
+            "total_equivalente_bs": f"{sum((c.total_equivalente_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}",
+            "borradores": {
+                turno: _resumen_borrador(borradores_hoy.get((caja.id, turno)))
+                for turno in (TurnoChoices.AM, TurnoChoices.PM)
+            },
+        }
+
+    return JsonResponse({"cajas": datos, "cierres_hoy": total_cierres})
+
+
+@cuadre_caja_required
+def borrador_guardar(request, caja_id, turno):
+    """Guarda (sin registrar el cierre) el avance de un cuadre en curso."""
+    if request.method != "POST":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."}, status=405
+        )
+
+    _limpiar_borradores_vencidos()
+
+    caja = get_object_or_404(
+        Caja.objects.select_related("departamento"), pk=caja_id, activo=True
+    )
+    turnos_validos = {valor for valor, _ in TurnoChoices.choices}
+    if turno not in turnos_validos:
+        return JsonResponse(
+            {"ok": False, "error": "El turno indicado no es válido."}, status=400
+        )
+
+    hoy = timezone.localdate()
+    if CierreCaja.objects.filter(caja=caja, fecha=hoy, turno=turno).exists():
+        return JsonResponse(
+            {"ok": False, "error": "El turno ya fue registrado."}, status=409
+        )
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse(
+            {"ok": False, "error": "Datos inválidos."}, status=400
+        )
+    if not isinstance(payload, dict):
+        return JsonResponse(
+            {"ok": False, "error": "Datos inválidos."}, status=400
+        )
+
+    transacciones = payload.get("transacciones") or []
+    if not isinstance(transacciones, list):
+        transacciones = []
+
+    metodos_validos = {valor for valor, _ in MetodoPagoChoices.choices}
+
+    with transaction.atomic():
+        borrador, _ = BorradorCierre.objects.select_for_update().get_or_create(
+            caja=caja,
+            fecha=hoy,
+            turno=turno,
+            defaults={"usuario": request.user},
+        )
+        borrador.usuario = request.user
+        borrador.nombre_cajera = str(payload.get("nombre_cajera") or "")[:100]
+        borrador.tasa = _decimal(payload.get("tasa"), "0.0001")
+        borrador.observaciones = str(payload.get("observaciones") or "")
+        borrador.save()
+
+        borrador.transacciones.all().delete()
+        nuevas = []
+        for orden, item in enumerate(transacciones):
+            if not isinstance(item, dict):
+                continue
+            metodo = item.get("metodo_pago") or ""
+            monto = _decimal(item.get("monto"))
+            if metodo not in metodos_validos or monto <= 0:
+                continue
+            nuevas.append(
+                BorradorTransaccion(
+                    borrador=borrador,
+                    metodo_pago=metodo,
+                    banco=str(item.get("banco") or "")[:100],
+                    monto=monto,
+                    ref=str(item.get("ref") or "")[:100],
+                    notas=str(item.get("notas") or "")[:255],
+                    orden=orden,
+                )
+            )
+        BorradorTransaccion.objects.bulk_create(nuevas)
+
+    borrador = (
+        BorradorCierre.objects.select_related("usuario")
+        .prefetch_related("transacciones")
+        .get(pk=borrador.pk)
+    )
+    return JsonResponse({"ok": True, "borrador": _resumen_borrador(borrador)})
 
 
 @cuadre_caja_required
@@ -418,16 +638,31 @@ def egresos(request):
 
 
 @cuadre_caja_required
-def cerrar_caja(request, caja_id):
-    """Registra el cierre diario de una caja."""
+@never_cache
+def cerrar_caja(request, caja_id, turno=None):
+    """Registra el cierre diario de una caja (turno fijo AM/PM si se indica)."""
     caja = get_object_or_404(
         Caja.objects.select_related("departamento"), pk=caja_id, activo=True
     )
 
+    turnos_validos = {valor for valor, _ in TurnoChoices.choices}
+    if turno is not None and turno not in turnos_validos:
+        messages.error(request, "El turno indicado no es válido.")
+        return redirect("cuadre_caja:departamento_detalle", caja.departamento.slug)
+
     hoy = timezone.localdate()
-    turnos_registrados = CierreCaja.objects.filter(
-        caja=caja, fecha=hoy
-    ).values_list("turno", flat=True)
+    turnos_registrados = set(
+        CierreCaja.objects.filter(caja=caja, fecha=hoy).values_list("turno", flat=True)
+    )
+
+    # Si el turno específico ya está registrado hoy, no se permite repetirlo.
+    if turno and turno in turnos_registrados:
+        messages.error(
+            request,
+            f"La caja “{caja.nombre}” ya tiene registrado el turno {turno} para hoy "
+            f"({hoy:%d/%m/%Y}).",
+        )
+        return redirect("cuadre_caja:departamento_detalle", caja.departamento.slug)
 
     # Si ya existen ambos turnos (AM y PM) para esta caja hoy, no se permite registrar otro cuadre.
     if TurnoChoices.AM in turnos_registrados and TurnoChoices.PM in turnos_registrados:
@@ -439,7 +674,7 @@ def cerrar_caja(request, caja_id):
         return redirect("cuadre_caja:departamento_detalle", caja.departamento.slug)
 
     if request.method == "POST":
-        form = CierreCajaForm(request.POST, caja=caja)
+        form = CierreCajaForm(request.POST, caja=caja, turno=turno)
         egresos_formset = EgresoCierreFormSet(
             request.POST, request.FILES, prefix="egresos", instance=CierreCaja()
         )
@@ -485,6 +720,11 @@ def cerrar_caja(request, caja_id):
             cierre.total_usd = total_usd
             cierre.save()
 
+            # El cuadre ya quedó registrado: se descarta el borrador compartido.
+            BorradorCierre.objects.filter(
+                caja=caja, fecha=hoy, turno=cierre.turno
+            ).delete()
+
             messages.success(
                 request,
                 f"Cierre registrado para {caja.nombre} "
@@ -496,18 +736,73 @@ def cerrar_caja(request, caja_id):
 
         messages.error(request, "Revisa los datos del cierre.")
     else:
-        form = CierreCajaForm(caja=caja)
+        borrador = _borrador_vigente(caja, hoy, turno) if turno else None
+        datos_iniciales = {}
+        transacciones_iniciales = None
+        if borrador:
+            datos_iniciales = {
+                "nombre_cajera": borrador.nombre_cajera,
+                "tasa": borrador.tasa or None,
+                "observaciones": borrador.observaciones,
+            }
+            transacciones_iniciales = [
+                {
+                    "metodo_pago": t.metodo_pago,
+                    "banco": t.banco,
+                    "monto": t.monto,
+                    "ref": t.ref,
+                    "notas": t.notas,
+                }
+                for t in borrador.transacciones.all()
+            ]
+            if borrador.usuario_id and borrador.usuario_id != request.user.id:
+                messages.warning(
+                    request,
+                    f"Hay un borrador en curso de "
+                    f"{borrador.usuario.get_username()} para esta caja y turno. "
+                    f"Se continuará ese borrador compartido.",
+                )
+            else:
+                messages.info(
+                    request,
+                    "Se restauró el borrador en curso. Se conserva 10 minutos "
+                    "sin actividad.",
+                )
+
+        form = CierreCajaForm(caja=caja, turno=turno, initial=datos_iniciales)
         egresos_formset = EgresoCierreFormSet(
             prefix="egresos", instance=CierreCaja()
         )
         transacciones_formset = CierreTransaccionFormSet(
-            prefix="transacciones", instance=CierreCaja()
+            prefix="transacciones",
+            instance=CierreCaja(),
         )
         imagenes_formset = ImagenCierreFormSet(
             prefix="imagenes", instance=CierreCaja()
         )
 
     filas_bs, filas_usd = _filas_formulario(form)
+
+    if request.method == "POST":
+        filas_transaccion = list(transacciones_formset.forms)
+        transacciones_total_forms = transacciones_formset.total_form_count()
+        transacciones_initial_forms = transacciones_formset.initial_form_count()
+    else:
+        # El formset inline no usa el parámetro `initial`: sus filas iniciales
+        # provienen de la instancia guardada. Por eso las filas restauradas del
+        # borrador se construyen aquí con su propio prefijo.
+        filas_transaccion = [
+            CierreTransaccionForm(
+                initial=datos,
+                prefix=f"transacciones-{indice}",
+            )
+            for indice, datos in enumerate(transacciones_iniciales or [])
+        ]
+        filas_transaccion.append(
+            CierreTransaccionForm(prefix=f"transacciones-{len(filas_transaccion)}")
+        )
+        transacciones_total_forms = len(filas_transaccion)
+        transacciones_initial_forms = 0
 
     return render(
         request,
@@ -516,10 +811,14 @@ def cerrar_caja(request, caja_id):
             "caja": caja,
             "form": form,
             "fecha": form.fecha,
+            "turno_fijo": turno,
             "filas_bs": filas_bs,
             "filas_usd": filas_usd,
             "egresos_formset": egresos_formset,
             "transacciones_formset": transacciones_formset,
+            "filas_transaccion": filas_transaccion,
+            "transacciones_total_forms": transacciones_total_forms,
+            "transacciones_initial_forms": transacciones_initial_forms,
             "imagenes_formset": imagenes_formset,
             "notas": form.data.get("notas", ""),
         },
@@ -570,28 +869,28 @@ def cierre_detalle(request, cierre_id):
         if conteo.get(valor)
     ]
 
-    # Conteo de transacciones por banco (agrupando variantes de mayúsculas).
+    # Monto total por banco (agrupando variantes de mayúsculas).
     etiquetas_banco = {
         valor.lower(): etiqueta for valor, etiqueta in BANCOS_CHOICES if valor
     }
-    conteo_por_banco = Counter()
+    monto_por_banco = Counter()
     for transaccion in transacciones:
         banco = (transaccion.banco or "").strip()
         if not banco:
             continue
         nombre = etiquetas_banco.get(banco.lower(), banco)
-        conteo_por_banco[nombre] += 1
+        monto_por_banco[nombre] += transaccion.monto or Decimal("0.00")
 
     orden_bancos = [etiqueta for valor, etiqueta in BANCOS_CHOICES if valor]
     conteo_bancos = [
-        {"banco": nombre, "cantidad": conteo_por_banco[nombre]}
+        {"banco": nombre, "monto": monto_por_banco[nombre]}
         for nombre in orden_bancos
-        if conteo_por_banco.get(nombre)
+        if monto_por_banco.get(nombre)
     ]
-    for nombre in sorted(conteo_por_banco):
+    for nombre in sorted(monto_por_banco):
         if nombre not in orden_bancos:
             conteo_bancos.append(
-                {"banco": nombre, "cantidad": conteo_por_banco[nombre]}
+                {"banco": nombre, "monto": monto_por_banco[nombre]}
             )
 
     distribucion_bs, total_distribucion_bs = _montos_por_metodo(

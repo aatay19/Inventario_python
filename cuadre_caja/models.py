@@ -63,7 +63,7 @@ class MetodoPagoChoices(models.TextChoices):
     ZELLE = "ZELLE", "Zelle"
     BIO_PAGO = "BIO_PAGO", "BioPago"
     TRANSFERENCIA = "TRANSFERENCIA", "Transferencia"
-    OTRO = "OTRO", "Otro"
+    CASHEA = "CASHEA", "Cashea"
 
 
 MONEDA_BS = "BS"
@@ -78,7 +78,7 @@ MONEDA_POR_METODO = {
     MetodoPagoChoices.ZELLE.value: MONEDA_USD,
     MetodoPagoChoices.BIO_PAGO.value: MONEDA_BS,
     MetodoPagoChoices.TRANSFERENCIA.value: MONEDA_BS,
-    MetodoPagoChoices.OTRO.value: MONEDA_BS,
+    MetodoPagoChoices.CASHEA.value: MONEDA_BS,
 }
 
 
@@ -447,3 +447,137 @@ class ImagenCierre(models.Model):
 
     def __str__(self):
         return self.titulo
+
+
+class BorradorCierre(models.Model):
+    """Cuadre en curso, compartido entre usuarios mientras no se guarda.
+
+    Permite que el resumen del departamento muestre las transacciones que se
+    están cargando, aunque el cierre todavía no se haya registrado.
+    """
+
+    caja = models.ForeignKey(
+        Caja,
+        on_delete=models.CASCADE,
+        related_name="borradores",
+        verbose_name="Caja",
+    )
+    fecha = models.DateField(verbose_name="Fecha")
+    turno = models.CharField(
+        max_length=2,
+        choices=TurnoChoices.choices,
+        verbose_name="Turno",
+    )
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="borradores_cuadre",
+        verbose_name="Último usuario",
+    )
+    nombre_cajera = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="Nombre de la cajera"
+    )
+    tasa = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+        verbose_name="Tasa del día (Bs/USD)",
+    )
+    observaciones = models.TextField(blank=True, default="", verbose_name="Observaciones")
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado en")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado en")
+
+    class Meta:
+        ordering = ["-actualizado_en"]
+        verbose_name = "Borrador de cierre"
+        verbose_name_plural = "Borradores de cierre"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["caja", "fecha", "turno"],
+                name="unique_borrador_por_caja_fecha_turno",
+            )
+        ]
+
+    def __str__(self):
+        return f"Borrador {self.caja} - {self.fecha:%d/%m/%Y} - {self.turno}"
+
+    @property
+    def total_bs(self):
+        return _redondear(
+            sum(
+                (t.monto_bs for t in self.transacciones.all()),
+                Decimal("0.00"),
+            )
+        )
+
+    @property
+    def total_usd(self):
+        return _redondear(
+            sum(
+                (t.monto_usd for t in self.transacciones.all()),
+                Decimal("0.00"),
+            )
+        )
+
+    @property
+    def total_equivalente_bs(self):
+        if self.tasa:
+            return _redondear(self.total_bs + (self.total_usd * self.tasa))
+        return _redondear(self.total_bs)
+
+    @property
+    def cantidad_transacciones(self):
+        return len(self.transacciones.all())
+
+
+class BorradorTransaccion(models.Model):
+    """Transacción cargada en un borrador de cierre (sin guardar)."""
+
+    borrador = models.ForeignKey(
+        BorradorCierre,
+        on_delete=models.CASCADE,
+        related_name="transacciones",
+        verbose_name="Borrador",
+    )
+    metodo_pago = models.CharField(
+        max_length=20,
+        choices=MetodoPagoChoices.choices,
+        blank=True,
+        default="",
+        verbose_name="Método de pago",
+    )
+    banco = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="Banco o entidad"
+    )
+    monto = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0, verbose_name="Monto"
+    )
+    ref = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="Referencia"
+    )
+    notas = models.CharField(
+        max_length=255, blank=True, default="", verbose_name="Notas"
+    )
+    orden = models.PositiveIntegerField(default=0, verbose_name="Orden")
+
+    class Meta:
+        ordering = ["orden", "id"]
+        verbose_name = "Transacción de borrador"
+        verbose_name_plural = "Transacciones de borrador"
+
+    def __str__(self):
+        return f"{self.get_metodo_pago_display()} - {self.banco} - {self.monto}"
+
+    @property
+    def monto_bs(self):
+        if MONEDA_POR_METODO.get(self.metodo_pago) == MONEDA_BS:
+            return self.monto
+        return Decimal("0.00")
+
+    @property
+    def monto_usd(self):
+        if MONEDA_POR_METODO.get(self.metodo_pago) == MONEDA_USD:
+            return self.monto
+        return Decimal("0.00")

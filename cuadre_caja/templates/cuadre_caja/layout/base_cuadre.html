@@ -199,6 +199,15 @@
         {% endif %}
     </script>
 
+    <script>
+        // Restringe los campos de referencia a solo números
+        document.addEventListener('input', function (e) {
+            if (e.target && e.target.matches && e.target.matches('input[name$="-ref"], input[name$="-referencia"], input[name="referencia"], input[name="ref"]')) {
+                e.target.value = e.target.value.replace(/\D/g, '');
+            }
+        });
+    </script>
+
     {% block scripts %}{% endblock %}
 </body>
 

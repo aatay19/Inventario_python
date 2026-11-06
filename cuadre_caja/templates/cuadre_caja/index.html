@@ -12,6 +12,9 @@
         <a href="{% url 'cuadre_caja:departamento_crear' %}" class="btn btn-success">
             <i class="bi bi-plus-lg me-1"></i> Registrar departamento
         </a>
+        <a href="{% url 'cuadre_caja:egresos' %}" class="btn btn-outline-warning">
+            <i class="bi bi-arrow-down-circle me-1"></i> Egresos / Devoluciones
+        </a>
         <span class="cc-chip bg-white text-secondary border">
             <i class="bi bi-calendar3 me-1"></i> {{ hoy|date:"d/m/Y" }}
         </span>
@@ -33,15 +36,17 @@
                 <div class="card-body p-4 d-flex flex-column">
                     <div class="d-flex justify-content-between align-items-start">
                         <span class="dep-icon">
-                            {% if bloque.departamento.slug == 'supermercado' %}
-                            <i class="bi bi-cart3"></i>
-                            {% elif bloque.departamento.slug == 'cafetin' %}
-                            <i class="bi bi-cup-hot"></i>
-                            {% elif bloque.departamento.slug == 'parque' %}
-                            <i class="bi bi-tree"></i>
-                            {% else %}
-                            <i class="bi bi-building"></i>
-                            {% endif %}
+                            {% with slug=bloque.departamento.slug|lower nombre=bloque.departamento.nombre|lower %}
+                                {% if 'super' in slug or 'super' in nombre %}
+                                <i class="bi bi-cart3"></i>
+                                {% elif 'cafe' in slug or 'cafe' in nombre %}
+                                <i class="bi bi-cup-hot"></i>
+                                {% elif 'parque' in slug or 'parque' in nombre %}
+                                <i class="bi bi-tree"></i>
+                                {% else %}
+                                <i class="bi bi-building"></i>
+                                {% endif %}
+                            {% endwith %}
                         </span>
                         <span class="badge bg-light text-secondary">
                             {{ bloque.total_cajas }} caja{{ bloque.total_cajas|pluralize:"s" }}
