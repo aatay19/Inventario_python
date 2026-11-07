@@ -561,7 +561,7 @@ def borrador_guardar(request, caja_id, turno):
         )
         borrador.usuario = request.user
         borrador.nombre_cajera = str(payload.get("nombre_cajera") or "")[:100]
-        borrador.tasa = _decimal(payload.get("tasa"), "0.0001")
+        borrador.tasa = _decimal(payload.get("tasa"), "0.01")
         borrador.observaciones = str(payload.get("observaciones") or "")
         borrador.save()
 
@@ -715,9 +715,6 @@ def cerrar_caja(request, caja_id, turno=None):
 
             cierre.total_bs = total_bs
             cierre.total_usd = total_usd
-            cierre.total_equivalente_bs = total_bs + (
-                total_usd * (cierre.tasa or Decimal("1"))
-            )
             cierre.save()
 
             # El cuadre ya quedó registrado: se descarta el borrador compartido.
@@ -890,43 +887,6 @@ def cierre_detalle(request, cierre_id):
     transacciones = list(cierre.transacciones.all())
     imagenes = list(cierre.imagenes.all())
 
-    # Conteo de transacciones por método de pago (con respaldo en cierres antiguos).
-    conteo = Counter(t.metodo_pago for t in transacciones)
-    if not conteo and detalles:
-        conteo = Counter(d.metodo_pago for d in detalles)
-    conteo_metodos = [
-        {
-            "metodo": etiqueta,
-            "cantidad": conteo[valor],
-        }
-        for valor, etiqueta in MetodoPagoChoices.choices
-        if conteo.get(valor)
-    ]
-
-    # Monto total por banco (agrupando variantes de mayúsculas).
-    etiquetas_banco = {
-        valor.lower(): etiqueta for valor, etiqueta in BANCOS_CHOICES if valor
-    }
-    monto_por_banco = Counter()
-    for transaccion in transacciones:
-        banco = (transaccion.banco or "").strip()
-        if not banco:
-            continue
-        nombre = etiquetas_banco.get(banco.lower(), banco)
-        monto_por_banco[nombre] += transaccion.monto or Decimal("0.00")
-
-    orden_bancos = [etiqueta for valor, etiqueta in BANCOS_CHOICES if valor]
-    conteo_bancos = [
-        {"banco": nombre, "monto": monto_por_banco[nombre]}
-        for nombre in orden_bancos
-        if monto_por_banco.get(nombre)
-    ]
-    for nombre in sorted(monto_por_banco):
-        if nombre not in orden_bancos:
-            conteo_bancos.append(
-                {"banco": nombre, "monto": monto_por_banco[nombre]}
-            )
-
     distribucion_bs, total_distribucion_bs = _montos_por_metodo(
         transacciones, detalles, MONEDA_BS
     )
@@ -969,8 +929,6 @@ def cierre_detalle(request, cierre_id):
             "total_egresos_usd": total_egresos_usd,
             "transacciones": transacciones,
             "imagenes": imagenes,
-            "conteo_metodos": conteo_metodos,
-            "conteo_bancos": conteo_bancos,
         },
     )
 
@@ -1025,13 +983,26 @@ def historial(request):
 def reportes(request):
     """Reportes por turno, caja y departamento para día, semana, mes o año."""
     hoy = timezone.localdate()
+
+    # Al abrir el reporte sin filtros, mostrar el último día con cierres
+    # registrados para que el reporte no aparezca vacío.
+    fecha_inicial = hoy
+    if not request.GET:
+        ultima_fecha = (
+            CierreCaja.objects.order_by("-fecha")
+            .values_list("fecha", flat=True)
+            .first()
+        )
+        if ultima_fecha:
+            fecha_inicial = ultima_fecha
+
     form = ReporteFiltroForm(
         request.GET or None,
-        initial={"fecha": hoy, "periodo": ReporteFiltroForm.PERIODO_DIA},
+        initial={"fecha": fecha_inicial, "periodo": ReporteFiltroForm.PERIODO_DIA},
     )
 
     periodo = ReporteFiltroForm.PERIODO_DIA
-    fecha_referencia = hoy
+    fecha_referencia = fecha_inicial
     departamento = None
     caja = None
     turno = None
@@ -1100,6 +1071,60 @@ def reportes(request):
     )
     egresos_independientes = independientes.order_by("-fecha_registro")[:10]
 
+    # Conteo por método de pago y por banco de los cierres filtrados.
+    cierres_ids = [cierre.id for cierre in cierres]
+    transacciones = list(
+        CierreTransaccion.objects.filter(cierre_id__in=cierres_ids)
+    )
+    detalles = list(
+        DetalleCierre.objects.filter(cierre_id__in=cierres_ids)
+    )
+
+    conteo = Counter()
+    transacciones_por_cierre = {}
+    for transaccion in transacciones:
+        transacciones_por_cierre.setdefault(
+            transaccion.cierre_id, []
+        ).append(transaccion)
+    detalles_por_cierre = {}
+    for detalle in detalles:
+        detalles_por_cierre.setdefault(detalle.cierre_id, []).append(detalle)
+
+    for cierre in cierres:
+        registros = transacciones_por_cierre.get(cierre.id)
+        if not registros:
+            registros = detalles_por_cierre.get(cierre.id, [])
+        conteo.update(registro.metodo_pago for registro in registros)
+
+    conteo_metodos = [
+        {"metodo": etiqueta, "cantidad": conteo[valor]}
+        for valor, etiqueta in MetodoPagoChoices.choices
+        if conteo.get(valor)
+    ]
+
+    etiquetas_banco = {
+        valor.lower(): etiqueta for valor, etiqueta in BANCOS_CHOICES if valor
+    }
+    monto_por_banco = Counter()
+    for transaccion in transacciones:
+        banco = (transaccion.banco or "").strip()
+        if not banco:
+            continue
+        nombre = etiquetas_banco.get(banco.lower(), banco)
+        monto_por_banco[nombre] += transaccion.monto or Decimal("0.00")
+
+    orden_bancos = [etiqueta for valor, etiqueta in BANCOS_CHOICES if valor]
+    conteo_bancos = [
+        {"banco": nombre, "monto": monto_por_banco[nombre]}
+        for nombre in orden_bancos
+        if monto_por_banco.get(nombre)
+    ]
+    for nombre in sorted(monto_por_banco):
+        if nombre not in orden_bancos:
+            conteo_bancos.append(
+                {"banco": nombre, "monto": monto_por_banco[nombre]}
+            )
+
     etiquetas_periodo = {
         ReporteFiltroForm.PERIODO_DIA: "Día",
         ReporteFiltroForm.PERIODO_SEMANA: "Semana",
@@ -1127,6 +1152,8 @@ def reportes(request):
             "totales_independientes": totales_independientes,
             "egresos_independientes": egresos_independientes,
             "total_cierres": len(cierres),
+            "conteo_metodos": conteo_metodos,
+            "conteo_bancos": conteo_bancos,
         },
     )
 

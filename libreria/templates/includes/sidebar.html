@@ -45,11 +45,11 @@
             </a>
         </li>
 
-        {% elif user.perfilusuario.rol|lower in 'admin,inventario,consulta,soporte,supervisor' %}
+        {% elif user.perfilusuario.rol|lower in 'admin,inventario,soporte,supervisor_inventario' %}
         {# ===== SIDEBAR COMPLETO PARA OTROS ROLES ===== #}
 
         <!-- PRODUCTOS -->
-        {% if user.perfilusuario.rol|lower != 'consulta' %}
+        {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle px-3 py-2" href="#">
                 <span><i class="bi bi-box-seam me-3 opacity-75"></i> Productos</span>
@@ -57,7 +57,7 @@
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
                 <li><a class="nav-link small py-2" href="{% url 'inventario.index' %}">➤ Lista de productos</a></li>
-                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' and user.perfilusuario.rol|lower != 'consulta' %}
                 <li><a class="nav-link small py-2" href="{% url 'inventario.crear' %}">➤ Crear producto</a></li>
                 {% endif %}
             </ul>
@@ -65,7 +65,7 @@
         {% endif %}
 
         <!-- PROVEEDORES -->
-        {% if user.perfilusuario.rol|lower != 'consulta' %}
+        {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle px-3 py-2" href="#">
                 <span><i class="bi bi-buildings me-3 opacity-75"></i> Proveedores</span>
@@ -86,7 +86,7 @@
         </li>
 
         <!-- PEDIDOS / COMPRAS -->
-        {% if user.perfilusuario.rol|lower in 'admin,consulta,soporte,supervisor' %}
+        {% if user.perfilusuario.rol|lower in 'admin,soporte,supervisor_inventario' %}
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center justify-content-between dropdown-toggle px-3 py-2" href="#">
                 <span><i class="bi bi-cart-plus me-3 opacity-75"></i> Pedidos / Compras</span>
@@ -109,7 +109,7 @@
                 <i class="bi bi-chevron-right small arrow-icon"></i>
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
-                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.crear' %}">➤ Registrar Movimiento</a></li>
                 {% endif %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.index' %}">➤ Historial General</a></li>
@@ -123,7 +123,7 @@
                 <i class="bi bi-chevron-right small arrow-icon"></i>
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
-                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.entrada' %}">➤ Generar Entrada</a></li>
                 {% endif %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.historial_entradas' %}">➤ Historial
@@ -138,7 +138,7 @@
                 <i class="bi bi-chevron-right small arrow-icon"></i>
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
-                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.salida' %}">➤ Generar Salida</a></li>
                 {% endif %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.historial_salidas' %}">➤ Historial
@@ -147,12 +147,14 @@
         </li>
 
         <!-- AJUSTE DE EXISTENCIA -->
+        {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
         {% if user.perfilusuario.rol|lower != 'consulta' %}
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center px-3 py-2" href="{% url 'inventario.ajuste_existencia' %}">
                 <span><i class="bi bi-sliders me-3 opacity-75"></i> Ajuste de Existencia</span>
             </a>
         </li>
+        {% endif %}
         {% endif %}
 
         <!-- MERMAS / VENCIDOS -->
@@ -165,7 +167,7 @@
                 <li><a class="nav-link small py-2" href="{% url 'inventario.deposito_vencido' %}">➤ Depósito Vencido</a>
                 </li>
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.historial_vencidos' %}">➤ Historial Vencidos</a></li>
-                {% if user.perfilusuario.rol|lower != 'consulta' %}
+                {% if user.perfilusuario.rol|lower != 'supervisor_cuadre_caja' %}
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.traslado_vencido' %}">➤ Traslado a
                         Vencidos</a></li>
                 <li><a class="nav-link small py-2" href="{% url 'movimientos.carga_vencido' %}">➤ Carga Directa a

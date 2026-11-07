@@ -78,7 +78,7 @@ MONEDA_POR_METODO = {
     MetodoPagoChoices.ZELLE.value: MONEDA_USD,
     MetodoPagoChoices.BIO_PAGO.value: MONEDA_BS,
     MetodoPagoChoices.TRANSFERENCIA.value: MONEDA_BS,
-    MetodoPagoChoices.CASHEA.value: MONEDA_BS,
+    MetodoPagoChoices.CASHEA.value: MONEDA_USD,
 }
 
 
@@ -100,7 +100,7 @@ class CierreCaja(models.Model):
     nombre_cajera = models.CharField(max_length=100, verbose_name="Nombre de la cajera")
     tasa = models.DecimalField(
         max_digits=14,
-        decimal_places=4,
+        decimal_places=2,
         default=0,
         verbose_name="Tasa del día (Bs/USD)",
     )
@@ -481,7 +481,7 @@ class BorradorCierre(models.Model):
     )
     tasa = models.DecimalField(
         max_digits=14,
-        decimal_places=4,
+        decimal_places=2,
         default=0,
         verbose_name="Tasa del día (Bs/USD)",
     )

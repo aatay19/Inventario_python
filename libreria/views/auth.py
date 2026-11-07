@@ -14,15 +14,15 @@ def es_admin(user):
 
 def es_inventario_acceso(user):
     if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'consulta', 'soporte', 'supervisor', 'almacenista']
+    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor_inventario', 'almacenista']
 
 def es_almacenista_o_superior(user):
     if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor', 'almacenista']
+    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor_inventario', 'almacenista']
 
 def es_pleno_acceso(user):
     if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor']
+    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor_inventario']
 
 def es_gestion_pedidos(user):
     if not hasattr(user, 'perfilusuario'): return False

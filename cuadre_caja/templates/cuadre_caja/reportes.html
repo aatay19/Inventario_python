@@ -356,4 +356,56 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Conteo agregado del periodo -->
+{% if conteo_metodos or conteo_bancos %}
+<div class="row g-3 mb-4">
+    {% if conteo_metodos %}
+    <div class="col-12 col-lg-6">
+        <div class="card cc-card h-100 border-start border-4 border-secondary">
+            <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-secondary"></i>Conteo por método de pago</h5>
+                <p class="small text-muted mb-0">Cantidad de transacciones registradas por método en el periodo.</p>
+            </div>
+            <div class="card-body px-3 px-lg-4 pb-3">
+                <ul class="list-group list-group-flush">
+                    {% for item in conteo_metodos %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>{{ item.metodo }}</span>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
+                            {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if conteo_bancos %}
+    <div class="col-12 col-lg-6">
+        <div class="card cc-card h-100 border-start border-4 border-info">
+            <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-bank me-2 text-info"></i>Conteo por banco</h5>
+                <p class="small text-muted mb-0">Monto total registrado por banco en el periodo.</p>
+            </div>
+            <div class="card-body px-3 px-lg-4 pb-3">
+                <ul class="list-group list-group-flush">
+                    {% for item in conteo_bancos %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>{{ item.banco }}</span>
+                        <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
+                            Bs {{ item.monto|floatformat:2 }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 {% endblock %}

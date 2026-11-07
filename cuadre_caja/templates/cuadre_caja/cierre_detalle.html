@@ -445,48 +445,6 @@
 </div>
 {% endif %}
 
-{% if conteo_metodos %}
-<div class="card cc-card mb-4 border-start border-4 border-secondary">
-    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-secondary"></i>Conteo por método de pago</h5>
-        <p class="small text-muted mb-0">Cantidad de transacciones registradas por método.</p>
-    </div>
-    <div class="card-body px-3 px-lg-4 pb-3">
-        <ul class="list-group list-group-flush">
-            {% for item in conteo_metodos %}
-            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                <span>{{ item.metodo }}</span>
-                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
-                    {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
-                </span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-</div>
-{% endif %}
-
-{% if conteo_bancos %}
-<div class="card cc-card mb-4 border-start border-4 border-info">
-    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-bank me-2 text-info"></i>Conteo por banco</h5>
-        <p class="small text-muted mb-0">Monto total registrado por banco.</p>
-    </div>
-    <div class="card-body px-3 px-lg-4 pb-3">
-        <ul class="list-group list-group-flush">
-            {% for item in conteo_bancos %}
-            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                <span>{{ item.banco }}</span>
-                <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
-                    Bs {{ item.monto|floatformat:2 }}
-                </span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-</div>
-{% endif %}
-
 <div class="row g-4 mt-5 firmas-cierre">
     <div class="col-6">
         <div class="border-top pt-2 text-center small text-muted">Firma de la cajera</div>

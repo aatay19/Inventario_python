@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import user_passes_test
 
-ROLES_CUADRE = {'admin', 'soporte', 'supervisor', 'cuadre_caja'}
-ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor'}
+ROLES_CUADRE = {'admin', 'soporte', 'supervisor', 'cuadre_caja', 'supervisor_cuadre_caja'}
+ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor', 'supervisor_cuadre_caja'}
 
 
 def _tiene_perfil(user, roles):
@@ -20,7 +20,7 @@ def es_cuadre_caja(user):
     if user.is_superuser:
         return False
     perfil = getattr(user, 'perfilusuario', None)
-    return bool(perfil) and getattr(perfil, 'rol', None) == 'cuadre_caja'
+    return bool(perfil) and getattr(perfil, 'rol', None) in {'cuadre_caja', 'supervisor_cuadre_caja'}
 
 
 def puede_gestionar_cuadre(user):

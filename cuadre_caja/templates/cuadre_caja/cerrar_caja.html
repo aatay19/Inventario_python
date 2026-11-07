@@ -583,26 +583,6 @@
                     </template>
                 </div>
             </div>
-
-            <div class="card cc-card mb-4">
-                <div class="card-body">
-                    <h6 class="fw-bold mb-1"><i class="bi bi-list-check me-1"></i> Conteo por método de pago</h6>
-                    <p class="small text-muted mb-3">Cantidad de transacciones registradas por método.</p>
-                    <ul class="list-group list-group-flush" id="lista-conteo-metodos">
-                        <li class="list-group-item px-0 text-muted small">Aún no hay métodos de pago agregados.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="card cc-card mb-4">
-                <div class="card-body">
-                    <h6 class="fw-bold mb-1"><i class="bi bi-bank me-1"></i> Conteo por banco</h6>
-                    <p class="small text-muted mb-3">Cantidad de transacciones registradas por banco.</p>
-                    <ul class="list-group list-group-flush" id="lista-conteo-bancos">
-                        <li class="list-group-item px-0 text-muted small">Aún no hay bancos agregados.</li>
-                    </ul>
-                </div>
-            </div>
         </div>
     </div>
 </form>
@@ -618,8 +598,6 @@
         const resumenBs = document.getElementById('resumen-bs');
         const resumenUsd = document.getElementById('resumen-usd');
         const totalEquivalente = document.getElementById('total-equivalente');
-        const listaConteoMetodos = document.getElementById('lista-conteo-metodos');
-        const listaConteoBancos = document.getElementById('lista-conteo-bancos');
 
         function numero(valor) {
             const n = parseFloat(String(valor || '0').replace(',', '.'));
@@ -683,116 +661,38 @@
             });
 
             recalcular();
-            actualizarConteoMetodos();
-            actualizarConteoBancos();
-        }
-
-        function renderizarConteo(lista, conteo, selectReferencia, textoVacio, esMonto) {
-            if (!lista) return;
-
-            // Etiquetas y orden tomados del propio select.
-            const etiquetas = {};
-            const orden = [];
-            if (selectReferencia) {
-                Array.from(selectReferencia.options).forEach(function (opcion) {
-                    if (!opcion.value) return;
-                    etiquetas[opcion.value] = opcion.textContent.trim();
-                    orden.push(opcion.value);
-                });
-            }
-
-            const valores = Object.keys(conteo).sort(function (a, b) {
-                const ia = orden.indexOf(a);
-                const ib = orden.indexOf(b);
-                if (ia === -1 && ib === -1) return a.localeCompare(b);
-                if (ia === -1) return 1;
-                if (ib === -1) return -1;
-                return ia - ib;
-            });
-
-            if (!valores.length) {
-                lista.innerHTML = '<li class="list-group-item px-0 text-muted small">' + textoVacio + '</li>';
-                return;
-            }
-
-            function formatoValor(valor) {
-                if (esMonto) {
-                    return 'Bs ' + parseFloat(valor || 0).toFixed(2);
-                }
-                return valor === 1 ? '1 transacción' : valor + ' transacciones';
-            }
-
-            lista.innerHTML = valores.map(function (valor) {
-                const cantidad = conteo[valor];
-                const etiqueta = etiquetas[valor] || valor;
-                return '<li class="list-group-item d-flex justify-content-between align-items-center px-0">' +
-                    '<span>' + etiqueta + '</span>' +
-                    '<span class="badge bg-success-subtle text-success-emphasis rounded-pill">' +
-                    formatoValor(cantidad) +
-                    '</span>' +
-                    '</li>';
-            }).join('');
-        }
-
-        function actualizarConteoMetodos() {
-            const conteo = {};
-            // Etiquetas de métodos de pago desde las tarjetas
-            const etiquetasMetodo = {};
-            document.querySelectorAll('.fila-transaccion').forEach(function (fila) {
-                const metodoEl = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
-                const inputMonto = fila.querySelector('input[name$="-monto"]');
-                if (!metodoEl || !metodoEl.value) return;
-                const monto = numero(inputMonto ? inputMonto.value : 0);
-                if (!monto) return;
-                conteo[metodoEl.value] = (conteo[metodoEl.value] || 0) + 1;
-                // Tomar etiqueta del header de la tarjeta
-                if (!etiquetasMetodo[metodoEl.value]) {
-                    const header = fila.querySelector('.card-header .fw-semibold');
-                    if (header) etiquetasMetodo[metodoEl.value] = header.textContent.trim();
-                }
-            });
-            // Renderizar con etiquetas propias
-            if (!listaConteoMetodos) return;
-            const valores = Object.keys(conteo);
-            if (!valores.length) {
-                listaConteoMetodos.innerHTML = '<li class="list-group-item px-0 text-muted small">Aún no hay métodos de pago con monto.</li>';
-                return;
-            }
-            listaConteoMetodos.innerHTML = valores.map(function (v) {
-                const cant = conteo[v];
-                const etiqueta = etiquetasMetodo[v] || v;
-                return '<li class="list-group-item d-flex justify-content-between align-items-center px-0">' +
-                    '<span>' + etiqueta + '</span>' +
-                    '<span class="badge bg-success-subtle text-success-emphasis rounded-pill">' +
-                    (cant === 1 ? '1 transacción' : cant + ' transacciones') +
-                    '</span></li>';
-            }).join('');
-        }
-
-        function actualizarConteoBancos() {
-            const conteo = {};
-            document.querySelectorAll('.fila-transaccion').forEach(function (fila) {
-                const selectBanco = fila.querySelector('select[name$="-banco"]');
-                const inputMonto = fila.querySelector('input[name$="-monto"]');
-                if (!selectBanco || !selectBanco.value) return;
-                const monto = numero(inputMonto ? inputMonto.value : 0);
-                if (!monto) return;
-                conteo[selectBanco.value] = (conteo[selectBanco.value] || 0) + monto;
-            });
-
-            renderizarConteo(
-                listaConteoBancos,
-                conteo,
-                document.querySelector('.fila-transaccion select[name$="-banco"]'),
-                'Aún no hay bancos con monto.',
-                true
-            );
         }
 
         document.querySelectorAll('.monto-cierre').forEach(function (input) {
             input.addEventListener('input', recalcular);
         });
-        tasaInput.addEventListener('input', recalcular);
+        tasaInput.addEventListener('input', function () {
+            // Permite solo números con un máximo de 2 decimales.
+            let valor = String(this.value || '').replace(',', '.');
+            const partes = valor.split('.');
+            if (partes.length > 2) {
+                valor = partes[0] + '.' + partes[1];
+            }
+            const trozos = valor.split('.');
+            if (trozos[1] !== undefined) {
+                valor = trozos[0] + '.' + trozos[1].slice(0, 2);
+            }
+            if (valor !== this.value) {
+                this.value = valor;
+            }
+            recalcular();
+        });
+        tasaInput.addEventListener('blur', function () {
+            const valor = String(this.value || '').trim();
+            if (valor) {
+                this.value = numero(valor).toFixed(2);
+            }
+            recalcular();
+        });
+        // Mostrar siempre dos decimales al cargar (incluye borradores restaurados).
+        if (String(tasaInput.value || '').trim()) {
+            tasaInput.value = numero(tasaInput.value).toFixed(2);
+        }
 
         recalcularDesdeTransacciones();
 

@@ -148,9 +148,9 @@ class CierreCajaForm(forms.ModelForm):
             "tasa": forms.NumberInput(
                 attrs={
                     "class": "form-control",
-                    "step": "0.0001",
-                    "min": "0.0001",
-                    "placeholder": "0.0000",
+                    "step": "0.01",
+                    "min": "0",
+                    "placeholder": "0.00",
                 }
             ),
             "observaciones": forms.Textarea(
@@ -521,6 +521,11 @@ class EgresoGeneralForm(forms.ModelForm):
 class CierreTransaccionForm(forms.ModelForm):
     """Fila de transacción (banco, monto, referencia y notas) dentro del cierre."""
 
+    # Campos que indican que la fila realmente tiene datos capturados por el
+    # usuario. El método de pago se descarta porque cada tarjeta lo envía en
+    # un campo oculto, aunque la fila esté vacía.
+    CAMPOS_DATOS = ("banco", "monto", "ref", "notas")
+
     metodo_pago = forms.ChoiceField(
         label="Método de pago",
         required=False,
@@ -577,12 +582,17 @@ class CierreTransaccionForm(forms.ModelForm):
         fields = ["metodo_pago", "banco", "monto", "ref", "notas"]
 
     def has_changed(self):
-        """Ignora las filas completamente vacías del formset."""
+        """Ignora las filas completamente vacías del formset.
+
+        El método de pago siempre llega (va en un campo oculto por tarjeta),
+        así que no cuenta como dato capturado: una fila sin banco, monto,
+        referencia ni notas se considera vacía y no se guarda.
+        """
         if not self.is_bound:
             return False
         return any(
             (self.data.get(self.add_prefix(campo)) or "").strip()
-            for campo in ("metodo_pago", "banco", "monto", "ref", "notas")
+            for campo in self.CAMPOS_DATOS
         )
 
     def clean(self):
@@ -591,8 +601,10 @@ class CierreTransaccionForm(forms.ModelForm):
         banco = (cleaned_data.get("banco") or "").strip()
         monto = cleaned_data.get("monto")
         ref = (cleaned_data.get("ref") or "").strip()
+        notas = (cleaned_data.get("notas") or "").strip()
 
-        if not any([metodo, banco, monto, ref]):
+        # Fila vacía: no se valida ni se guarda.
+        if not any([banco, monto, ref, notas]):
             return cleaned_data
 
         if not metodo:

@@ -11,11 +11,11 @@ def roles_cuadre_caja(request):
         else:
             perfil = getattr(request.user, "perfilusuario", None)
             rol = getattr(perfil, "rol", None) if perfil else None
-            if rol in {"admin", "soporte", "supervisor", "cuadre_caja"}:
+            if rol in {"admin", "soporte", "supervisor", "cuadre_caja", "supervisor_cuadre_caja"}:
                 puede_gestionar = True
-            if rol in {"admin", "soporte", "supervisor"}:
+            if rol in {"admin", "soporte", "supervisor", "supervisor_cuadre_caja"}:
                 es_supervisor = True
-            if rol == "cuadre_caja":
+            if rol in {"cuadre_caja", "supervisor_cuadre_caja"}:
                 es_rol_cuadre_caja = True
 
     return {
