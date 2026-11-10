@@ -1,8 +1,13 @@
 from django.contrib.auth.decorators import user_passes_test
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ROLES_CUADRE = {'admin', 'soporte', 'supervisor', 'cuadre_caja', 'supervisor_cuadre_caja'}
 ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor', 'supervisor_cuadre_caja'}
+=======
+ROLES_CUADRE = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
+ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor_caja'}
+>>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
 =======
 ROLES_CUADRE = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
 ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor_caja'}
