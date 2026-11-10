@@ -47,14 +47,11 @@
                                 {% if usuario.rol == 'admin' %}
                                     <span class="badge bg-danger">Administrador</span>
                                 {% elif usuario.rol == 'supervisor_inventario' %}
-<<<<<<< HEAD
-<<<<<<< HEAD
-                                    <span class="badge bg-primary">Supervisor Inventario</span>
-                                {% elif usuario.rol == 'supervisor_cuadre_caja' %}
-                                    <span class="badge bg-warning">Supervisor Cuadre Caja</span>
-=======
-=======
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
+                                    <span class="badge bg-primary">Supervisor de Inventario</span>
+                                {% elif usuario.rol in 'supervisor_caja,supervisor_cuadre_caja' %}
+                                    <span class="badge" style="background-color: #0f766e; color: #fff;">Supervisor de Caja</span>
+                                {% elif usuario.rol == 'soporte' %}
+                                    <span class="badge" style="background-color: #6f42c1; color: #fff;">Soporte</span>
                                     <span class="badge bg-primary">Supervisor de Inventario</span>
                                 {% elif usuario.rol == 'supervisor_caja' %}
                                     <span class="badge bg-dark">Supervisor de Caja</span>
@@ -68,16 +65,9 @@
                                 {% elif usuario.rol == 'almacenista' %}
                                     <span class="badge bg-warning text-dark">Almacenista</span>
                                 {% elif usuario.rol == 'control_nino' %}
-<<<<<<< HEAD
-<<<<<<< HEAD
-                                    <span class="badge bg-success">Control Niño</span>
+                                    <span class="badge" style="background-color: #4f46e5; color: #fff;">Control Niño</span>
                                 {% elif usuario.rol == 'cuadre_caja' %}
-                                    <span class="badge bg-info">Cuadre de Caja</span>
-=======
-                                    <span class="badge bg-secondary">Control Niño</span>
-                                {% elif usuario.rol == 'cuadre_caja' %}
-                                    <span class="badge bg-secondary">Cuadre de Caja</span>
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
+                                    <span class="badge" style="background-color: #0f766e; color: #fff;">Cuadre de Caja</span>
 =======
                                     <span class="badge bg-secondary">Control Niño</span>
                                 {% elif usuario.rol == 'cuadre_caja' %}

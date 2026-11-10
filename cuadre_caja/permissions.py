@@ -1,17 +1,7 @@
 from django.contrib.auth.decorators import user_passes_test
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-ROLES_CUADRE = {'admin', 'soporte', 'supervisor', 'cuadre_caja', 'supervisor_cuadre_caja'}
-ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor', 'supervisor_cuadre_caja'}
-=======
-ROLES_CUADRE = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
-ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor_caja'}
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
-=======
-ROLES_CUADRE = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
-ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor_caja'}
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
+ROLES_CUADRE = {'admin', 'soporte', 'supervisor', 'supervisor_caja', 'supervisor_cuadre_caja', 'cuadre_caja'}
+ROLES_SUPERVISOR = {'admin', 'soporte', 'supervisor', 'supervisor_caja', 'supervisor_cuadre_caja'}
 
 
 def _tiene_perfil(user, roles):
@@ -30,7 +20,7 @@ def es_cuadre_caja(user):
     if user.is_superuser:
         return False
     perfil = getattr(user, 'perfilusuario', None)
-    return bool(perfil) and getattr(perfil, 'rol', None) in {'cuadre_caja', 'supervisor_cuadre_caja'}
+    return bool(perfil) and getattr(perfil, 'rol', None) in {'cuadre_caja', 'supervisor_caja', 'supervisor_cuadre_caja'}
 
 
 def puede_gestionar_cuadre(user):

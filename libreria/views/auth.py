@@ -42,19 +42,6 @@ def es_admin(user):
 
 
 def es_inventario_acceso(user):
-<<<<<<< HEAD
-<<<<<<< HEAD
-    if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor_inventario', 'almacenista']
-
-def es_almacenista_o_superior(user):
-    if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor_inventario', 'almacenista']
-
-def es_pleno_acceso(user):
-    if not hasattr(user, 'perfilusuario'): return False
-    return user.perfilusuario.rol.lower() in ['admin', 'inventario', 'soporte', 'supervisor_inventario']
-=======
     if not user.is_authenticated:
         return False
     if user.is_superuser:
@@ -73,26 +60,6 @@ def es_almacenista_o_superior(user):
 
 
 def es_pleno_acceso(user):
-=======
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    perfil = getattr(user, 'perfilusuario', None)
-    return bool(perfil) and perfil.rol.lower() in ROLES_INVENTARIO
-
-
-def es_almacenista_o_superior(user):
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    perfil = getattr(user, 'perfilusuario', None)
-    return bool(perfil) and perfil.rol.lower() in ROLES_ALMACEN
-
-
-def es_pleno_acceso(user):
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
     if not user.is_authenticated:
         return False
     if user.is_superuser:
@@ -100,10 +67,6 @@ def es_pleno_acceso(user):
     perfil = getattr(user, 'perfilusuario', None)
     return bool(perfil) and perfil.rol.lower() in ROLES_PLENO_ACCESO
 
-<<<<<<< HEAD
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
-=======
->>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
 
 def es_gestion_pedidos(user):
     if not user.is_authenticated:
