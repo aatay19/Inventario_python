@@ -68,19 +68,19 @@
     {% endif %}
 
     <!-- ACCESO RÁPIDO AL CUADRE DE CAJA -->
-    {% if user.perfilusuario.rol|lower != 'parque' %}
+    {% if user.perfilusuario.rol|lower != 'parque' and user.perfilusuario.rol|lower != 'control_nino' %}
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm bg-primary text-white overflow-hidden" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
+            <div class="card border-0 shadow-sm text-white overflow-hidden" style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);">
                 <div class="card-body p-0">
                     <a href="{% url 'cuadre_caja:index' %}" class="btn btn-link text-white text-decoration-none w-100 p-4 d-flex align-items-center justify-content-between hover-lift">
                         <div class="d-flex align-items-center">
                             <div class="bg-white bg-opacity-25 rounded-circle p-3 me-4">
-                                <i class="bi bi-cash-stack fs-2"></i>
+                                <i class="bi bi-cash-stack fs-1"></i>
                             </div>
                             <div class="text-start">
-                                <h2 class="fw-bold mb-1">CUADRE DE CAJA</h2>
-                                <p class="mb-0 opacity-75">Registro de entradas y salidas de caja diarias</p>
+                                <h2 class="fw-bold mb-1">IR AL CUADRE DE CAJA</h2>
+                                <p class="mb-0 opacity-75">Registro de entradas, salidas y cuadre de cajas diarias</p>
                             </div>
                         </div>
                         <div class="d-none d-md-block">
@@ -93,8 +93,8 @@
     </div>
     {% endif %}
 
-    <!-- ======= SECCIONES DE INVENTARIO (Ocultas para rol Parque y Control Niño) ======= -->
-    {% if user.perfilusuario.rol|lower != 'parque' and user.perfilusuario.rol|lower != 'control_nino' %}
+    <!-- ======= SECCIONES DE INVENTARIO (Ocultas para Parque, Control Niño y Cuadre de Caja) ======= -->
+    {% if user.perfilusuario.rol|lower not in 'parque,control_nino,cuadre_caja,supervisor_cuadre_caja,supervisor_caja' %}
         
         <!-- ======= BUSCADOR RÁPIDO DE INVENTARIO ======= -->
         <div class="card border-0 shadow-sm mb-4">
@@ -236,16 +236,27 @@
             </div>
         </div>
     {% else %}
-        <!-- Mensaje de bienvenida para personal del Parque -->
+        <!-- Mensaje de bienvenida contextual según el rol -->
         <div class="text-center py-5">
-            <i class="bi bi-person-check fs-1 text-muted mb-3 d-block"></i>
-            <h4 class="text-muted">Bienvenido al Sistema de Gestión</h4>
-            <p class="text-muted">Utiliza el botón de arriba para acceder a las herramientas del parque.</p>
+            {% if user.perfilusuario.rol|lower in 'cuadre_caja,supervisor_cuadre_caja,supervisor_caja' %}
+                <i class="bi bi-cash-stack fs-1 mb-3 d-block" style="color: #0f766e;"></i>
+                <h4 class="fw-bold text-dark">Módulo de Cuadre de Caja</h4>
+                <p class="text-muted">Utiliza el botón superior para ingresar directamente al registro y cuadre de cajas.</p>
+            {% elif user.perfilusuario.rol|lower == 'control_nino' %}
+                <i class="bi bi-person-badge fs-1 mb-3 d-block" style="color: #6f42c1;"></i>
+                <h4 class="fw-bold text-dark">Módulo de Control Niño</h4>
+                <p class="text-muted">Utiliza el botón superior para ingresar al cronómetro y monitoreo de niños.</p>
+            {% else %}
+                <i class="bi bi-tree fs-1 mb-3 d-block" style="color: #198754;"></i>
+                <h4 class="fw-bold text-dark">Área de Recreación y Parque</h4>
+                <p class="text-muted">Utiliza el botón superior para acceder a las herramientas del parque.</p>
+            {% endif %}
         </div>
     {% endif %}
 </div>
 </div>
 
+{% if user.perfilusuario.rol|lower not in 'parque,control_nino,cuadre_caja,supervisor_cuadre_caja,supervisor_caja' %}
 <!-- Modal Mayor Movimiento -->
 <div class="modal fade" id="modalMayorMovimiento" tabindex="-1" aria-labelledby="modalMayorMovimientoLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -301,10 +312,12 @@
   </div>
 </div>
 </div>
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
+{% if user.perfilusuario.rol|lower not in 'parque,control_nino,cuadre_caja,supervisor_cuadre_caja,supervisor_caja' %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const inputBusqueda = document.getElementById('buscador-rapido-inventario');
@@ -410,4 +423,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+{% endif %}
 {% endblock %}

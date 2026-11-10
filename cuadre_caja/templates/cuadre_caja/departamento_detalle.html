@@ -31,9 +31,11 @@
         </div>
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2">
+        {% if cuadre_es_supervisor %}
         <a href="{% url 'cuadre_caja:caja_crear' departamento.slug %}" class="btn btn-success">
             <i class="bi bi-plus-lg me-1"></i> Nueva caja
         </a>
+        {% endif %}
         <span class="cc-chip bg-white text-secondary border">
             <i class="bi bi-grid-3x3-gap me-1"></i> {{ total_cajas }} cajas
         </span>
@@ -193,9 +195,11 @@
             <div class="card-body text-center py-5">
                 <i class="bi bi-inbox fs-1 text-muted"></i>
                 <p class="mb-3 mt-2 text-muted">Este departamento no tiene cajas activas.</p>
+                {% if cuadre_es_supervisor %}
                 <a href="{% url 'cuadre_caja:caja_crear' departamento.slug %}" class="btn btn-success">
                     <i class="bi bi-plus-lg me-1"></i> Crear la primera caja
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>

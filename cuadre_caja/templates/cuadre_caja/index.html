@@ -9,9 +9,11 @@
         <p class="text-muted mb-0">Selecciona un departamento para registrar el cuadre de sus cajas.</p>
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2">
+        {% if cuadre_es_supervisor %}
         <a href="{% url 'cuadre_caja:departamento_crear' %}" class="btn btn-success">
             <i class="bi bi-plus-lg me-1"></i> Registrar departamento
         </a>
+        {% endif %}
         <a href="{% url 'cuadre_caja:egresos' %}" class="btn btn-outline-warning">
             <i class="bi bi-arrow-down-circle me-1"></i> Egresos / Devoluciones
         </a>
@@ -75,9 +77,11 @@
             <div class="card-body text-center py-5">
                 <i class="bi bi-inbox fs-1 text-muted"></i>
                 <p class="mb-3 mt-2 text-muted">No hay departamentos configurados.</p>
+                {% if cuadre_es_supervisor %}
                 <a href="{% url 'cuadre_caja:departamento_crear' %}" class="btn btn-success">
                     <i class="bi bi-plus-lg me-1"></i> Registrar el primer departamento
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>

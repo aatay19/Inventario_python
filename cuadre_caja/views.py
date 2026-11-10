@@ -833,6 +833,15 @@ def cerrar_caja(request, caja_id, turno=None):
         transacciones_total_forms = transacciones_formset.total_form_count()
         transacciones_initial_forms = transacciones_formset.initial_form_count()
 
+    rol = getattr(getattr(request.user, "perfilusuario", None), "rol", "") or ""
+    puede_eliminar_transacciones = request.user.is_superuser or rol.lower() in {
+        "supervisor_cuadre_caja",
+        "supervisor_caja",
+        "supervisor",
+        "soporte",
+        "admin",
+    }
+
     return render(
         request,
         "cuadre_caja/cerrar_caja.html",
@@ -852,6 +861,7 @@ def cerrar_caja(request, caja_id, turno=None):
             "MONEDA_BS": MONEDA_BS,
             "MONEDA_USD": MONEDA_USD,
             "bancos_choices": BANCOS_CHOICES,
+            "puede_eliminar_transacciones": puede_eliminar_transacciones,
         },
     )
 

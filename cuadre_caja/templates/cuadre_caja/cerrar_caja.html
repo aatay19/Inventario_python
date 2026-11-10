@@ -17,6 +17,45 @@
         z-index: 2;
         box-shadow: inset 0 -1px 0 #dee2e6;
     }
+
+    /* Caja llamativa para Bolívares (Esmeralda / Teal vivo) */
+    .seccion-moneda-bs {
+        background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 100%);
+        border: 3px solid #059669;
+        border-left: 8px solid #047857;
+        box-shadow: 0 10px 30px rgba(5, 150, 105, 0.22);
+    }
+
+    /* Caja llamativa para Dólares (Azul eléctrico / Zafiro vivo) */
+    .seccion-moneda-usd {
+        background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+        border: 3px solid #2563eb;
+        border-left: 8px solid #1d4ed8;
+        box-shadow: 0 10px 30px rgba(37, 99, 235, 0.22);
+    }
+
+    /* Banners de encabezado destacados */
+    .banner-moneda-bs {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(4, 120, 87, 0.28);
+    }
+
+    .banner-moneda-usd {
+        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(29, 78, 216, 0.28);
+    }
+
+    .tarjeta-metodo {
+        background: #ffffff;
+        border: 1.5px solid rgba(15, 23, 42, 0.12) !important;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+        border-radius: 14px;
+        overflow: hidden;
+    }
 </style>
 {% endblock %}
 
@@ -132,139 +171,179 @@
             </div>
             {% endif %}
 
-            {# ══════ Transacciones en BOLÍVARES ══════ #}
-            <h6 class="fw-bold text-secondary mb-2 mt-1">
-                <i class="bi bi-currency-exchange me-1"></i> Transacciones en bolívares
-            </h6>
-            {% for tarjeta in tarjetas_metodo %}
-            {% if tarjeta.moneda != "USD" %}
-            <div class="card cc-card mb-3">
-                <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+            {# ══════ Caja Contenedora: Transacciones en BOLÍVARES ══════ #}
+            <div class="seccion-moneda-bs rounded-4 p-3 p-md-4 mb-4">
+                <div class="banner-moneda-bs d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 mb-4">
                     <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-credit-card text-secondary"></i>
-                        <span class="fw-semibold">{{ tarjeta.etiqueta }}</span>
-                        <span class="badge bg-secondary-subtle text-secondary-emphasis small">Bs</span>
+                        <i class="bi bi-cash-stack fs-4 text-white"></i>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-white text-uppercase" style="letter-spacing: .03em;">
+                                Transacciones en Bolívares
+                            </h5>
+                            <small class="text-white-50">Moneda Nacional · Registros en Bs</small>
+                        </div>
                     </div>
-                    <button type="button"
-                        class="btn btn-sm btn-outline-teal btn-agregar-fila"
-                        data-metodo="{{ tarjeta.valor }}"
-                        style="border-color:#0f766e;color:#0f766e;">
-                        <i class="bi bi-plus-lg me-1"></i>Añadir transacción
-                    </button>
+                    <span class="badge bg-white text-success rounded-pill px-3 py-2 fs-6 fw-bold shadow-sm" style="color: #047857 !important;">
+                        <i class="bi bi-check-circle-fill me-1"></i> BS
+                    </span>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="min-width:160px;">Banco / Entidad</th>
-                                    <th style="min-width:110px;">Monto (Bs)</th>
-                                    <th style="min-width:140px;">Referencia</th>
-                                    <th style="min-width:140px;">Notas</th>
-                                    <th style="width:44px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
-                                {% for f in tarjeta.forms %}
-                                <tr class="fila-transaccion">
-                                    {{ f.metodo_pago.as_hidden }}
-                                    <td>
-                                        {{ f.banco }}
-                                        {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ f.monto }}
-                                        {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ f.ref }}
-                                        {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ f.notas }}
-                                        {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td class="text-center">
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
 
-            {# ══════ Transacciones en DÓLARES ══════ #}
-            <h6 class="fw-bold text-secondary mb-2 mt-3">
-                <i class="bi bi-currency-dollar me-1"></i> Transacciones en dólares
-            </h6>
-            {% for tarjeta in tarjetas_metodo %}
-            {% if tarjeta.moneda == "USD" %}
-            <div class="card cc-card mb-3">
-                <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-currency-dollar text-secondary"></i>
-                        <span class="fw-semibold">{{ tarjeta.etiqueta }}</span>
-                        <span class="badge bg-info-subtle text-info-emphasis small">USD</span>
+                <div class="d-flex flex-column gap-4">
+                    {% for tarjeta in tarjetas_metodo %}
+                    {% if tarjeta.moneda != "USD" %}
+                    <div class="card cc-card tarjeta-metodo">
+                        <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-credit-card text-secondary"></i>
+                                <span class="fw-semibold text-dark">{{ tarjeta.etiqueta }}</span>
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis small">Bs</span>
+                            </div>
+                            <button type="button"
+                                class="btn btn-sm btn-outline-teal btn-agregar-fila"
+                                data-metodo="{{ tarjeta.valor }}"
+                                style="border-color:#0f766e;color:#0f766e;">
+                                <i class="bi bi-plus-lg me-1"></i>Añadir transacción
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="min-width:160px;">Banco / Entidad</th>
+                                            <th style="min-width:110px;">Monto (Bs)</th>
+                                            <th style="min-width:140px;">Referencia</th>
+                                            <th style="min-width:140px;">Notas</th>
+                                            {% if puede_eliminar_transacciones %}
+                                            <th style="width:44px;"></th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
+                                        {% for f in tarjeta.forms %}
+                                        <tr class="fila-transaccion">
+                                            {{ f.metodo_pago.as_hidden }}
+                                            <td>
+                                                {{ f.banco }}
+                                                {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            <td>
+                                                {{ f.monto }}
+                                                {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            <td>
+                                                {{ f.ref }}
+                                                {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            <td>
+                                                {{ f.notas }}
+                                                {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            {% if puede_eliminar_transacciones %}
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                            {% endif %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button"
-                        class="btn btn-sm btn-agregar-fila"
-                        data-metodo="{{ tarjeta.valor }}"
-                        style="border:1px solid #0e7490;color:#0e7490;">
-                        <i class="bi bi-plus-lg me-1"></i>Añadir transacción
-                    </button>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="min-width:160px;">Banco / Entidad</th>
-                                    <th style="min-width:110px;">Monto (USD)</th>
-                                    <th style="min-width:140px;">Referencia</th>
-                                    <th style="min-width:140px;">Notas</th>
-                                    <th style="width:44px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
-                                {% for f in tarjeta.forms %}
-                                <tr class="fila-transaccion">
-                                    {{ f.metodo_pago.as_hidden }}
-                                    <td>
-                                        {{ f.banco }}
-                                        {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ f.monto }}
-                                        {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ f.ref }}
-                                        {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ f.notas }}
-                                        {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                                    </td>
-                                    <td class="text-center">
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
-            {% endif %}
-            {% endfor %}
+
+            {# ══════ Caja Contenedora: Transacciones en DÓLARES ══════ #}
+            <div class="seccion-moneda-usd rounded-4 p-3 p-md-4 mb-4">
+                <div class="banner-moneda-usd d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 mb-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-currency-dollar fs-4 text-white"></i>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-white text-uppercase" style="letter-spacing: .03em;">
+                                Transacciones en Dólares
+                            </h5>
+                            <small class="text-white-50">Divisas Extranjeras · Registros en USD</small>
+                        </div>
+                    </div>
+                    <span class="badge bg-white text-primary rounded-pill px-3 py-2 fs-6 fw-bold shadow-sm" style="color: #1d4ed8 !important;">
+                        <i class="bi bi-check-circle-fill me-1"></i> USD
+                    </span>
+                </div>
+
+                <div class="d-flex flex-column gap-4">
+                    {% for tarjeta in tarjetas_metodo %}
+                    {% if tarjeta.moneda == "USD" %}
+                    <div class="card cc-card tarjeta-metodo">
+                        <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-currency-dollar text-secondary"></i>
+                                <span class="fw-semibold text-dark">{{ tarjeta.etiqueta }}</span>
+                                <span class="badge bg-info-subtle text-info-emphasis small">USD</span>
+                            </div>
+                            <button type="button"
+                                class="btn btn-sm btn-agregar-fila"
+                                data-metodo="{{ tarjeta.valor }}"
+                                style="border:1px solid #0284c7;color:#0284c7;">
+                                <i class="bi bi-plus-lg me-1"></i>Añadir transacción
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="min-width:160px;">Banco / Entidad</th>
+                                            <th style="min-width:110px;">Monto (USD)</th>
+                                            <th style="min-width:140px;">Referencia</th>
+                                            <th style="min-width:140px;">Notas</th>
+                                            {% if puede_eliminar_transacciones %}
+                                            <th style="width:44px;"></th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
+                                        {% for f in tarjeta.forms %}
+                                        <tr class="fila-transaccion">
+                                            {{ f.metodo_pago.as_hidden }}
+                                            <td>
+                                                {{ f.banco }}
+                                                {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            <td>
+                                                {{ f.monto }}
+                                                {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            <td>
+                                                {{ f.ref }}
+                                                {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            <td>
+                                                {{ f.notas }}
+                                                {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                            </td>
+                                            {% if puede_eliminar_transacciones %}
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                            {% endif %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
 
             {# ── Plantilla de nueva fila (usada por el JS) ── #}
             <template id="plantilla-fila-transaccion">
@@ -288,11 +367,13 @@
                         <input type="text" name="transacciones-__prefix__-notas" id="id_transacciones-__prefix__-notas"
                                class="form-control form-control-sm" placeholder="Notas">
                     </td>
+                    {% if puede_eliminar_transacciones %}
                     <td class="text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar fila">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
+                    {% endif %}
                 </tr>
             </template>
 
@@ -921,7 +1002,8 @@
             });
         });
 
-        // Botón "quitar fila" — delegado en el document
+        {% if puede_eliminar_transacciones %}
+        // Botón "quitar fila" — solo disponible para supervisor_caja y soporte
         document.addEventListener('click', function (evento) {
             const btn = evento.target.closest('.btn-quitar-fila');
             if (!btn) return;
@@ -933,6 +1015,7 @@
                 programarGuardadoBorrador();
             }
         });
+        {% endif %}
 
         // ── Prevenir envío con Enter y añadir nueva transacción en el método actual ──
         form.addEventListener('keydown', function (evento) {
