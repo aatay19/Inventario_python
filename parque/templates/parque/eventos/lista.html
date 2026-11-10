@@ -112,9 +112,11 @@
                                     <a href="{% url 'parque:editar_evento' evento.pk %}" class="btn btn-sm btn-white border" title="Editar">
                                         <i class="bi bi-pencil text-secondary"></i>
                                     </a>
+                                    {% if request.user.perfilusuario.rol|lower != 'admin' %}
                                     <a href="{% url 'parque:eliminar_evento' evento.pk %}" class="btn btn-sm btn-white border" title="Eliminar">
                                         <i class="bi bi-trash text-dark"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

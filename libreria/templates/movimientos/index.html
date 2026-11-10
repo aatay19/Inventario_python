@@ -186,7 +186,9 @@
                             {% if user.perfilusuario.rol|lower != 'consulta' %}
                             <td class="text-nowrap">
                                 <a href="{% url 'movimientos.editar'  movimiento.id_movimiento %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                {% if user.perfilusuario.rol|lower != 'admin' %}
                                 <a href="{% url 'movimientos.eliminar' movimiento.id_movimiento %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.');"><i class="fas fa-trash-alt"></i></a>
+                                {% endif %}
                             </td>
                             {% endif %}
                         </tr>

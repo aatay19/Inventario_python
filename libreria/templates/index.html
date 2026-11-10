@@ -17,7 +17,7 @@
         <div class="col-12">
             <div class="card border-0 shadow-sm bg-success text-white overflow-hidden" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%);">
                 <div class="card-body p-0">
-                    <a href="{% url 'parque:calendario' %}" class="btn btn-link text-white text-decoration-none w-100 p-4 d-flex align-items-center justify-content-between hover-lift">
+                    <a href="{% url 'parque:calendario' %}" class="btn btn-link text-white text-decoration-none w-100 p-3 d-flex align-items-center justify-content-between hover-lift btn-sm">
                         <div class="d-flex align-items-center">
                             <div class="bg-white bg-opacity-25 rounded-circle p-3 me-4">
                                 <i class="bi bi-tree-fill fs-1"></i>
@@ -47,7 +47,7 @@
         <div class="col-12">
             <div class="card border-0 shadow-sm text-white overflow-hidden" style="background: linear-gradient(135deg, #6f42c1 0%, #4b2a86 100%);">
                 <div class="card-body p-0">
-                    <a href="{% url 'control_nino:lista_control_ninos' %}" class="btn btn-link text-white text-decoration-none w-100 p-4 d-flex align-items-center justify-content-between hover-lift">
+                    <a href="{% url 'control_nino:lista_control_ninos' %}" class="btn btn-link text-white text-decoration-none w-100 p-3 d-flex align-items-center justify-content-between hover-lift btn-sm">
                         <div class="d-flex align-items-center">
                             <div class="bg-white bg-opacity-25 rounded-circle p-3 me-4">
                                 <i class="bi bi-person-badge fs-1"></i>
@@ -67,7 +67,37 @@
     </div>
     {% endif %}
 
+<<<<<<< HEAD
     <!-- ACCESO RÁPIDO AL CUADRE DE CAJA -->
+=======
+    <!-- ACCESO RÁPIDO A CUADRE DE CAJA (Solo para roles autorizados) -->
+    {% if user.perfilusuario.rol|lower in 'admin,soporte,supervisor_caja,cuadre_caja' %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-warning text-dark overflow-hidden" style="background: linear-gradient(135deg, #ffc107 0%, #d39e00 100%);">
+                <div class="card-body p-0">
+                    <a href="{% url 'cuadre_caja:index' %}" class="btn btn-link text-dark text-decoration-none w-100 p-3 d-flex align-items-center justify-content-between hover-lift">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                <i class="bi bi-file-text fs-1"></i>
+                            </div>
+                            <div class="text-start">
+                                <h2 class="fw-bold mb-1">CUADRE DE CAJA</h2>
+                                <p class="mb-0 opacity-75">Cierres AM/PM, egresos, historial y reportes</p>
+                            </div>
+                        </div>
+                        <div class="d-none d-md-block">
+                            <i class="bi bi-arrow-right-circle fs-1"></i>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ======= SECCIONES DE INVENTARIO (Ocultas para rol Parque y Control Niño) ======= -->
+>>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
     {% if user.perfilusuario.rol|lower != 'parque' and user.perfilusuario.rol|lower != 'control_nino' %}
     <div class="row mb-4">
         <div class="col-12">

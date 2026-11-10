@@ -7,7 +7,12 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
 from django import forms
-from .auth import es_inventario_acceso, es_pleno_acceso, es_almacenista_o_superior
+from .auth import (
+    eliminar_permitido,
+    es_almacenista_o_superior,
+    es_inventario_acceso,
+    es_pleno_acceso,
+)
 from ..models import MovimientosInventario, Inventario, Proveedor, HistorialProveedoresNotas, PedidoCompra
 from ..forms import MovimientosInventarioForm, HistorialProveedoresNotasForm
 from ..servicios_inventario import revertir_movimiento, aplicar_movimiento
@@ -145,6 +150,7 @@ def movimientos_inventario_editar(request, id_movimiento):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+@eliminar_permitido('movimientos.index')
 def movimientos_inventario_eliminar(request, id_movimiento):
     movimiento = MovimientosInventario.objects.select_related('producto').get(id_movimiento=id_movimiento)
     if request.method == 'POST':
@@ -849,6 +855,7 @@ def historial_proveedores_notas_editar(request,id_historialproveedor):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+@eliminar_permitido('HistorialProveedoresNotas.index')
 def historial_proveedores_notas_eliminar(request,id_historialproveedor):
     nota = HistorialProveedoresNotas.objects.get(id_historialproveedor=id_historialproveedor)
     nota.delete()
@@ -943,6 +950,7 @@ def exportar_movimiento_pdf(request):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+@eliminar_permitido('movimientos.index')
 def movimientos_operacion_eliminar(request):
     if request.method == 'POST':
         mov_id = request.POST.get('mov_id')
@@ -987,7 +995,23 @@ def movimientos_operacion_editar(request, id_movimiento):
 
     tipo = base.tipo_movimiento
 
+    perfil = getattr(request.user, 'perfilusuario', None)
+    rol_admin = bool(perfil and perfil.rol.lower() == 'admin')
+
     if request.method == 'POST':
+        # El Administrador puede editar cantidades, pero no eliminar filas.
+        if rol_admin:
+            for mov in movimientos:
+                if request.POST.get(f'cantidad_{mov.id_movimiento}') == '0':
+                    messages.error(
+                        request,
+                        'El rol Administrador no puede eliminar movimientos.',
+                    )
+                    return redirect(
+                        'movimientos.operacion_editar',
+                        id_movimiento=base.id_movimiento,
+                    )
+
         try:
             with transaction.atomic():
                 cambios = 0

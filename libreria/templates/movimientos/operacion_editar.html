@@ -44,7 +44,9 @@
                             <th class="text-center" style="width: 120px;">Unid. x Empaque</th>
                             <th class="text-center" style="width: 120px;">Total Empaques</th>
                             <th style="width: 150px;">Unidad de Empaque</th>
+                            {% if request.user.perfilusuario.rol|lower != 'admin' %}
                             <th class="text-center border-start text-danger" style="width: 120px;">Eliminar</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -83,11 +85,13 @@
                                     {% endfor %}
                                 </select>
                             </td>
+                            {% if request.user.perfilusuario.rol|lower != 'admin' %}
                             <td class="text-center border-start">
                                 <button type="button" class="btn btn-outline-danger btn-sm rounded-circle btn-del-row" title="Marcar para Eliminar" onclick="document.getElementsByName('cantidad_{{ mov.id_movimiento }}')[0].value=0; document.getElementsByName('cantidad_{{ mov.id_movimiento }}')[0].classList.add('bg-danger', 'text-white');">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>

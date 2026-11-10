@@ -9,7 +9,14 @@ from django.utils import timezone
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from fpdf import FPDF
-from .auth import es_admin, es_gestion_pedidos, es_pleno_acceso, es_inventario_acceso, es_soporte
+from .auth import (
+    eliminar_permitido,
+    es_admin,
+    es_gestion_pedidos,
+    es_inventario_acceso,
+    es_pleno_acceso,
+    es_soporte,
+)
 from ..models import Proveedor, Inventario, PedidoCompra, DetallePedidoCompra, UnidadEmpaqueChoices
 
 @login_required
@@ -319,6 +326,7 @@ def movimientos_historial_pedidos(request):
 
 @login_required
 @user_passes_test(es_gestion_pedidos, login_url='index')
+@eliminar_permitido('movimientos.historial_pedidos')
 def compras_eliminar_pedido(request):
     if request.method == 'POST':
         pedido_id = request.POST.get('pedido_id')
@@ -332,6 +340,7 @@ def compras_eliminar_pedido(request):
 
 @login_required
 @user_passes_test(es_soporte, login_url='index')
+@eliminar_permitido('movimientos.historial_pedidos')
 def compras_eliminar_todo_historial(request):
     if request.method == 'POST':
         try:

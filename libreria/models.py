@@ -145,7 +145,12 @@ class MovimientosInventario(models.Model):
 class PerfilUsuario(models.Model):
     ROL_CHOICES = [
         ('admin', 'Administrador'),
+<<<<<<< HEAD
         ('supervisor_inventario', 'Supervisor Inventario'),
+=======
+        ('supervisor_inventario', 'Supervisor de Inventario'),
+        ('supervisor_caja', 'Supervisor de Caja'),
+>>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
         ('inventario', 'Inventario'),
         ('soporte', 'Soporte'),
         ('parque', 'Parque'),

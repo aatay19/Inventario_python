@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from datetime import timedelta, datetime
 from fpdf import FPDF
-from .auth import es_pleno_acceso
+from .auth import eliminar_permitido, es_pleno_acceso
 from ..models import Inventario, Proveedor
 from ..forms import InventarioForm, ImportarArchivoForm
 
@@ -133,6 +133,7 @@ def inventario_ver(request, id_producto):
 
 @login_required
 @user_passes_test(es_pleno_acceso, login_url='index')
+@eliminar_permitido('inventario.index')
 def inventario_eliminar(request, id_producto):
     producto = Inventario.objects.get(id_producto=id_producto)
     producto.delete()

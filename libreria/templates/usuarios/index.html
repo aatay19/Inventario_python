@@ -47,9 +47,17 @@
                                 {% if usuario.rol == 'admin' %}
                                     <span class="badge bg-danger">Administrador</span>
                                 {% elif usuario.rol == 'supervisor_inventario' %}
+<<<<<<< HEAD
                                     <span class="badge bg-primary">Supervisor Inventario</span>
                                 {% elif usuario.rol == 'supervisor_cuadre_caja' %}
                                     <span class="badge bg-warning">Supervisor Cuadre Caja</span>
+=======
+                                    <span class="badge bg-primary">Supervisor de Inventario</span>
+                                {% elif usuario.rol == 'supervisor_caja' %}
+                                    <span class="badge bg-dark">Supervisor de Caja</span>
+                                {% elif usuario.rol == 'soporte' %}
+                                    <span class="badge bg-purple" style="background-color: #6f42c1;">Soporte</span>
+>>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
                                 {% elif usuario.rol == 'inventario' %}
                                     <span class="badge bg-info text-dark">Inventario</span>
                                 {% elif usuario.rol == 'parque' %}
@@ -57,18 +65,26 @@
                                 {% elif usuario.rol == 'almacenista' %}
                                     <span class="badge bg-warning text-dark">Almacenista</span>
                                 {% elif usuario.rol == 'control_nino' %}
+<<<<<<< HEAD
                                     <span class="badge bg-success">Control Niño</span>
                                 {% elif usuario.rol == 'cuadre_caja' %}
                                     <span class="badge bg-info">Cuadre de Caja</span>
+=======
+                                    <span class="badge bg-secondary">Control Niño</span>
+                                {% elif usuario.rol == 'cuadre_caja' %}
+                                    <span class="badge bg-secondary">Cuadre de Caja</span>
+>>>>>>> a8d7d7342fe65edf6d01a7fbee7f40316e1cdfa9
                                 {% else %}
-                                    <span class="badge bg-secondary">Consulta</span>
+                                    <span class="badge bg-secondary">Sin rol</span>
                                 {% endif %}
                             </td>
                             <td>{{ usuario.direccion }}</td>
                             <td>{{ usuario.telefono }}</td>
                             <td class="text-nowrap">
                                 <a href="{% url 'usuarios.editar' usuario.id %}" class="btn btn-outline-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                {% if user.perfilusuario.rol|lower != 'admin' %}
                                 <a href="{% url 'usuarios.eliminar' usuario.id %}" class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="return confirm('¿Estás seguro de eliminar este usuario?');"><i class="fas fa-trash-alt"></i></a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
