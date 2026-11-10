@@ -44,6 +44,7 @@ from .models import (
 )
 from .permissions import (
     cuadre_caja_required,
+    es_supervisor_o_superior,
     supervisor_required,
 )
 
@@ -459,6 +460,7 @@ def departamento_estado(request, slug):
     departamento = get_object_or_404(Departamento, slug=slug, activo=True)
     hoy = timezone.localdate()
     cajas = list(departamento.cajas.filter(activo=True).order_by("numero"))
+    es_supervisor = es_supervisor_o_superior(request.user)
 
     cierres_por_caja = {}
     for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy):
@@ -490,21 +492,25 @@ def departamento_estado(request, slug):
                     "cajera": cierre.nombre_cajera,
                     "total_bs": f"{cierre.total_bs:.2f}",
                     "total_usd": f"{cierre.total_usd:.2f}",
-                    "total_equivalente_bs": f"{cierre.total_equivalente_bs:.2f}",
+                    "total_equivalente_bs": f"{cierre.total_equivalente_bs:.2f}" if es_supervisor else "",
                 }
             else:
                 turnos[turno] = {"registrado": False}
 
         total_cierres += len(cierres_hoy)
+        borradores_caja = {}
+        for turno in (TurnoChoices.AM, TurnoChoices.PM):
+            res_borrador = _resumen_borrador(borradores_hoy.get((caja.id, turno)))
+            if res_borrador and not es_supervisor:
+                res_borrador["total_equivalente_bs"] = ""
+            borradores_caja[turno] = res_borrador
+
         datos[str(caja.id)] = {
             "turnos": turnos,
-            "total_bs": f"{sum((c.total_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}",
-            "total_usd": f"{sum((c.total_usd for c in cierres_hoy.values()), Decimal('0.00')):.2f}",
-            "total_equivalente_bs": f"{sum((c.total_equivalente_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}",
-            "borradores": {
-                turno: _resumen_borrador(borradores_hoy.get((caja.id, turno)))
-                for turno in (TurnoChoices.AM, TurnoChoices.PM)
-            },
+            "total_bs": f"{sum((c.total_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}" if es_supervisor else "",
+            "total_usd": f"{sum((c.total_usd for c in cierres_hoy.values()), Decimal('0.00')):.2f}" if es_supervisor else "",
+            "total_equivalente_bs": f"{sum((c.total_equivalente_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}" if es_supervisor else "",
+            "borradores": borradores_caja,
         }
 
     return JsonResponse({"cajas": datos, "cierres_hoy": total_cierres})

@@ -94,7 +94,9 @@
                                     <th>Turno</th>
                                     <th class="text-end">Total Bs</th>
                                     <th class="text-end">Total USD</th>
+                                    {% if cuadre_es_supervisor %}
                                     <th class="text-end">Total general</th>
+                                    {% endif %}
                                 </tr>
                             </thead>
                             <tbody>
@@ -106,9 +108,11 @@
                                     <td class="text-end js-turno" data-turno="AM" data-campo="usd">
                                         {% if item.cierres_hoy.AM %}{{ item.cierres_hoy.AM.total_usd|floatformat:2 }}{% else %}&mdash;{% endif %}
                                     </td>
+                                    {% if cuadre_es_supervisor %}
                                     <td class="text-end fw-semibold js-turno" data-turno="AM" data-campo="equiv">
                                         {% if item.cierres_hoy.AM %}{{ item.cierres_hoy.AM.total_equivalente_bs|floatformat:2 }}{% else %}&mdash;{% endif %}
                                     </td>
+                                    {% endif %}
                                 </tr>
                                 <tr>
                                     <td><span class="badge bg-light text-secondary border">PM</span></td>
@@ -118,11 +122,14 @@
                                     <td class="text-end js-turno" data-turno="PM" data-campo="usd">
                                         {% if item.cierres_hoy.PM %}{{ item.cierres_hoy.PM.total_usd|floatformat:2 }}{% else %}&mdash;{% endif %}
                                     </td>
+                                    {% if cuadre_es_supervisor %}
                                     <td class="text-end fw-semibold js-turno" data-turno="PM" data-campo="equiv">
                                         {% if item.cierres_hoy.PM %}{{ item.cierres_hoy.PM.total_equivalente_bs|floatformat:2 }}{% else %}&mdash;{% endif %}
                                     </td>
+                                    {% endif %}
                                 </tr>
                             </tbody>
+                            {% if cuadre_es_supervisor %}
                             <tfoot>
                                 <tr class="fw-bold border-top">
                                     <td>Total caja</td>
@@ -131,6 +138,7 @@
                                     <td class="text-end js-caja" data-campo="equiv">{{ item.total_equivalente_bs|floatformat:2 }}</td>
                                 </tr>
                             </tfoot>
+                            {% endif %}
                         </table>
                     </div>
                 </div>
@@ -150,7 +158,9 @@
                         <div class="small fw-semibold">
                             Bs <span class="js-borrador-bs">{{ borrador.total_bs|default:"0.00" }}</span>
                             &middot; USD <span class="js-borrador-usd">{{ borrador.total_usd|default:"0.00" }}</span>
+                            {% if cuadre_es_supervisor %}
                             &middot; Total Bs <span class="js-borrador-equiv">{{ borrador.total_equivalente_bs|default:"0.00" }}</span>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
