@@ -248,12 +248,16 @@ class CierreCajaForm(forms.ModelForm):
 
 
 class EgresoCierreForm(forms.ModelForm):
-    """Fila de egreso o devolución dentro del cierre."""
+    """Fila de vuelto de caja o devolución dentro del cierre."""
 
     tipo = forms.ChoiceField(
         label="Tipo",
         required=False,
-        choices=[("", "Tipo")] + list(TipoSalidaChoices.choices),
+        choices=[
+            ("", "Tipo"),
+            (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
+            (TipoSalidaChoices.DEVOLUCION, "Devolución"),
+        ],
         widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
     cedula = forms.CharField(
@@ -375,7 +379,7 @@ class EgresoCierreForm(forms.ModelForm):
             return cleaned_data
 
         if not tipo:
-            self.add_error("tipo", "Selecciona si es egreso o devolución.")
+            self.add_error("tipo", "Selecciona si es vuelto de caja o devolución.")
         if not moneda:
             self.add_error("moneda", "Selecciona la moneda.")
         if monto is None or monto <= 0:
@@ -402,7 +406,11 @@ EgresoCierreFormSet = forms.inlineformset_factory(
 
 
 class EgresoGeneralForm(forms.ModelForm):
-    """Registro independiente de un egreso o devolución, con motivo."""
+    """Registro independiente de un egreso, devolución o abono, con motivo.
+
+    El abono comparte los mismos campos, pero es solamente informativo:
+    no se resta de ningún total.
+    """
 
     tipo = forms.ChoiceField(
         label="Tipo",
@@ -486,7 +494,7 @@ class EgresoGeneralForm(forms.ModelForm):
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
-                "placeholder": "Motivo del egreso o devolución",
+                "placeholder": "Motivo del egreso, devolución o abono",
             }
         ),
     )

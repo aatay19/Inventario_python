@@ -141,15 +141,40 @@ class CierreCaja(models.Model):
         return f"{self.caja} - {self.fecha:%d/%m/%Y} - {self.turno} - {self.nombre_cajera}"
 
     @property
+    def total_vueltos_bs(self):
+        """Vueltos de caja del cierre expresados en Bs.
+
+        Solo se incluyen los registros de tipo vuelto de caja (que restan del
+        total en Bs). Los vueltos en USD se convierten con la tasa del día.
+        Las devoluciones no se cuentan: son informativas.
+        """
+        total = Decimal("0.00")
+        for egreso in self.egresos.all():
+            if egreso.tipo != TipoSalidaChoices.EGRESO:
+                continue
+            monto = egreso.monto or Decimal("0.00")
+            if egreso.moneda == MONEDA_BS:
+                total += monto
+            elif self.tasa:
+                total += monto * self.tasa
+        return _redondear(total)
+
+    @property
     def total_equivalente_bs(self):
+        """Total general en Bs: transacciones convertidas menos vueltos de caja."""
         if self.tasa:
-            return _redondear(self.total_bs + (self.total_usd * self.tasa))
-        return _redondear(self.total_bs)
+            bruto = self.total_bs + (self.total_usd * self.tasa)
+        else:
+            bruto = self.total_bs
+        return _redondear(bruto - self.total_vueltos_bs)
 
     @property
     def total_equivalente_usd(self):
         if self.tasa:
-            return _redondear(self.total_usd + (self.total_bs / self.tasa))
+            return _redondear(
+                self.total_usd + (self.total_bs / self.tasa)
+                - (self.total_vueltos_bs / self.tasa)
+            )
         return _redondear(self.total_usd)
 
 
@@ -204,10 +229,15 @@ class DetalleCierre(models.Model):
 class TipoSalidaChoices(models.TextChoices):
     EGRESO = "EGRESO", "Egreso"
     DEVOLUCION = "DEVOLUCION", "Devolución"
+    ABONO = "ABONO", "Abono"
 
 
 class EgresoCierre(models.Model):
-    """Egreso o devolución registrado durante el día (informativo)."""
+    """Vuelto de caja o devolución registrado durante el día.
+
+    El vuelto de caja se resta del total general en Bs del cierre; la
+    devolución es solamente informativa.
+    """
 
     cierre = models.ForeignKey(
         CierreCaja,
@@ -217,7 +247,10 @@ class EgresoCierre(models.Model):
     )
     tipo = models.CharField(
         max_length=12,
-        choices=TipoSalidaChoices.choices,
+        choices=[
+            (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
+            (TipoSalidaChoices.DEVOLUCION, "Devolución"),
+        ],
         default=TipoSalidaChoices.EGRESO,
         verbose_name="Tipo",
     )
@@ -266,12 +299,17 @@ class EgresoCierre(models.Model):
 
     class Meta:
         ordering = ["id"]
-        verbose_name = "Egreso o devolución"
-        verbose_name_plural = "Egresos y devoluciones"
+        verbose_name = "Vuelto de caja o devolución"
+        verbose_name_plural = "Vueltos de caja y devoluciones"
 
     def __str__(self):
         identificacion = self.cedula or self.get_tipo_display()
         return f"{identificacion} - {self.monto}"
+
+    @property
+    def es_vuelto(self):
+        """Indica si el registro es un vuelto de caja (resta del total en Bs)."""
+        return self.tipo == TipoSalidaChoices.EGRESO
 
     @property
     def monto_bs(self):
@@ -283,7 +321,11 @@ class EgresoCierre(models.Model):
 
 
 class EgresoGeneral(models.Model):
-    """Egreso o devolución registrado fuera de un cuadre de caja."""
+    """Egreso, devolución o abono registrado fuera de un cuadre de caja.
+
+    El abono tiene los mismos campos, pero es solamente informativo: no se
+    resta de ningún total, a diferencia del vuelto de caja.
+    """
 
     tipo = models.CharField(
         max_length=12,
@@ -357,6 +399,11 @@ class EgresoGeneral(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} - {self.motivo} - {self.monto}"
+
+    @property
+    def es_abono(self):
+        """Indica si el registro es un abono (solamente informativo)."""
+        return self.tipo == TipoSalidaChoices.ABONO
 
     @property
     def monto_bs(self):

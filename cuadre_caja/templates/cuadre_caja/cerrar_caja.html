@@ -56,6 +56,42 @@
         border-radius: 14px;
         overflow: hidden;
     }
+
+    /* Resumen: caja destacada de vueltos de caja (se restan del total en Bs) */
+    .resumen-vueltos {
+        background: linear-gradient(180deg, #fef3c7 0%, #fffbeb 100%);
+        border: 3px solid #f59e0b;
+        border-left: 8px solid #d97706;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(245, 158, 11, 0.22);
+        padding: 0.75rem 1rem;
+    }
+
+    .resumen-vueltos .vueltos-numero {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1.15;
+    }
+
+    .resumen-vueltos.vueltos-vacio {
+        opacity: 0.55;
+    }
+
+    /* Resumen: caja destacada del total final en Bs (ya con vueltos restados) */
+    .resumen-total-bs {
+        background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 100%);
+        border: 3px solid #059669;
+        border-left: 8px solid #047857;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(5, 150, 105, 0.22);
+        padding: 0.75rem 1rem;
+    }
+
+    .resumen-total-bs .total-numero {
+        font-size: 1.9rem;
+        font-weight: 800;
+        line-height: 1.15;
+    }
 </style>
 {% endblock %}
 
@@ -470,10 +506,13 @@
             <div class="card cc-card mt-4">
                 <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div>
-                        <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-down-circle me-2 text-secondary"></i>Egresos y devoluciones</h5>
-                        <p class="small text-muted mb-0 mt-1">Salidas de dinero del día. Es informativo y no modifica los totales.</p>
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-secondary"></i>Vueltos de caja y devoluciones</h5>
+                        <p class="small text-muted mb-0 mt-1">
+                            Salidas de dinero del día. El vuelto de caja se resta del total en Bs;
+                            las devoluciones son informativas.
+                        </p>
                     </div>
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis">Informativo</span>
+                    <span class="badge bg-warning-subtle text-warning-emphasis">El vuelto de caja resta del total</span>
                 </div>
                 <div class="card-body px-3 px-lg-4 pb-3">
                     {{ egresos_formset.management_form }}
@@ -547,7 +586,7 @@
                     </div>
 
                     <button type="button" class="btn btn-outline-success btn-sm mt-3" id="btn-agregar-egreso">
-                        <i class="bi bi-plus-lg me-1"></i> Agregar egreso o devolución
+                        <i class="bi bi-plus-lg me-1"></i> Agregar vuelto de caja o devolución
                     </button>
 
                     <template id="plantilla-egreso">
@@ -584,9 +623,20 @@
                         <span class="text-muted">Total en dólares</span>
                         <span class="fw-bold monto" id="resumen-usd">0.00</span>
                     </div>
-                    <div class="d-flex justify-content-between small mb-3">
-                        <span class="text-muted">Total en Bs</span>
-                        <span class="fw-bold monto" id="total-equivalente">0.00</span>
+                    <div class="resumen-vueltos mb-2" id="caja-vueltos">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
+                            <span class="fw-bold"><i class="bi bi-cash-coin me-1"></i>Vueltos de caja</span>
+                            <span class="badge bg-warning text-dark">Se restan del total en Bs</span>
+                        </div>
+                        <div class="vueltos-numero text-danger text-center monto my-1" id="resumen-vueltos">- 0.00</div>
+                        <div class="small text-muted text-center" id="nota-vueltos">Sin vueltos registrados todavía</div>
+                    </div>
+                    <div class="resumen-total-bs mb-3">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
+                            <span class="fw-bold"><i class="bi bi-calculator me-1"></i>Total en Bs</span>
+                            <span class="total-numero monto" id="total-equivalente">0.00</span>
+                        </div>
+                        <div class="small text-muted text-end mt-1" id="calculo-equivalente">Sin vueltos que restar</div>
                     </div>
 
                     <label for="{{ form.observaciones.id_for_label }}" class="form-label fw-semibold">
@@ -678,11 +728,37 @@
         const totalUsd = document.getElementById('total-usd');
         const resumenBs = document.getElementById('resumen-bs');
         const resumenUsd = document.getElementById('resumen-usd');
+        const resumenVueltos = document.getElementById('resumen-vueltos');
+        const cajaVueltos = document.getElementById('caja-vueltos');
+        const notaVueltos = document.getElementById('nota-vueltos');
+        const calculoEquivalente = document.getElementById('calculo-equivalente');
         const totalEquivalente = document.getElementById('total-equivalente');
 
         function numero(valor) {
             const n = parseFloat(String(valor || '0').replace(',', '.'));
             return isNaN(n) ? 0 : n;
+        }
+
+        // Vueltos de caja registrados en la sección de egresos del cuadre.
+        // Solo las filas de tipo "Vuelto de caja" (EGRESO) restan del total
+        // en Bs; los vueltos en USD se convierten con la tasa del día.
+        function calcularVueltos() {
+            const tasa = numero(tasaInput.value);
+            let vueltos = 0;
+
+            document.querySelectorAll('#cuerpo-egresos tr.fila-egreso').forEach(function (fila) {
+                const tipoEl = fila.querySelector('select[name$="-tipo"]');
+                const monedaEl = fila.querySelector('select[name$="-moneda"]');
+                const montoEl = fila.querySelector('input[name$="-monto"]');
+                if (!tipoEl || !monedaEl || !montoEl) return;
+
+                const monto = numero(montoEl.value);
+                if (tipoEl.value !== 'EGRESO' || !monto) return;
+
+                vueltos += monedaEl.value === 'USD' ? monto * tasa : monto;
+            });
+
+            return vueltos;
         }
 
         function recalcular() {
@@ -699,12 +775,30 @@
             });
 
             const tasa = numero(tasaInput.value);
-            const equivalente = bs + (usd * tasa);
+            const vueltos = calcularVueltos();
+            const bruto = bs + (usd * tasa);
+            const equivalente = bruto - vueltos;
 
             totalBs.textContent = bs.toFixed(2);
             totalUsd.textContent = usd.toFixed(2);
             resumenBs.textContent = bs.toFixed(2);
             resumenUsd.textContent = usd.toFixed(2);
+            if (resumenVueltos) {
+                resumenVueltos.textContent = '- ' + vueltos.toFixed(2);
+            }
+            if (cajaVueltos) {
+                cajaVueltos.classList.toggle('vueltos-vacio', vueltos <= 0);
+            }
+            if (notaVueltos) {
+                notaVueltos.textContent = vueltos > 0
+                    ? 'Ya descontados del total en Bs'
+                    : 'Sin vueltos registrados todavía';
+            }
+            if (calculoEquivalente) {
+                calculoEquivalente.textContent = vueltos > 0
+                    ? 'Bs ' + bruto.toFixed(2) + ' - ' + vueltos.toFixed(2) + ' en vueltos'
+                    : 'Sin vueltos que restar';
+            }
             totalEquivalente.textContent = equivalente.toFixed(2);
         }
 
@@ -942,6 +1036,7 @@
                 const fila = plantillaEgreso.innerHTML.replace(/__prefix__/g, indice);
                 cuerpoEgresos.insertAdjacentHTML('beforeend', fila);
                 totalFormsEgresos.value = indice + 1;
+                recalcular();
             });
 
             cuerpoEgresos.addEventListener('click', function (evento) {
@@ -953,6 +1048,7 @@
                     eliminar.checked = true;
                 }
                 fila.remove();
+                recalcular();
             });
         }
 
@@ -1039,14 +1135,19 @@
         });
 
         // Recalcular al cambiar cualquier campo dentro de una tabla de método
+        // o dentro de la tabla de vueltos de caja / devoluciones.
         document.addEventListener('input', function (evento) {
             if (evento.target.closest('.cuerpo-metodo')) {
                 recalcularDesdeTransacciones();
+            } else if (evento.target.closest('#tabla-egresos')) {
+                recalcular();
             }
         });
         document.addEventListener('change', function (evento) {
             if (evento.target.closest('.cuerpo-metodo')) {
                 recalcularDesdeTransacciones();
+            } else if (evento.target.closest('#tabla-egresos')) {
+                recalcular();
             }
         });
 
@@ -1102,7 +1203,9 @@
                 html: '<div class="text-start">' +
                     '<div><strong>Total Bs:</strong> ' + resumenBs.textContent + '</div>' +
                     '<div><strong>Total USD:</strong> ' + resumenUsd.textContent + '</div>' +
-                    '<div><strong>Total en Bs:</strong> ' + totalEquivalente.textContent + '</div>' +
+                    '<div class="text-danger fs-5"><strong>Vueltos de caja (restan):</strong> ' + (resumenVueltos ? resumenVueltos.textContent : '0.00') + '</div>' +
+                    '<hr class="my-2">' +
+                    '<div class="fs-4"><strong>Total en Bs:</strong> ' + totalEquivalente.textContent + '</div>' +
                     '</div>',
                 icon: 'question',
                 showCancelButton: true,

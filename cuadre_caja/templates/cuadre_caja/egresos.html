@@ -1,6 +1,6 @@
 {% extends "cuadre_caja/layout/base_cuadre.html" %}
 
-{% block title %}Egresos y devoluciones | Cuadre de Caja{% endblock %}
+{% block title %}Egresos, devoluciones y abonos | Cuadre de Caja{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -17,7 +17,7 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div>
-        <h1 class="cc-title mb-1">Egresos y devoluciones</h1>
+        <h1 class="cc-title mb-1">Egresos, devoluciones y abonos</h1>
         <p class="text-muted mb-0">
             Registros independientes de los cuadres de caja.
         </p>
@@ -57,10 +57,10 @@
 <div class="card cc-card mb-4">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
         <h5 class="mb-0 fw-bold">
-            <i class="bi bi-plus-circle me-2 text-success"></i>Registrar egreso o devolución
+            <i class="bi bi-plus-circle me-2 text-success"></i>Registrar egreso, devolución o abono
         </h5>
         <p class="small text-muted mb-0">
-            Este registro no pertenece a ningún cuadre de caja.
+            Este registro no pertenece a ningún cuadre de caja y no se resta de ningún total.
         </p>
     </div>
     <div class="card-body px-3 px-lg-4 pb-4">
@@ -78,6 +78,10 @@
                     <label for="{{ form.tipo.id_for_label }}" class="form-label fw-semibold">{{ form.tipo.label }}</label>
                     {{ form.tipo }}
                     {% for error in form.tipo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    <div class="form-text text-info-emphasis d-none" id="nota-abono">
+                        <i class="bi bi-info-circle me-1"></i>
+                        El abono es un registro informativo: no se resta de ningún total.
+                    </div>
                 </div>
                 <div class="col-12 col-md-9">
                     <label for="{{ form.motivo.id_for_label }}" class="form-label fw-semibold">{{ form.motivo.label }}</label>
@@ -138,7 +142,7 @@
             <i class="bi bi-list-ul me-2 text-secondary"></i>Registros realizados
         </h5>
         <p class="small text-muted mb-0">
-            Egresos y devoluciones independientes de los cuadres de caja.
+            Egresos, devoluciones y abonos independientes de los cuadres de caja.
         </p>
     </div>
     <div class="card-body px-0 pb-0">
@@ -163,7 +167,15 @@
                     {% for egreso in egresos %}
                     <tr>
                         <td class="ps-3 text-nowrap">{{ egreso.fecha_registro|date:"d/m/Y H:i" }}</td>
-                        <td><span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span></td>
+                        <td>
+                            {% if egreso.es_abono %}
+                            <span class="badge bg-info-subtle text-info-emphasis">
+                                <i class="bi bi-info-circle me-1"></i>{{ egreso.get_tipo_display }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span>
+                            {% endif %}
+                        </td>
                         <td>{{ egreso.motivo }}</td>
                         <td>{{ egreso.cedula|default:"—" }}</td>
                         <td>{{ egreso.telefono|default:"—" }}</td>
@@ -174,7 +186,7 @@
                         <td>
                             {% if egreso.imagen %}
                             <a href="{{ egreso.imagen.url }}" target="_blank" rel="noopener">
-                                <img src="{{ egreso.imagen.url }}" alt="Imagen del egreso" class="miniatura-egreso">
+                                <img src="{{ egreso.imagen.url }}" alt="Imagen del registro" class="miniatura-egreso">
                             </a>
                             {% else %}
                             —
@@ -188,7 +200,7 @@
                     <tr>
                         <td colspan="11" class="text-center text-muted py-5">
                             <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                            No hay egresos ni devoluciones registrados.
+                            No hay egresos, devoluciones ni abonos registrados.
                         </td>
                     </tr>
                     {% endfor %}
@@ -223,4 +235,21 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tipo = document.getElementById('{{ form.tipo.id_for_label }}');
+        const nota = document.getElementById('nota-abono');
+        if (!tipo || !nota) return;
+
+        function actualizarNotaAbono() {
+            nota.classList.toggle('d-none', tipo.value !== 'ABONO');
+        }
+
+        tipo.addEventListener('change', actualizarNotaAbono);
+        actualizarNotaAbono();
+    });
+</script>
 {% endblock %}

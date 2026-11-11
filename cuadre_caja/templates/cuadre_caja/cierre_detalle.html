@@ -307,6 +307,11 @@
             <div class="card-body">
                 <div class="stat-label mb-1">Total en Bs</div>
                 <div class="stat-valor">Bs {{ cierre.total_equivalente_bs|floatformat:2 }}</div>
+                {% if cierre.total_vueltos_bs %}
+                <div class="small text-danger">
+                    Incluye vueltos de caja: − Bs {{ cierre.total_vueltos_bs|floatformat:2 }}
+                </div>
+                {% endif %}
                 <div class="small text-muted">USD {{ cierre.total_equivalente_usd|floatformat:2 }}</div>
             </div>
         </div>
@@ -325,8 +330,10 @@
 {% if egresos %}
 <div class="card cc-card mb-4 border-start border-4 border-warning">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-down-circle me-2 text-warning"></i>Egresos y devoluciones (informativo)</h5>
-        <p class="small text-muted mb-0">No se restan de los totales del cierre.</p>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-warning"></i>Vueltos de caja y devoluciones</h5>
+        <p class="small text-muted mb-0">
+            El vuelto de caja se resta del total en Bs del cierre; las devoluciones son informativas.
+        </p>
     </div>
     <div class="card-body px-3 px-lg-4 pb-3">
         <div class="table-responsive">
@@ -346,7 +353,13 @@
                 <tbody>
                     {% for egreso in egresos %}
                     <tr>
-                        <td><span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span></td>
+                        <td>
+                            {% if egreso.es_vuelto %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis">{{ egreso.get_tipo_display }}</span>
+                            {% else %}
+                            <span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span>
+                            {% endif %}
+                        </td>
                         <td>{{ egreso.cedula|default:"—" }}</td>
                         <td>{{ egreso.telefono|default:"—" }}</td>
                         <td>{{ egreso.banco|default:"—" }}</td>
@@ -356,7 +369,7 @@
                         <td>
                             {% if egreso.imagen %}
                             <a href="{{ egreso.imagen.url }}" target="_blank" rel="noopener">
-                                <img src="{{ egreso.imagen.url }}" alt="Imagen del egreso" class="miniatura-egreso">
+                                <img src="{{ egreso.imagen.url }}" alt="Imagen del registro" class="miniatura-egreso">
                             </a>
                             {% else %}
                             —
@@ -366,14 +379,26 @@
                     {% endfor %}
                 </tbody>
                 <tfoot>
+                    {% if total_vueltos_bs or total_vueltos_usd %}
                     <tr class="fw-bold border-top">
-                        <td colspan="5">Total egresos / devoluciones</td>
+                        <td colspan="5">Total vueltos de caja (se resta del total en Bs)</td>
                         <td class="text-end monto">
-                            Bs {{ total_egresos_bs|floatformat:2 }} · USD {{ total_egresos_usd|floatformat:2 }}
+                            Bs {{ total_vueltos_bs|floatformat:2 }} · USD {{ total_vueltos_usd|floatformat:2 }}
                         </td>
                         <td></td>
                         <td></td>
                     </tr>
+                    {% endif %}
+                    {% if total_devoluciones_bs or total_devoluciones_usd %}
+                    <tr class="fw-bold border-top">
+                        <td colspan="5">Total devoluciones (informativas)</td>
+                        <td class="text-end monto">
+                            Bs {{ total_devoluciones_bs|floatformat:2 }} · USD {{ total_devoluciones_usd|floatformat:2 }}
+                        </td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
                 </tfoot>
             </table>
         </div>

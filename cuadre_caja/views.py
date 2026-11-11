@@ -40,6 +40,7 @@ from .models import (
     MetodoPagoChoices,
     EgresoCierre,
     CierreTransaccion,
+    TipoSalidaChoices,
     TurnoChoices,
 )
 from .permissions import (
@@ -386,13 +387,15 @@ def departamento_detalle(request, slug):
     cajas = list(departamento.cajas.filter(activo=True).order_by("numero"))
 
     cierres_por_caja = {}
-    for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy):
+    for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy).prefetch_related(
+        "egresos"
+    ):
         cierres_por_caja.setdefault(cierre.caja_id, {})[cierre.turno] = cierre
 
     ultimos_cierres = {}
-    for cierre in CierreCaja.objects.filter(caja__in=cajas).order_by(
-        "caja_id", "-fecha", "-fecha_registro"
-    ):
+    for cierre in CierreCaja.objects.filter(caja__in=cajas).prefetch_related(
+        "egresos"
+    ).order_by("caja_id", "-fecha", "-fecha_registro"):
         ultimos_cierres.setdefault(cierre.caja_id, cierre)
 
     limite_borradores = timezone.now() - BORRADOR_VIGENCIA
@@ -463,7 +466,9 @@ def departamento_estado(request, slug):
     es_supervisor = es_supervisor_o_superior(request.user)
 
     cierres_por_caja = {}
-    for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy):
+    for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy).prefetch_related(
+        "egresos"
+    ):
         cierres_por_caja.setdefault(cierre.caja_id, {})[cierre.turno] = cierre
 
     limite_borradores = timezone.now() - BORRADOR_VIGENCIA
@@ -603,19 +608,23 @@ def borrador_guardar(request, caja_id, turno):
 
 @cuadre_caja_required
 def egresos(request):
-    """Registra egresos o devoluciones independientes de los cuadres de caja."""
+    """Registra egresos, devoluciones o abonos independientes de los cuadres."""
     if request.method == "POST":
         form = EgresoGeneralForm(request.POST, request.FILES)
         if form.is_valid():
             egreso = form.save(commit=False)
             egreso.usuario = request.user
             egreso.save()
+            if egreso.es_abono:
+                mensaje_extra = " Registro informativo: no se resta de ningún total."
+            else:
+                mensaje_extra = ""
             messages.success(
                 request,
-                f"{egreso.get_tipo_display()} registrado correctamente.",
+                f"{egreso.get_tipo_display()} registrado correctamente.{mensaje_extra}",
             )
             return redirect("cuadre_caja:egresos")
-        messages.error(request, "Revisa los datos del egreso o devolución.")
+        messages.error(request, "Revisa los datos del egreso, devolución o abono.")
     else:
         form = EgresoGeneralForm()
 
@@ -891,12 +900,23 @@ def cierre_detalle(request, cierre_id):
     )
 
     egresos = list(cierre.egresos.all())
-    total_egresos_bs = sum(
-        (egreso.monto for egreso in egresos if egreso.moneda == MONEDA_BS),
+    vueltos = [egreso for egreso in egresos if egreso.es_vuelto]
+    devoluciones = [egreso for egreso in egresos if not egreso.es_vuelto]
+
+    total_vueltos_bs = sum(
+        (egreso.monto for egreso in vueltos if egreso.moneda == MONEDA_BS),
         Decimal("0.00"),
     )
-    total_egresos_usd = sum(
-        (egreso.monto for egreso in egresos if egreso.moneda == MONEDA_USD),
+    total_vueltos_usd = sum(
+        (egreso.monto for egreso in vueltos if egreso.moneda == MONEDA_USD),
+        Decimal("0.00"),
+    )
+    total_devoluciones_bs = sum(
+        (egreso.monto for egreso in devoluciones if egreso.moneda == MONEDA_BS),
+        Decimal("0.00"),
+    )
+    total_devoluciones_usd = sum(
+        (egreso.monto for egreso in devoluciones if egreso.moneda == MONEDA_USD),
         Decimal("0.00"),
     )
 
@@ -941,8 +961,10 @@ def cierre_detalle(request, cierre_id):
             "total_distribucion_bs": total_distribucion_bs,
             "total_distribucion_usd": total_distribucion_usd,
             "egresos": egresos,
-            "total_egresos_bs": total_egresos_bs,
-            "total_egresos_usd": total_egresos_usd,
+            "total_vueltos_bs": total_vueltos_bs,
+            "total_vueltos_usd": total_vueltos_usd,
+            "total_devoluciones_bs": total_devoluciones_bs,
+            "total_devoluciones_usd": total_devoluciones_usd,
             "transacciones": transacciones,
             "imagenes": imagenes,
         },
@@ -955,7 +977,7 @@ def historial(request):
     form = CierreHistorialFiltroForm(request.GET or None)
     cierres = CierreCaja.objects.select_related(
         "caja__departamento", "usuario"
-    ).order_by("-fecha", "-fecha_registro")
+    ).prefetch_related("egresos").order_by("-fecha", "-fecha_registro")
 
     if form.is_valid():
         departamento = form.cleaned_data.get("departamento")
@@ -1044,7 +1066,7 @@ def reportes(request):
         cierres = cierres.filter(turno=turno)
 
     cierres = list(
-        cierres.order_by(
+        cierres.prefetch_related("egresos").order_by(
             "caja__departamento__orden",
             "caja__departamento__nombre",
             "caja__numero",
@@ -1055,15 +1077,17 @@ def reportes(request):
 
     grupos, total_general, resumen_turnos = _resumen_cierres(cierres)
 
-    # Egresos y devoluciones registrados dentro de los cuadres filtrados.
-    salidas = EgresoCierre.objects.filter(cierre__in=cierres)
-    totales_salidas = salidas.aggregate(
+    # Vueltos de caja registrados dentro de los cuadres filtrados.
+    vueltos_cuadre = EgresoCierre.objects.filter(
+        cierre__in=cierres, tipo=TipoSalidaChoices.EGRESO
+    )
+    totales_vueltos = vueltos_cuadre.aggregate(
         cantidad=Count("id"),
         total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
         total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
     )
-    totales_salidas["total_bs"] = totales_salidas["total_bs"] or Decimal("0.00")
-    totales_salidas["total_usd"] = totales_salidas["total_usd"] or Decimal("0.00")
+    totales_vueltos["total_bs"] = totales_vueltos["total_bs"] or Decimal("0.00")
+    totales_vueltos["total_usd"] = totales_vueltos["total_usd"] or Decimal("0.00")
 
     # Egresos y devoluciones independientes (no pertenecen a ningún cuadre).
     inicio_dt = timezone.make_aware(datetime.combine(fecha_inicio, time.min))
@@ -1085,6 +1109,17 @@ def reportes(request):
     totales_independientes["total_usd"] = (
         totales_independientes["total_usd"] or Decimal("0.00")
     )
+
+    # Abonos independientes: solamente informativos, no restan de ningún total.
+    abonos_independientes = independientes.filter(tipo=TipoSalidaChoices.ABONO)
+    totales_abonos = abonos_independientes.aggregate(
+        cantidad=Count("id"),
+        total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
+        total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
+    )
+    totales_abonos["total_bs"] = totales_abonos["total_bs"] or Decimal("0.00")
+    totales_abonos["total_usd"] = totales_abonos["total_usd"] or Decimal("0.00")
+
     egresos_independientes = independientes.order_by("-fecha_registro")[:10]
 
     # Conteo por método de pago y por banco de los cierres filtrados.
@@ -1164,8 +1199,9 @@ def reportes(request):
             "grupos": grupos,
             "total_general": total_general,
             "resumen_turnos": resumen_turnos,
-            "totales_salidas": totales_salidas,
+            "totales_vueltos": totales_vueltos,
             "totales_independientes": totales_independientes,
+            "totales_abonos": totales_abonos,
             "egresos_independientes": egresos_independientes,
             "total_cierres": len(cierres),
             "conteo_metodos": conteo_metodos,
