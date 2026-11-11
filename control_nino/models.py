@@ -20,6 +20,7 @@ class ControlNino(models.Model):
     tiempo = models.PositiveIntegerField(default=90, verbose_name="Tiempo")
     tiempo_adicional = models.PositiveIntegerField(default=0, verbose_name="Tiempo adicional agregado (min)")
     brazaletes_adicionales = models.PositiveIntegerField(default=0, verbose_name="Brazaletes adicionales")
+    recargas = models.PositiveIntegerField(default=0, verbose_name="Recargas de brazalete (+45 min)")
     fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Hora de ingreso")
     hora_salida = models.DateTimeField(null=True, blank=True, verbose_name="Hora de salida")
 
@@ -36,15 +37,19 @@ class ControlNino(models.Model):
     def puede_agregar_45(self):
         if self.salio:
             return False
-        # Si culminó su tiempo (está en 0), se le puede renovar +45 min (nuevo brazalete)
+        # Si culminó su tiempo (está en 0), se permite una recarga de +45 min solo si no ha recargado aún
         if self.segundos_restantes <= 0:
-            return True
+            return (self.recargas or 0) == 0
         # Si aún tiene tiempo corriendo, solo se suma si no supera el límite de 90 min de sesión activa
         return self.tiempo + 45 <= TIEMPO_MAXIMO_NINO
 
     @property
     def tiempo_maximo_alcanzado(self):
-        return not self.salio and self.segundos_restantes > 0 and self.tiempo >= TIEMPO_MAXIMO_NINO
+        if self.salio:
+            return False
+        if self.segundos_restantes <= 0:
+            return (self.recargas or 0) > 0
+        return self.tiempo >= TIEMPO_MAXIMO_NINO
 
     @property
     def fecha_fin(self):

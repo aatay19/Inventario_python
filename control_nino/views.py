@@ -209,10 +209,14 @@ def agregar_tiempo_nino(request, pk):
         error = 'Solo se permite agregar 45 minutos.'
     elif nino.salio:
         error = 'El niño ya tiene salida registrada.'
-    elif not tiempo_culminado:
+    elif tiempo_culminado:
+        # Si culminó su tiempo, solo se permite 1 recarga de brazalete
+        if (nino.recargas or 0) > 0:
+            error = 'Ya se realizó una recarga de brazalete a este niño. No se pueden agregar más minutos.'
+    else:
         # Si aún tiene tiempo corriendo, solo se suma si no supera el límite de 90 min de sesión activa
         if nino.tiempo >= TIEMPO_MAXIMO_NINO:
-            error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO_NINO} minutos continuos. Espera a que culmine su tiempo para renovar."
+            error = f"El niño ya alcanzó el máximo de {TIEMPO_MAXIMO_NINO} minutos continuos. Espera a que culmine su tiempo para recargar."
         elif nino.tiempo + minutos > TIEMPO_MAXIMO_NINO:
             error = f"Los niños no pueden superar los {TIEMPO_MAXIMO_NINO} minutos en total."
 
@@ -226,18 +230,17 @@ def agregar_tiempo_nino(request, pk):
         nino.tiempo_adicional += minutos
         update_fields = ['tiempo', 'tiempo_adicional']
 
-        # Si se añaden 45 min, se cuenta como un brazalete nuevo en la estadística
         if minutos == 45:
-            nino.brazaletes_adicionales += 1
-            update_fields.append('brazaletes_adicionales')
-            # Si culminó su tiempo, reajustar el conteo para que tenga los 45 min completos desde ahora
+            # Todo lo que sea +45 min cuenta como recarga (no sube brazaletes iniciales)
+            nino.recargas = (nino.recargas or 0) + 1
+            update_fields.append('recargas')
             if tiempo_culminado:
                 nino.fecha_registro = timezone.now() - timedelta(minutes=tiempo_ant)
                 update_fields.append('fecha_registro')
 
         nino.save(update_fields=update_fields)
 
-        detalle_extra = " (nuevo brazalete de 45 min tras culminar tiempo)" if (minutos == 45 and tiempo_culminado) else (" (nuevo brazalete de 45 min)" if minutos == 45 else "")
+        detalle_extra = " (recarga de brazalete de 45 min tras culminar tiempo)" if (minutos == 45 and tiempo_culminado) else (" (recarga de 45 min)" if minutos == 45 else "")
         registrar_novedad_sistema(
             titulo=f"Tiempo añadido a niño: {nino.nombre}",
             descripcion=f"Se agregaron +{minutos} min al niño '{nino.nombre}'{detalle_extra}. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {nino.tiempo} min.",
@@ -255,6 +258,7 @@ def agregar_tiempo_nino(request, pk):
             'inicio_ms': nino.inicio_ms,
             'segundos_restantes': nino.segundos_restantes,
             'salida_est': nino.fecha_fin.strftime('%H:%M'),
+            'recargas': nino.recargas or 0,
             'puede_agregar_45': nino.puede_agregar_45,
             'tiempo_maximo_alcanzado': nino.tiempo_maximo_alcanzado,
         })
@@ -750,15 +754,15 @@ def estadisticas_control_ninos(request):
 
     # Recolectar datos
     resumen = defaultdict(lambda: {
-        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'ninos_renovados_45': 0,
+        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'recargas': 0,
         'fiestas': 0, 'brazaletes': 0, 'tiempo_fiestas': 0,
     })
 
     anios_set = set()
 
     # Niños
-    for dt, tiempo, tiempo_adicional, brazaletes_adicionales in ControlNino.objects.values_list(
-        'fecha_registro', 'tiempo', 'tiempo_adicional', 'brazaletes_adicionales'
+    for dt, tiempo, tiempo_adicional, brazaletes_adicionales, recargas_cant in ControlNino.objects.values_list(
+        'fecha_registro', 'tiempo', 'tiempo_adicional', 'brazaletes_adicionales', 'recargas'
     ).iterator():
         if dt:
             local = timezone.localtime(dt)
@@ -766,19 +770,18 @@ def estadisticas_control_ninos(request):
             clave = _obtener_clave_periodo(local, periodo)
             datos = resumen[clave]
 
-            # Cada 45 min añadidos tras culminar cuenta como un brazalete nuevo de 45 min
-            braz_extra = max(brazaletes_adicionales or 0, (tiempo_adicional or 0) // 45)
+            # Todo lo que sea +45 min cuenta como recarga
+            # Se consideran recargas tanto el campo recargas como los agregados de brazaletes adicionales/tiempo adicional
+            cant_recargas = (recargas_cant or 0) + (brazaletes_adicionales or 0)
+            datos['recargas'] += cant_recargas
 
-            if braz_extra > 0:
-                # 1 brazalete base de 45 min + braz_extra brazaletes nuevos de 45 min
-                cant_brazaletes_45 = 1 + braz_extra
-                datos['ninos_45'] += cant_brazaletes_45
-                datos['ninos'] += cant_brazaletes_45
-                datos['ninos_renovados_45'] += braz_extra
-            elif tiempo == 90:
+            # Tiempo inicial contratado (tiempo base descontando recargas/adicionales de 45 min)
+            tiempo_base = tiempo - (cant_recargas * 45)
+
+            if tiempo_base >= 90:
                 datos['ninos_90'] += 1
                 datos['ninos'] += 1
-            elif tiempo == 45:
+            elif tiempo_base >= 45:
                 datos['ninos_45'] += 1
                 datos['ninos'] += 1
             else:
@@ -928,20 +931,18 @@ def estadisticas_control_ninos(request):
 
     # Datos específicos para las tarjetas grandes
     card_datos = resumen.get(clave_tarjeta, {
-        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'ninos_renovados_45': 0,
+        'ninos': 0, 'ninos_45': 0, 'ninos_90': 0, 'recargas': 0,
         'fiestas': 0, 'brazaletes': 0, 'tiempo_fiestas': 0,
     })
 
     card_n45 = card_datos['ninos_45']
     card_n90 = card_datos['ninos_90']
-    card_renovados = card_datos['ninos_renovados_45']
-    card_n45_base = max(0, card_n45 - card_renovados)
+    card_recargas = card_datos['recargas']
 
     card_cash_45 = round(card_n45 * PRECIO_NINO_45, 2)
-    card_cash_45_base = round(card_n45_base * PRECIO_NINO_45, 2)
     card_cash_90 = round(card_n90 * PRECIO_NINO_90, 2)
-    card_cash_nuevos = round(card_renovados * PRECIO_NINO_45, 2)
-    card_cash_total = round(card_cash_45 + card_cash_90, 2)
+    card_cash_recargas = round(card_recargas * PRECIO_NINO_45, 2)
+    card_cash_total = round(card_cash_45 + card_cash_90 + card_cash_recargas, 2)
 
     card_f = card_datos['fiestas']
     card_br = card_datos['brazaletes']
@@ -949,12 +950,11 @@ def estadisticas_control_ninos(request):
 
     filas = []
     tot_ninos = tot_ninos_45 = tot_ninos_90 = tot_fiestas = tot_brazaletes = 0
-    tot_ninos_renovados_45 = 0
+    tot_recargas = 0
     tot_tiempo_fiestas = 0
     tot_cash_45 = 0.0
-    tot_cash_45_base = 0.0
     tot_cash_90 = 0.0
-    tot_cash_nuevos = 0.0
+    tot_cash_recargas = 0.0
     tot_cash_total = 0.0
 
     for clave in claves_ordenadas:
@@ -962,15 +962,14 @@ def estadisticas_control_ninos(request):
         n = datos['ninos']
         n45 = datos['ninos_45']
         n90 = datos['ninos_90']
-        n_renovados = datos['ninos_renovados_45']
+        rec = datos['recargas']
         f = datos['fiestas']
         br = datos['brazaletes']
 
         cash_45 = round(n45 * PRECIO_NINO_45, 2)
         cash_90 = round(n90 * PRECIO_NINO_90, 2)
-        cash_nuevos = round(n_renovados * PRECIO_NINO_45, 2)
-        cash_45_base = round(max(0, n45 - n_renovados) * PRECIO_NINO_45, 2)
-        cash_total = round(cash_45 + cash_90, 2)
+        cash_recargas = round(rec * PRECIO_NINO_45, 2)
+        cash_total = round(cash_45 + cash_90 + cash_recargas, 2)
 
         etiqueta_periodo = _formatear_etiqueta_periodo(clave, periodo)
         es_seleccionada = (clave == clave_tarjeta)
@@ -997,11 +996,10 @@ def estadisticas_control_ninos(request):
             'ninos': n,
             'ninos_45': n45,
             'ninos_90': n90,
-            'ninos_renovados_45': n_renovados,
+            'recargas': rec,
             'cash_45': cash_45,
-            'cash_45_base': cash_45_base,
             'cash_90': cash_90,
-            'cash_nuevos': cash_nuevos,
+            'cash_recargas': cash_recargas,
             'cash_total': cash_total,
             'fiestas': f,
             'brazaletes': br,
@@ -1011,11 +1009,10 @@ def estadisticas_control_ninos(request):
         tot_ninos += n
         tot_ninos_45 += n45
         tot_ninos_90 += n90
-        tot_ninos_renovados_45 += n_renovados
+        tot_recargas += rec
         tot_cash_45 += cash_45
-        tot_cash_45_base += cash_45_base
         tot_cash_90 += cash_90
-        tot_cash_nuevos += cash_nuevos
+        tot_cash_recargas += cash_recargas
         tot_cash_total += cash_total
         tot_fiestas += f
         tot_brazaletes += br
@@ -1041,13 +1038,11 @@ def estadisticas_control_ninos(request):
         # Métricas para las tarjetas de resumen (periodo activo: día, semana, mes o año)
         'total_ninos': card_datos['ninos'],
         'total_ninos_45': card_n45,
-        'total_ninos_45_base': card_n45_base,
         'total_ninos_90': card_n90,
-        'total_ninos_renovados_45': card_renovados,
+        'total_recargas': card_recargas,
         'total_cash_45': card_cash_45,
-        'total_cash_45_base': card_cash_45_base,
         'total_cash_90': card_cash_90,
-        'total_cash_nuevos': card_cash_nuevos,
+        'total_cash_recargas': card_cash_recargas,
         'total_cash_total': card_cash_total,
         'total_fiestas': card_f,
         'total_brazaletes': card_br,
@@ -1056,13 +1051,11 @@ def estadisticas_control_ninos(request):
         # Totales para el pie de la tabla detallada
         'tabla_total_ninos': tot_ninos,
         'tabla_total_ninos_45': tot_ninos_45,
-        'tabla_total_ninos_45_base': max(0, tot_ninos_45 - tot_ninos_renovados_45),
         'tabla_total_ninos_90': tot_ninos_90,
-        'tabla_total_ninos_renovados_45': tot_ninos_renovados_45,
+        'tabla_total_recargas': tot_recargas,
         'tabla_total_cash_45': round(tot_cash_45, 2),
-        'tabla_total_cash_45_base': round(tot_cash_45_base, 2),
         'tabla_total_cash_90': round(tot_cash_90, 2),
-        'tabla_total_cash_nuevos': round(tot_cash_nuevos, 2),
+        'tabla_total_cash_recargas': round(tot_cash_recargas, 2),
         'tabla_total_cash_total': round(tot_cash_total, 2),
         'tabla_total_fiestas': tot_fiestas,
         'tabla_total_brazaletes': tot_brazaletes,
