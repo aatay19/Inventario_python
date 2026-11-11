@@ -535,6 +535,7 @@ class BorradorCierre(models.Model):
     observaciones = models.TextField(blank=True, default="", verbose_name="Observaciones")
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado en")
     actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado en")
+    revision = models.PositiveIntegerField(default=0, verbose_name="Revisión")
 
     class Meta:
         ordering = ["-actualizado_en"]

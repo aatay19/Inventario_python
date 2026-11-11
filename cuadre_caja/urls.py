@@ -33,6 +33,11 @@ urlpatterns = [
         name="borrador_guardar",
     ),
     path(
+        "caja/<int:caja_id>/borrador/<str:turno>/estado/",
+        views.borrador_estado,
+        name="borrador_estado",
+    ),
+    path(
         "departamento/<slug:slug>/estado/",
         views.departamento_estado,
         name="departamento_estado",

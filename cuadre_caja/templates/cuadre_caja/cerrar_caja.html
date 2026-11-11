@@ -92,6 +92,23 @@
         font-weight: 800;
         line-height: 1.15;
     }
+
+    /* Aviso flotante de cambios hechos por otro usuario en el borrador */
+    #alerta-cambios-remotos.alerta-remota-visible {
+        animation: alertaRemotaEntrada .35s ease;
+    }
+
+    @keyframes alertaRemotaEntrada {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 </style>
 {% endblock %}
 
@@ -130,13 +147,26 @@
     <div class="small mb-0">
         Los cambios se guardan automáticamente como <strong>borrador</strong>. Si cierras la pestaña,
         el navegador te pedirá confirmación y el borrador se conservará <strong>10 minutos</strong>;
-        pasado ese tiempo se elimina.
+        pasado ese tiempo se elimina. Si otro usuario modifica una transacción, el formulario
+        se actualizará solo y verás un aviso.
     </div>
 </div>
 {% endif %}
 
+<div id="alerta-cambios-remotos" class="alert alert-warning shadow d-none no-print" role="alert"
+    style="position: fixed; top: 4.75rem; right: 1rem; z-index: 1040; max-width: 420px;">
+    <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div class="small flex-grow-1" id="texto-cambio-remoto"></div>
+        <button type="button" class="btn-close" id="cerrar-alerta-remota" aria-label="Cerrar"></button>
+    </div>
+</div>
+
 <form method="post" id="form-cierre" enctype="multipart/form-data" novalidate
-    data-borrador-url="{% if turno_fijo %}{% url 'cuadre_caja:borrador_guardar' caja.id turno_fijo %}{% endif %}">
+    data-borrador-url="{% if turno_fijo %}{% url 'cuadre_caja:borrador_guardar' caja.id turno_fijo %}{% endif %}"
+    data-borrador-estado-url="{% if turno_fijo %}{% url 'cuadre_caja:borrador_estado' caja.id turno_fijo %}{% endif %}"
+    data-borrador-revision="{{ borrador_revision|default:0 }}"
+    data-usuario-id="{{ request.user.id }}">
     {% csrf_token %}
 
     {% if form.non_field_errors %}
@@ -874,6 +904,8 @@
         // Borrador compartido: guarda el avance del cuadre sin registrarlo,
         // para que el resumen del departamento se actualice en tiempo real.
         const borradorUrl = form.dataset.borradorUrl || '';
+        const borradorEstadoUrl = form.dataset.borradorEstadoUrl || '';
+        const miUsuarioId = form.dataset.usuarioId || '';
         const estadoBorrador = document.getElementById('estado-borrador');
         const nombreCajeraInput = document.getElementById('id_nombre_cajera');
         const observacionesInput = document.getElementById('id_observaciones');
@@ -882,6 +914,8 @@
         let guardandoBorrador = false;
         let borradorPendiente = false;
         let borradorDesactivado = false;
+        let revisionActual = parseInt(form.dataset.borradorRevision || '0', 10) || 0;
+        let ultimoGuardado = [];
 
         function marcarEstadoBorrador(texto, clases) {
             if (!estadoBorrador) return;
@@ -919,12 +953,24 @@
             };
         }
 
+        // Último estado confirmado por el servidor; sirve para saber qué cambió
+        // el otro usuario y no confundirlo con lo que se está escribiendo aquí.
+        ultimoGuardado = datosBorrador().transacciones;
+
         function guardarBorrador() {
             if (!borradorUrl || borradorDesactivado) return;
 
             const datos = datosBorrador();
-            // No crear borradores completamente vacíos.
-            if (!datos.transacciones.length && !datos.nombre_cajera.trim()) return;
+            // No crear borradores completamente vacíos, pero sí actualizar uno
+            // existente cuando se quedó sin filas (por ejemplo, si otro usuario
+            // eliminó la última transacción).
+            if (
+                !datos.transacciones.length &&
+                !datos.nombre_cajera.trim() &&
+                revisionActual === 0
+            ) {
+                return;
+            }
 
             // Se guarda de a una petición para que la última escritura sea
             // siempre la más reciente (evita perder filas por respuestas fuera de orden).
@@ -936,6 +982,8 @@
             guardandoBorrador = true;
             marcarEstadoBorrador('Guardando borrador…', 'bg-info-subtle text-info-emphasis');
 
+            const payload = Object.assign({}, datos, { revision: revisionActual });
+
             fetch(borradorUrl, {
                 method: 'POST',
                 headers: {
@@ -943,13 +991,32 @@
                     'X-CSRFToken': csrfInput ? csrfInput.value : '',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(datos)
+                body: JSON.stringify(payload)
             })
                 .then(function (respuesta) {
+                    if (respuesta.status === 409) {
+                        return respuesta.json().then(function (cuerpo) {
+                            return { conflicto: true, cuerpo: cuerpo };
+                        });
+                    }
                     if (!respuesta.ok) throw new Error('No se pudo guardar el borrador');
                     return respuesta.json();
                 })
-                .then(function () {
+                .then(function (resultado) {
+                    if (resultado && resultado.conflicto) {
+                        // Otro usuario guardó primero: se adopta su estado y se
+                        // avisa, en lugar de sobrescribir sus cambios.
+                        const actual = resultado.cuerpo && resultado.cuerpo.borrador;
+                        if (actual) {
+                            aplicarCambioRemoto(actual);
+                        }
+                        borradorPendiente = false;
+                        return;
+                    }
+                    if (resultado && resultado.borrador) {
+                        revisionActual = resultado.borrador.revision;
+                    }
+                    ultimoGuardado = datos.transacciones;
                     const hora = new Date().toLocaleTimeString('es-VE', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -971,7 +1038,10 @@
         function programarGuardadoBorrador() {
             if (!borradorUrl || borradorDesactivado) return;
             clearTimeout(temporizadorBorrador);
-            temporizadorBorrador = setTimeout(guardarBorrador, 500);
+            temporizadorBorrador = setTimeout(function () {
+                temporizadorBorrador = null;
+                guardarBorrador();
+            }, 500);
         }
 
         function hayDatosEnFormulario() {
@@ -1002,6 +1072,232 @@
             return false;
         }
 
+        // ── Sincronización con otros usuarios que editan el mismo borrador ──
+        const alertaRemota = document.getElementById('alerta-cambios-remotos');
+        const textoAlertaRemota = document.getElementById('texto-cambio-remoto');
+        const cerrarAlertaRemota = document.getElementById('cerrar-alerta-remota');
+        let consultandoEstado = false;
+
+        function mostrarAlertaRemota(texto) {
+            if (!alertaRemota || !textoAlertaRemota || !texto) return;
+            textoAlertaRemota.textContent = texto;
+            alertaRemota.classList.remove('d-none');
+            alertaRemota.classList.remove('alerta-remota-visible');
+            void alertaRemota.offsetWidth;
+            alertaRemota.classList.add('alerta-remota-visible');
+        }
+
+        if (cerrarAlertaRemota) {
+            cerrarAlertaRemota.addEventListener('click', function () {
+                if (alertaRemota) alertaRemota.classList.add('d-none');
+            });
+        }
+
+        function claveTransaccion(t) {
+            return [
+                t.metodo_pago || '',
+                t.banco || '',
+                numero(t.monto).toFixed(2),
+                t.ref || '',
+                t.notas || ''
+            ].join('|');
+        }
+
+        function compararTransacciones(locales, remotas) {
+            const grupos = {};
+
+            function agrupar(lista, campo) {
+                (lista || []).forEach(function (t) {
+                    const metodo = t.metodo_pago || '';
+                    if (!grupos[metodo]) {
+                        grupos[metodo] = { local: [], remota: [] };
+                    }
+                    grupos[metodo][campo].push(t);
+                });
+            }
+
+            agrupar(locales, 'local');
+            agrupar(remotas, 'remota');
+
+            let eliminadas = 0;
+            let ajustadas = 0;
+            let agregadas = 0;
+
+            Object.keys(grupos).forEach(function (metodo) {
+                const local = grupos[metodo].local.slice();
+                const remota = grupos[metodo].remota.slice();
+
+                // Descartar las filas idénticas (multiconjunto).
+                for (let i = local.length - 1; i >= 0; i--) {
+                    const clave = claveTransaccion(local[i]);
+                    const indice = remota.findIndex(function (t) {
+                        return claveTransaccion(t) === clave;
+                    });
+                    if (indice !== -1) {
+                        local.splice(i, 1);
+                        remota.splice(indice, 1);
+                    }
+                }
+
+                // Lo que queda del mismo método se considera un ajuste; el
+                // sobrante son transacciones eliminadas o agregadas.
+                const pares = Math.min(local.length, remota.length);
+                ajustadas += pares;
+                eliminadas += local.length - pares;
+                agregadas += remota.length - pares;
+            });
+
+            return {
+                eliminadas: eliminadas,
+                ajustadas: ajustadas,
+                agregadas: agregadas
+            };
+        }
+
+        function plural(cantidad, singular, pluralTexto) {
+            return cantidad === 1 ? singular : pluralTexto;
+        }
+
+        function unirPartes(partes) {
+            if (partes.length <= 1) return partes.join('');
+            return partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
+        }
+
+        function autorCambio(borrador) {
+            const rol = String(borrador.usuario_rol || '').toLowerCase();
+            if (borrador.usuario_es_supervisor) {
+                if (rol === 'soporte') return 'El soporte';
+                if (rol === 'admin') return 'El administrador';
+                return 'El supervisor';
+            }
+            return 'El usuario';
+        }
+
+        function mensajeCambio(diff, borrador) {
+            const partes = [];
+            if (diff.eliminadas > 0) {
+                partes.push('eliminó ' + diff.eliminadas + ' ' +
+                    plural(diff.eliminadas, 'transacción', 'transacciones'));
+            }
+            if (diff.ajustadas > 0) {
+                partes.push('ajustó ' + diff.ajustadas + ' ' +
+                    plural(diff.ajustadas, 'transacción', 'transacciones'));
+            }
+            if (!partes.length) return '';
+            return autorCambio(borrador) + ' ' + (borrador.usuario || 'otro usuario') +
+                ' ' + unirPartes(partes) +
+                '. El formulario se actualizó automáticamente.';
+        }
+
+        function insertarFilaVacia(tbody, metodo) {
+            if (!plantillaFila) return null;
+            const html = plantillaFila.innerHTML
+                .replace(/__prefix__/g, 'TEMP')
+                .replace(/__metodo__/g, metodo);
+            tbody.insertAdjacentHTML('beforeend', html);
+            return tbody.lastElementChild;
+        }
+
+        function aplicarTransaccionesRemotas(remotas) {
+            const porMetodo = {};
+            (remotas || []).forEach(function (t) {
+                const metodo = t.metodo_pago || '';
+                (porMetodo[metodo] = porMetodo[metodo] || []).push(t);
+            });
+
+            document.querySelectorAll('.cuerpo-metodo').forEach(function (tbody) {
+                const metodo = tbody.dataset.metodo;
+                const filas = porMetodo[metodo] || [];
+                tbody.innerHTML = '';
+
+                if (!filas.length) {
+                    insertarFilaVacia(tbody, metodo);
+                    return;
+                }
+
+                filas.forEach(function (t) {
+                    const fila = insertarFilaVacia(tbody, metodo);
+                    if (!fila) return;
+                    const banco = fila.querySelector('select[name$="-banco"]');
+                    const monto = fila.querySelector('input[name$="-monto"]');
+                    const ref = fila.querySelector('input[name$="-ref"]');
+                    const notas = fila.querySelector('input[name$="-notas"]');
+                    if (banco) banco.value = t.banco || '';
+                    if (monto) monto.value = numero(t.monto).toFixed(2);
+                    if (ref) ref.value = t.ref || '';
+                    if (notas) notas.value = t.notas || '';
+                });
+            });
+
+            reindexarTransacciones();
+            recalcularDesdeTransacciones();
+            ultimoGuardado = (remotas || []).map(function (t) {
+                return {
+                    metodo_pago: t.metodo_pago,
+                    banco: t.banco,
+                    monto: numero(t.monto),
+                    ref: t.ref,
+                    notas: t.notas
+                };
+            });
+        }
+
+        function aplicarCambioRemoto(borrador) {
+            const remotas = borrador.transacciones || [];
+            const diff = compararTransacciones(ultimoGuardado, remotas);
+            aplicarTransaccionesRemotas(remotas);
+            revisionActual = borrador.revision || revisionActual;
+
+            const mensaje = mensajeCambio(diff, borrador);
+            if (mensaje) {
+                mostrarAlertaRemota(mensaje);
+            }
+        }
+
+        function consultarEstadoBorrador() {
+            if (!borradorEstadoUrl || borradorDesactivado || document.hidden || consultandoEstado) {
+                return;
+            }
+            // No pisar lo que se está escribiendo o guardando en este momento.
+            if (guardandoBorrador || borradorPendiente || temporizadorBorrador) {
+                return;
+            }
+
+            consultandoEstado = true;
+            fetch(borradorEstadoUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (respuesta) {
+                    if (!respuesta.ok) throw new Error('No se pudo consultar el borrador');
+                    return respuesta.json();
+                })
+                .then(function (datos) {
+                    if (!datos || !datos.borrador) return;
+                    const borrador = datos.borrador;
+                    if (borrador.revision === revisionActual) return;
+
+                    if (String(borrador.usuario_id) === String(miUsuarioId)) {
+                        // El cambio es de este usuario (por ejemplo, otra pestaña).
+                        revisionActual = borrador.revision;
+                        return;
+                    }
+                    aplicarCambioRemoto(borrador);
+                })
+                .catch(function () {
+                    // Se reintenta en el siguiente ciclo.
+                })
+                .finally(function () {
+                    consultandoEstado = false;
+                });
+        }
+
+        if (borradorEstadoUrl) {
+            setInterval(consultarEstadoBorrador, 4000);
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) consultarEstadoBorrador();
+            });
+        }
+
         if (borradorUrl) {
             form.addEventListener('input', programarGuardadoBorrador);
             form.addEventListener('change', programarGuardadoBorrador);
@@ -1013,6 +1309,7 @@
             document.addEventListener('visibilitychange', function () {
                 if (!document.hidden || borradorDesactivado) return;
                 clearTimeout(temporizadorBorrador);
+                temporizadorBorrador = null;
                 guardarBorrador();
             });
         }

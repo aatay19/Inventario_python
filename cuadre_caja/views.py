@@ -368,12 +368,51 @@ def _resumen_borrador(borrador):
         return None
     return {
         "turno": borrador.turno,
+        "revision": borrador.revision,
         "usuario": borrador.usuario.get_username() if borrador.usuario else "",
         "actualizado": timezone.localtime(borrador.actualizado_en).strftime("%H:%M"),
         "transacciones": borrador.cantidad_transacciones,
         "total_bs": f"{borrador.total_bs:.2f}",
         "total_usd": f"{borrador.total_usd:.2f}",
         "total_equivalente_bs": f"{borrador.total_equivalente_bs:.2f}",
+    }
+
+
+def _rol_usuario(user):
+    perfil = getattr(user, "perfilusuario", None) if user else None
+    return getattr(perfil, "rol", "") or ""
+
+
+def _serializar_transacciones(borrador):
+    """Transacciones del borrador tal como las consume el formulario."""
+    return [
+        {
+            "metodo_pago": t.metodo_pago,
+            "banco": t.banco,
+            "monto": f"{t.monto:.2f}",
+            "ref": t.ref,
+            "notas": t.notas,
+        }
+        for t in borrador.transacciones.all()
+    ]
+
+
+def _datos_estado_borrador(borrador):
+    """Estado completo del borrador para sincronizar formularios abiertos."""
+    usuario = borrador.usuario
+    return {
+        "revision": borrador.revision,
+        "usuario": usuario.get_username() if usuario else "",
+        "usuario_id": usuario.id if usuario else None,
+        "usuario_rol": _rol_usuario(usuario),
+        "usuario_es_supervisor": (
+            es_supervisor_o_superior(usuario) if usuario else False
+        ),
+        "actualizado": timezone.localtime(borrador.actualizado_en).strftime("%H:%M:%S"),
+        "nombre_cajera": borrador.nombre_cajera,
+        "tasa": f"{borrador.tasa:.2f}" if borrador.tasa else "",
+        "observaciones": borrador.observaciones,
+        "transacciones": _serializar_transacciones(borrador),
     }
 
 
@@ -561,19 +600,47 @@ def borrador_guardar(request, caja_id, turno):
     if not isinstance(transacciones, list):
         transacciones = []
 
+    try:
+        revision_cliente = int(payload.get("revision"))
+    except (TypeError, ValueError):
+        revision_cliente = None
+
     metodos_validos = {valor for valor, _ in MetodoPagoChoices.choices}
 
     with transaction.atomic():
-        borrador, _ = BorradorCierre.objects.select_for_update().get_or_create(
+        borrador, creado = BorradorCierre.objects.select_for_update().get_or_create(
             caja=caja,
             fecha=hoy,
             turno=turno,
             defaults={"usuario": request.user},
         )
+
+        # Control de concurrencia: si otro usuario guardó antes, se devuelve el
+        # estado actual para que su formulario se sincronice sin sobrescribirlo.
+        if (
+            not creado
+            and revision_cliente is not None
+            and borrador.revision != revision_cliente
+        ):
+            actual = (
+                BorradorCierre.objects.select_related("usuario")
+                .prefetch_related("transacciones")
+                .get(pk=borrador.pk)
+            )
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "conflicto": True,
+                    "borrador": _datos_estado_borrador(actual),
+                },
+                status=409,
+            )
+
         borrador.usuario = request.user
         borrador.nombre_cajera = str(payload.get("nombre_cajera") or "")[:100]
         borrador.tasa = _decimal(payload.get("tasa"), "0.01")
         borrador.observaciones = str(payload.get("observaciones") or "")
+        borrador.revision = (borrador.revision or 0) + 1
         borrador.save()
 
         borrador.transacciones.all().delete()
@@ -604,6 +671,31 @@ def borrador_guardar(request, caja_id, turno):
         .get(pk=borrador.pk)
     )
     return JsonResponse({"ok": True, "borrador": _resumen_borrador(borrador)})
+
+
+@cuadre_caja_required
+@never_cache
+def borrador_estado(request, caja_id, turno):
+    """Estado del borrador compartido para sincronizar formularios abiertos."""
+    caja = get_object_or_404(Caja, pk=caja_id, activo=True)
+    turnos_validos = {valor for valor, _ in TurnoChoices.choices}
+    if turno not in turnos_validos:
+        return JsonResponse(
+            {"ok": False, "error": "El turno indicado no es válido."}, status=400
+        )
+
+    hoy = timezone.localdate()
+    if CierreCaja.objects.filter(caja=caja, fecha=hoy, turno=turno).exists():
+        return JsonResponse({"ok": True, "cerrado": True, "borrador": None})
+
+    borrador = _borrador_vigente(caja, hoy, turno)
+    return JsonResponse(
+        {
+            "ok": True,
+            "cerrado": False,
+            "borrador": _datos_estado_borrador(borrador) if borrador else None,
+        }
+    )
 
 
 @cuadre_caja_required
@@ -688,6 +780,8 @@ def cerrar_caja(request, caja_id, turno=None):
         )
         return redirect("cuadre_caja:departamento_detalle", caja.departamento.slug)
 
+    borrador_revision = 0
+
     if request.method == "POST":
         form = CierreCajaForm(request.POST, caja=caja, turno=turno)
         egresos_formset = EgresoCierreFormSet(
@@ -753,6 +847,7 @@ def cerrar_caja(request, caja_id, turno=None):
         # Filas del borrador agrupadas por método (múltiples por método)
         metodo_filas = {}
         if borrador:
+            borrador_revision = borrador.revision
             datos_iniciales = {
                 "nombre_cajera": borrador.nombre_cajera,
                 "tasa": borrador.tasa or None,
@@ -877,6 +972,7 @@ def cerrar_caja(request, caja_id, turno=None):
             "MONEDA_USD": MONEDA_USD,
             "bancos_choices": BANCOS_CHOICES,
             "puede_eliminar_transacciones": puede_eliminar_transacciones,
+            "borrador_revision": borrador_revision,
         },
     )
 
