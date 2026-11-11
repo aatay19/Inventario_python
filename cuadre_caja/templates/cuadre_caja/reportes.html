@@ -11,6 +11,9 @@
         </p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-success" id="btn-dinero-cajas">
+            <i class="bi bi-cash-stack me-1"></i> Dinero total en cajas (hoy)
+        </button>
         <span class="cc-chip bg-white text-secondary border">
             <i class="bi bi-calendar3 me-1"></i>
             {{ fecha_inicio|date:"d/m/Y" }}{% if fecha_inicio != fecha_fin %} - {{ fecha_fin|date:"d/m/Y" }}{% endif %}
@@ -438,4 +441,165 @@
 </div>
 {% endif %}
 
+<!-- Modal: dinero total en cajas (hoy) -->
+<div class="modal fade" id="modal-dinero-cajas" tabindex="-1" aria-labelledby="titulo-dinero-cajas" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="titulo-dinero-cajas">
+                    <i class="bi bi-cash-stack me-2 text-success"></i>Dinero total en cajas — hoy
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="cuerpo-dinero-cajas"></div>
+            <div class="modal-footer justify-content-between align-items-center">
+                <span class="small text-muted">
+                    <i class="bi bi-arrow-repeat me-1"></i>Se actualiza automáticamente cada 5 segundos
+                </span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const boton = document.getElementById('btn-dinero-cajas');
+        const modalEl = document.getElementById('modal-dinero-cajas');
+        const cuerpo = document.getElementById('cuerpo-dinero-cajas');
+        if (!boton || !modalEl || !cuerpo) return;
+
+        function esc(texto) {
+            return String(texto).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function fmt(numero) {
+            return Number(numero || 0).toFixed(2);
+        }
+
+        function renderizar(datos) {
+            const cerradas = datos.cerradas || {};
+            const borradores = datos.borradores || {};
+
+            let html =
+                '<div class="row g-3 mb-3">' +
+                    '<div class="col-6 col-md-4">' +
+                        '<div class="border border-success rounded-3 p-3 h-100 bg-success-subtle">' +
+                            '<div class="stat-label mb-1">Cajas cerradas hoy</div>' +
+                            '<div class="stat-valor">' + (cerradas.cantidad || 0) + '</div>' +
+                            '<div class="small text-muted">Bs ' + fmt(cerradas.bs) + ' · USD ' + fmt(cerradas.usd) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="col-6 col-md-4">' +
+                        '<div class="border border-info rounded-3 p-3 h-100 bg-info-subtle">' +
+                            '<div class="stat-label mb-1">Cajas con borrador activo</div>' +
+                            '<div class="stat-valor">' + (borradores.cantidad || 0) + '</div>' +
+                            '<div class="small text-muted">Bs ' + fmt(borradores.bs) + ' · USD ' + fmt(borradores.usd) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="col-12 col-md-4">' +
+                        '<div class="border border-success border-2 rounded-3 p-3 h-100 bg-success-subtle">' +
+                            '<div class="stat-label mb-1">Dinero total (Bs)</div>' +
+                            '<div class="stat-valor fs-3 fw-bold monto">Bs ' + fmt(datos.total_equiv) + '</div>' +
+                            '<div class="small text-muted">Cerradas Bs ' + fmt(cerradas.equiv) +
+                                ' + borradores Bs ' + fmt(borradores.equiv) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+
+            if (datos.cajas && datos.cajas.length) {
+                html +=
+                    '<div class="table-responsive">' +
+                    '<table class="table table-sm align-middle mb-0">' +
+                    '<thead><tr>' +
+                    '<th>Departamento</th><th>Caja</th><th>Turno</th><th>Estado</th>' +
+                    '<th class="text-end">Bs</th><th class="text-end">USD</th>' +
+                    '<th class="text-end">Total en Bs</th>' +
+                    '</tr></thead><tbody>';
+                datos.cajas.forEach(function (fila) {
+                    const cerrada = fila.estado === 'cerrada';
+                    html += '<tr>' +
+                        '<td>' + esc(fila.departamento) + '</td>' +
+                        '<td>' + esc(fila.caja) + '</td>' +
+                        '<td>' + esc(fila.turno) + '</td>' +
+                        '<td>' + (cerrada
+                            ? '<span class="badge bg-success-subtle text-success-emphasis">Cerrada</span>'
+                            : '<span class="badge bg-info-subtle text-info-emphasis">Borrador activo</span>') +
+                        '</td>' +
+                        '<td class="text-end monto">' + fmt(fila.bs) + '</td>' +
+                        '<td class="text-end monto">' + fmt(fila.usd) + '</td>' +
+                        '<td class="text-end monto fw-semibold">' + fmt(fila.equiv) + '</td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += '<p class="text-muted text-center py-4 mb-0">' +
+                    'No hay cajas cerradas ni borradores activos hoy.</p>';
+            }
+
+            html += '<p class="small text-muted mt-3 mb-0">' +
+                'Datos del ' + esc(datos.hoy) + ' a las ' + esc(datos.actualizado) +
+                '. El total en Bs de las cajas cerradas ya tiene los vueltos de caja descontados.</p>';
+
+            cuerpo.innerHTML = html;
+        }
+
+        let temporizador = null;
+        let cargando = false;
+
+        function detenerRefresco() {
+            if (temporizador !== null) {
+                clearInterval(temporizador);
+                temporizador = null;
+            }
+        }
+
+        function cargarDineroCajas() {
+            if (cargando) return;
+            cargando = true;
+            // El spinner solo se muestra en la primera carga; los refrescos
+            // reemplazan los números sin parpadeo.
+            if (!cuerpo.dataset.cargado) {
+                cuerpo.innerHTML =
+                    '<div class="text-center py-5"><div class="spinner-border text-success" role="status"></div></div>';
+            }
+            fetch("{% url 'cuadre_caja:dinero_cajas' %}", {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (respuesta) {
+                    if (!respuesta.ok) throw new Error('respuesta ' + respuesta.status);
+                    return respuesta.json();
+                })
+                .then(function (datos) {
+                    renderizar(datos);
+                    cuerpo.dataset.cargado = '1';
+                })
+                .catch(function () {
+                    // Sin datos aún se muestra el error; si ya hay datos se
+                    // mantiene lo último y se reintenta en el siguiente ciclo.
+                    if (!cuerpo.dataset.cargado) {
+                        cuerpo.innerHTML =
+                            '<div class="alert alert-danger mb-0">No se pudo cargar el dinero total de las cajas. Intenta de nuevo.</div>';
+                    }
+                })
+                .then(function () {
+                    cargando = false;
+                });
+        }
+
+        // Refresco automático cada 5 segundos mientras el modal está abierto.
+        modalEl.addEventListener('hidden.bs.modal', detenerRefresco);
+
+        boton.addEventListener('click', function () {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            cargarDineroCajas();
+            detenerRefresco();
+            temporizador = setInterval(cargarDineroCajas, 5000);
+        });
+    });
+</script>
 {% endblock %}

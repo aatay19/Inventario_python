@@ -41,6 +41,11 @@ urlpatterns = [
     path("cierre/<int:cierre_id>/", views.cierre_detalle, name="cierre_detalle"),
     path("historial/", views.historial, name="historial"),
     path("reportes/", views.reportes, name="reportes"),
+    path(
+        "reportes/dinero-cajas/",
+        views.dinero_cajas,
+        name="dinero_cajas",
+    ),
     path("reporte/dia/<str:fecha_str>/", views.reporte_dia, name="reporte_dia"),
     path("reporte/semanal/", views.reporte_semanal, name="reporte_semanal"),
     path("reporte/mensual/", views.reporte_mensual, name="reporte_mensual"),

@@ -1211,6 +1211,115 @@ def reportes(request):
 
 
 @supervisor_required
+def dinero_cajas(request):
+    """Dinero total en las cajas el día de hoy, en formato JSON.
+
+    Suma los cierres ya registrados de hoy más los borradores que siguen
+    activos (vigencia de 10 minutos). Se consulta desde el botón del reporte
+    al hacer clic, de modo que los números estén siempre al día.
+    """
+    hoy = timezone.localdate()
+
+    cierres = list(
+        CierreCaja.objects.select_related("caja__departamento")
+        .filter(fecha=hoy)
+        .prefetch_related("egresos")
+        .order_by(
+            "caja__departamento__orden",
+            "caja__departamento__nombre",
+            "caja__numero",
+            "turno",
+        )
+    )
+
+    # Borradores activos de hoy. El borrador de un turno ya cerrado no suma:
+    # el cierre lo reemplaza.
+    turnos_cerrados = {(cierre.caja_id, cierre.turno) for cierre in cierres}
+    limite_borradores = timezone.now() - BORRADOR_VIGENCIA
+    borradores = [
+        borrador
+        for borrador in BorradorCierre.objects.select_related(
+            "caja__departamento", "usuario"
+        )
+        .filter(
+            fecha=hoy,
+            actualizado_en__gte=limite_borradores,
+            caja__activo=True,
+        )
+        .prefetch_related("transacciones")
+        .order_by(
+            "caja__departamento__orden",
+            "caja__departamento__nombre",
+            "caja__numero",
+            "turno",
+        )
+        if (borrador.caja_id, borrador.turno) not in turnos_cerrados
+    ]
+
+    filas = []
+    for cierre in cierres:
+        filas.append(
+            {
+                "departamento": cierre.caja.departamento.nombre,
+                "caja": cierre.caja.nombre,
+                "turno": cierre.turno,
+                "estado": "cerrada",
+                "bs": float(cierre.total_bs),
+                "usd": float(cierre.total_usd),
+                "equiv": float(cierre.total_equivalente_bs),
+            }
+        )
+    for borrador in borradores:
+        filas.append(
+            {
+                "departamento": borrador.caja.departamento.nombre,
+                "caja": borrador.caja.nombre,
+                "turno": borrador.turno,
+                "estado": "borrador",
+                "bs": float(borrador.total_bs),
+                "usd": float(borrador.total_usd),
+                "equiv": float(borrador.total_equivalente_bs),
+            }
+        )
+
+    cerradas_bs = sum((cierre.total_bs for cierre in cierres), Decimal("0.00"))
+    cerradas_usd = sum((cierre.total_usd for cierre in cierres), Decimal("0.00"))
+    cerradas_equiv = sum(
+        (cierre.total_equivalente_bs for cierre in cierres), Decimal("0.00")
+    )
+    borradores_bs = sum(
+        (borrador.total_bs for borrador in borradores), Decimal("0.00")
+    )
+    borradores_usd = sum(
+        (borrador.total_usd for borrador in borradores), Decimal("0.00")
+    )
+    borradores_equiv = sum(
+        (borrador.total_equivalente_bs for borrador in borradores), Decimal("0.00")
+    )
+
+    return JsonResponse(
+        {
+            "hoy": hoy.strftime("%d/%m/%Y"),
+            "actualizado": timezone.localtime().strftime("%H:%M:%S"),
+            "cerradas": {
+                "cantidad": len(cierres),
+                "bs": float(cerradas_bs),
+                "usd": float(cerradas_usd),
+                "equiv": float(cerradas_equiv),
+            },
+            "borradores": {
+                "cantidad": len(borradores),
+                "bs": float(borradores_bs),
+                "usd": float(borradores_usd),
+                "equiv": float(borradores_equiv),
+            },
+            "total_equiv": float(cerradas_equiv + borradores_equiv),
+            "cajas": filas,
+        }
+    )
+
+
+@supervisor_required
 def reporte_dia(request, fecha_str):
     """Reporte de cierres por día."""
     try:
