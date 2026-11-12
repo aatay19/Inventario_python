@@ -50,7 +50,7 @@ from .permissions import (
 )
 
 # Tiempo durante el cual se considera activo un borrador de cuadre.
-BORRADOR_VIGENCIA = timedelta(minutes=10)
+BORRADOR_VIGENCIA = timedelta(minutes=45)
 
 
 def _filas_formulario(form):
@@ -357,7 +357,7 @@ def _borrador_vigente(caja, fecha, turno):
 
 
 def _limpiar_borradores_vencidos():
-    """Elimina los borradores que superaron los 10 minutos de vigencia."""
+    """Elimina los borradores que superaron los 45 minutos de vigencia."""
     limite = timezone.now() - BORRADOR_VIGENCIA
     BorradorCierre.objects.filter(actualizado_en__lt=limite).delete()
 
@@ -870,7 +870,7 @@ def cerrar_caja(request, caja_id, turno=None):
             else:
                 messages.info(
                     request,
-                    "Se restauró el borrador en curso. Se conserva 10 minutos "
+                    "Se restauró el borrador en curso. Se conserva 45 minutos "
                     "sin actividad.",
                 )
 
@@ -1311,7 +1311,7 @@ def dinero_cajas(request):
     """Dinero total en las cajas el día de hoy, en formato JSON.
 
     Suma los cierres ya registrados de hoy más los borradores que siguen
-    activos (vigencia de 10 minutos). Se consulta desde el botón del reporte
+    activos (vigencia de 45 minutos). Se consulta desde el botón del reporte
     al hacer clic, de modo que los números estén siempre al día.
     """
     hoy = timezone.localdate()
