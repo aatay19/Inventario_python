@@ -142,15 +142,20 @@ class CierreCaja(models.Model):
 
     @property
     def total_vueltos_bs(self):
-        """Vueltos de caja del cierre expresados en Bs.
+        """Salidas del cierre que restan del total, expresadas en Bs.
 
-        Solo se incluyen los registros de tipo vuelto de caja (que restan del
-        total en Bs). Los vueltos en USD se convierten con la tasa del día.
-        Las devoluciones no se cuentan: son informativas.
+        Se incluyen los tipos Egreso (vuelto de caja), Crédito e Insumos.
+        Los vueltos en USD se convierten con la tasa del día.
+        Salida y Abono son informativos y no se cuentan aquí.
         """
+        TIPOS_QUE_RESTAN = {
+            TipoSalidaChoices.EGRESO,
+            TipoSalidaChoices.CREDITO,
+            TipoSalidaChoices.INSUMOS,
+        }
         total = Decimal("0.00")
         for egreso in self.egresos.all():
-            if egreso.tipo != TipoSalidaChoices.EGRESO:
+            if egreso.tipo not in TIPOS_QUE_RESTAN:
                 continue
             monto = egreso.monto or Decimal("0.00")
             if egreso.moneda == MONEDA_BS:
@@ -228,15 +233,17 @@ class DetalleCierre(models.Model):
 
 class TipoSalidaChoices(models.TextChoices):
     EGRESO = "EGRESO", "Egreso"
-    DEVOLUCION = "DEVOLUCION", "Devolución"
+    DEVOLUCION = "DEVOLUCION", "Salida"
+    CREDITO = "CREDITO", "Crédito"
+    INSUMOS = "INSUMOS", "Insumos"
     ABONO = "ABONO", "Abono"
 
 
 class EgresoCierre(models.Model):
-    """Vuelto de caja o devolución registrado durante el día.
+    """Salida registrada durante el día (vuelto de caja, salida, crédito, insumos o abono).
 
-    El vuelto de caja se resta del total general en Bs del cierre; la
-    devolución es solamente informativa.
+    Los tipos Egreso, Crédito e Insumos restan del total general en Bs del
+    cierre. Salida y Abono son informativos y no afectan el total.
     """
 
     cierre = models.ForeignKey(
@@ -249,7 +256,10 @@ class EgresoCierre(models.Model):
         max_length=12,
         choices=[
             (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
-            (TipoSalidaChoices.DEVOLUCION, "Devolución"),
+            (TipoSalidaChoices.DEVOLUCION, "Salida"),
+            (TipoSalidaChoices.CREDITO, "Crédito"),
+            (TipoSalidaChoices.INSUMOS, "Insumos"),
+            (TipoSalidaChoices.ABONO, "Abono"),
         ],
         default=TipoSalidaChoices.EGRESO,
         verbose_name="Tipo",
@@ -308,8 +318,12 @@ class EgresoCierre(models.Model):
 
     @property
     def es_vuelto(self):
-        """Indica si el registro es un vuelto de caja (resta del total en Bs)."""
-        return self.tipo == TipoSalidaChoices.EGRESO
+        """Indica si el registro resta del total en Bs (Egreso, Crédito o Insumos)."""
+        return self.tipo in {
+            TipoSalidaChoices.EGRESO,
+            TipoSalidaChoices.CREDITO,
+            TipoSalidaChoices.INSUMOS,
+        }
 
     @property
     def monto_bs(self):
@@ -329,7 +343,11 @@ class EgresoGeneral(models.Model):
 
     tipo = models.CharField(
         max_length=12,
-        choices=TipoSalidaChoices.choices,
+        choices=[
+            (TipoSalidaChoices.EGRESO, "Egreso"),
+            (TipoSalidaChoices.DEVOLUCION, "Devolución"),
+            (TipoSalidaChoices.ABONO, "Abono"),
+        ],
         default=TipoSalidaChoices.EGRESO,
         verbose_name="Tipo",
     )

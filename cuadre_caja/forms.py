@@ -248,7 +248,7 @@ class CierreCajaForm(forms.ModelForm):
 
 
 class EgresoCierreForm(forms.ModelForm):
-    """Fila de vuelto de caja o devolución dentro del cierre."""
+    """Fila de salida dentro del cierre (vuelto, salida, crédito, insumos o abono)."""
 
     tipo = forms.ChoiceField(
         label="Tipo",
@@ -256,7 +256,10 @@ class EgresoCierreForm(forms.ModelForm):
         choices=[
             ("", "Tipo"),
             (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
-            (TipoSalidaChoices.DEVOLUCION, "Devolución"),
+            (TipoSalidaChoices.DEVOLUCION, "Salida"),
+            (TipoSalidaChoices.CREDITO, "Crédito"),
+            (TipoSalidaChoices.INSUMOS, "Insumos"),
+            (TipoSalidaChoices.ABONO, "Abono"),
         ],
         widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
@@ -379,7 +382,7 @@ class EgresoCierreForm(forms.ModelForm):
             return cleaned_data
 
         if not tipo:
-            self.add_error("tipo", "Selecciona si es vuelto de caja o devolución.")
+            self.add_error("tipo", "Selecciona el tipo de salida.")
         if not moneda:
             self.add_error("moneda", "Selecciona la moneda.")
         if monto is None or monto <= 0:
@@ -415,7 +418,11 @@ class EgresoGeneralForm(forms.ModelForm):
     tipo = forms.ChoiceField(
         label="Tipo",
         required=True,
-        choices=TipoSalidaChoices.choices,
+        choices=[
+            (TipoSalidaChoices.EGRESO, "Egreso"),
+            (TipoSalidaChoices.DEVOLUCION, "Devolución"),
+            (TipoSalidaChoices.ABONO, "Abono"),
+        ],
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     cedula = forms.CharField(
