@@ -133,6 +133,13 @@
         <button type="button" class="btn btn-outline-danger" onclick="window.print()">
             <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir / PDF
         </button>
+        <form method="post" action="{% url 'cuadre_caja:cierre_eliminar' cierre.id %}" class="d-inline" id="form-eliminar-cierre-detalle">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'cuadre_caja:historial' %}">
+            <button type="button" class="btn btn-outline-danger" id="btn-eliminar-cierre-detalle" title="Eliminar este cierre">
+                <i class="bi bi-trash me-1"></i> Eliminar
+            </button>
+        </form>
         <a href="{% url 'cuadre_caja:departamento_detalle' caja.departamento.slug %}" class="btn btn-success">
             <i class="bi bi-grid me-1"></i> Volver al departamento
         </a>
@@ -484,4 +491,38 @@
         <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir / Guardar PDF
     </button>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const btnEliminar = document.getElementById('btn-eliminar-cierre-detalle');
+        if (btnEliminar) {
+            btnEliminar.addEventListener('click', function (e) {
+                e.preventDefault();
+                const form = document.getElementById('form-eliminar-cierre-detalle');
+                Swal.fire({
+                    title: '¿Eliminar este cierre de caja?',
+                    html: '<div class="text-start">' +
+                          '<p class="mb-2">Estás a punto de eliminar el cierre de <strong>{{ caja.nombre }} ({{ cierre.get_turno_display }}) del {{ cierre.fecha|date:"d/m/Y" }}</strong>.</p>' +
+                          '<div class="alert alert-warning py-2 px-3 small mb-0">' +
+                          '<i class="bi bi-exclamation-triangle me-1"></i> Esta acción no se puede deshacer y se actualizarán automáticamente todos los reportes.' +
+                          '</div>' +
+                          '</div>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    focusCancel: true
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}

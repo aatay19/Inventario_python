@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
 
 from .forms import (
     BANCOS_CHOICES,
@@ -1111,6 +1112,24 @@ def historial(request):
             "total_registros": paginator.count,
         },
     )
+
+
+@supervisor_required
+@require_POST
+def cierre_eliminar(request, cierre_id):
+    """Elimina un cierre de caja específico y sus datos relacionados."""
+    cierre = get_object_or_404(
+        CierreCaja.objects.select_related("caja__departamento"),
+        pk=cierre_id,
+    )
+    descripcion = f"Cierre de {cierre.caja.nombre} ({cierre.get_turno_display()}) del {cierre.fecha.strftime('%d/%m/%Y')}"
+    cierre.delete()
+    messages.success(request, f"{descripcion} ha sido eliminado exitosamente.")
+
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER")
+    if next_url:
+        return redirect(next_url)
+    return redirect("cuadre_caja:historial")
 
 
 @supervisor_required
