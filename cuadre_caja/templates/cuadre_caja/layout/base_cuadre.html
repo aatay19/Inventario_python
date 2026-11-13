@@ -188,12 +188,14 @@
         {% if messages %}
         {% for message in messages %}
         Swal.fire({
-            title: "{% if message.tags == 'success' %}¡Listo!{% elif message.tags == 'error' %}Error{% else %}Información{% endif %}",
-            text: "{{ message|escapejs }}",
-            icon: "{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}info{% endif %}",
+            title: "{% if message.tags == 'success' %}¡Listo!{% elif 'error' in message.tags %}Error{% elif 'warning' in message.tags %}Atención{% else %}Información{% endif %}",
+            html: "{{ message|escapejs }}",
+            icon: "{% if message.tags == 'success' %}success{% elif 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% else %}info{% endif %}",
             confirmButtonText: 'Aceptar',
             confirmButtonColor: '#0f766e',
-            timer: 4000
+            customClass: {
+                htmlContainer: 'text-start'
+            }
         });
         {% endfor %}
         {% endif %}

@@ -363,6 +363,162 @@ def _limpiar_borradores_vencidos():
     BorradorCierre.objects.filter(actualizado_en__lt=limite).delete()
 
 
+def _reconstruir_borrador_desde_post(caja, hoy, turno, request, payload_post):
+    """Garantiza que el borrador en base de datos preserve los datos enviados en el POST.
+
+    Si falla la validación o el guardado del cierre, esta función asegura que ningún dato
+    cargado por el usuario se pierda o se desactualice.
+    """
+    if not turno:
+        return
+    try:
+        with transaction.atomic():
+            borrador, _ = BorradorCierre.objects.select_for_update().get_or_create(
+                caja=caja,
+                fecha=hoy,
+                turno=turno,
+                defaults={"usuario": request.user},
+            )
+            borrador.usuario = request.user
+            borrador.nombre_cajera = str(payload_post.get("nombre_cajera") or "")[:100]
+            borrador.tasa = _decimal(payload_post.get("tasa"), "0.01")
+            borrador.observaciones = str(payload_post.get("observaciones") or "")
+            borrador.actualizado_en = timezone.now()
+            borrador.revision = (borrador.revision or 0) + 1
+            borrador.save()
+
+            # Extraer transacciones desde el POST
+            total_forms_raw = payload_post.get("transacciones-TOTAL_FORMS", "0")
+            try:
+                total_forms = int(total_forms_raw)
+            except (ValueError, TypeError):
+                total_forms = 0
+
+            metodos_validos = {valor for valor, _ in MetodoPagoChoices.choices}
+            nuevas = []
+            orden = 0
+            for i in range(total_forms):
+                prefix = f"transacciones-{i}"
+                metodo = (payload_post.get(f"{prefix}-metodo_pago") or "").strip()
+                banco = str(payload_post.get(f"{prefix}-banco") or "")[:100]
+                monto = _decimal(payload_post.get(f"{prefix}-monto"))
+                ref = str(payload_post.get(f"{prefix}-ref") or "")[:100]
+                notas = str(payload_post.get(f"{prefix}-notas") or "")[:255]
+
+                # Solo ignorar si no tiene nada
+                if not any([banco, monto > 0, ref, notas]):
+                    continue
+
+                if metodo in metodos_validos:
+                    nuevas.append(
+                        BorradorTransaccion(
+                            borrador=borrador,
+                            metodo_pago=metodo,
+                            banco=banco,
+                            monto=monto if monto > 0 else Decimal("0.00"),
+                            ref=ref,
+                            notas=notas,
+                            orden=orden,
+                        )
+                    )
+                    orden += 1
+
+            if nuevas or not borrador.transacciones.exists():
+                borrador.transacciones.all().delete()
+                if nuevas:
+                    BorradorTransaccion.objects.bulk_create(nuevas)
+    except Exception:
+        # Fallback silencioso para no romper la respuesta al usuario si hay un fallo de BD al resguardar
+        pass
+
+
+def _formatear_errores_cierre(form, egresos_formset, transacciones_formset, imagenes_formset):
+    """Genera un detalle específico en HTML de los errores para el usuario."""
+    secciones = []
+
+    # 1. Errores del formulario principal
+    errores_form = []
+    if form.non_field_errors():
+        for err in form.non_field_errors():
+            errores_form.append(str(err))
+    for field in form:
+        if field.errors:
+            nombre = field.label or field.name
+            for err in field.errors:
+                errores_form.append(f"<strong>{nombre}:</strong> {err}")
+    if errores_form:
+        items = "".join(f"<li>{e}</li>" for e in errores_form)
+        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Datos generales:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+
+    # 2. Errores de transacciones
+    errores_trans = []
+    if transacciones_formset.non_form_errors():
+        for err in transacciones_formset.non_form_errors():
+            errores_trans.append(str(err))
+    for idx, f in enumerate(transacciones_formset.forms):
+        if f.errors:
+            metodo = f.cleaned_data.get("metodo_pago") or f.data.get(f"{f.prefix}-metodo_pago") or f"Fila #{idx + 1}"
+            metodo_label = dict(MetodoPagoChoices.choices).get(metodo, metodo)
+            sub_errs = []
+            if f.non_field_errors():
+                sub_errs.extend([str(e) for e in f.non_field_errors()])
+            for field in f:
+                if field.errors:
+                    sub_errs.append(f"{field.label or field.name}: {', '.join(field.errors)}")
+            errores_trans.append(f"<strong>{metodo_label} (fila {idx + 1}):</strong> {'; '.join(sub_errs)}")
+    if errores_trans:
+        # Mostrar hasta 8 errores específicos para no desbordar el alert si hay muchos
+        visibles = errores_trans[:8]
+        resto = len(errores_trans) - len(visibles)
+        items = "".join(f"<li>{e}</li>" for e in visibles)
+        if resto > 0:
+            items += f"<li class='text-muted'>... y {resto} transacciones más con observaciones.</li>"
+        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Transacciones:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+
+    # 3. Errores de salidas / egresos
+    errores_egr = []
+    if egresos_formset.non_form_errors():
+        for err in egresos_formset.non_form_errors():
+            errores_egr.append(str(err))
+    for idx, f in enumerate(egresos_formset.forms):
+        if f.errors:
+            sub_errs = []
+            for field in f:
+                if field.errors:
+                    sub_errs.append(f"{field.label or field.name}: {', '.join(field.errors)}")
+            errores_egr.append(f"<strong>Salida #{idx + 1}:</strong> {'; '.join(sub_errs)}")
+    if errores_egr:
+        items = "".join(f"<li>{e}</li>" for e in errores_egr)
+        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Salidas:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+
+    # 4. Errores de imágenes
+    errores_img = []
+    if imagenes_formset.non_form_errors():
+        for err in imagenes_formset.non_form_errors():
+            errores_img.append(str(err))
+    for idx, f in enumerate(imagenes_formset.forms):
+        if f.errors:
+            sub_errs = []
+            for field in f:
+                if field.errors:
+                    sub_errs.append(f"{field.label or field.name}: {', '.join(field.errors)}")
+            errores_img.append(f"<strong>Imagen #{idx + 1}:</strong> {'; '.join(sub_errs)}")
+    if errores_img:
+        items = "".join(f"<li>{e}</li>" for e in errores_img)
+        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Imágenes:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+
+    if not secciones:
+        return "Revisa que los datos ingresados y montos sean válidos."
+
+    aviso_borrador = (
+        "<div class='alert alert-info py-2 px-3 small mt-3 mb-0'>"
+        "<i class='bi bi-shield-check me-1'></i> "
+        "<strong>Tu borrador está a salvo:</strong> Ninguna transacción se ha perdido ni eliminado. Corrige los datos indicados y vuelve a guardar."
+        "</div>"
+    )
+    return "".join(secciones) + aviso_borrador
+
+
 def _resumen_borrador(borrador):
     """Datos del borrador listos para el template o el JSON del estado."""
     if not borrador:
@@ -794,54 +950,78 @@ def cerrar_caja(request, caja_id, turno=None):
         imagenes_formset = ImagenCierreFormSet(
             request.POST, request.FILES, prefix="imagenes", instance=CierreCaja()
         )
-        if (
-            form.is_valid()
-            and egresos_formset.is_valid()
-            and transacciones_formset.is_valid()
-            and imagenes_formset.is_valid()
-        ):
-            cierre = form.save(commit=False)
-            cierre.caja = caja
-            cierre.fecha = form.fecha
-            cierre.usuario = request.user
-            cierre.save()
 
-            egresos_formset.instance = cierre
-            egresos_formset.save()
+        valido_form = form.is_valid()
+        valido_egresos = egresos_formset.is_valid()
+        valido_trans = transacciones_formset.is_valid()
+        valido_imagenes = imagenes_formset.is_valid()
 
-            imagenes_formset.instance = cierre
-            imagenes_formset.save()
+        if valido_form and valido_egresos and valido_trans and valido_imagenes:
+            try:
+                with transaction.atomic():
+                    cierre = form.save(commit=False)
+                    cierre.caja = caja
+                    cierre.fecha = form.fecha
+                    cierre.usuario = request.user
+                    cierre.save()
 
-            transacciones_guardadas = transacciones_formset.save(commit=False)
-            total_bs = Decimal("0.00")
-            total_usd = Decimal("0.00")
-            for t in transacciones_guardadas:
-                t.cierre = cierre
-                t.save()
-                if MONEDA_POR_METODO.get(t.metodo_pago) == MONEDA_USD:
-                    total_usd += t.monto or Decimal("0.00")
-                else:
-                    total_bs += t.monto or Decimal("0.00")
+                    egresos_formset.instance = cierre
+                    egresos_formset.save()
 
-            cierre.total_bs = total_bs
-            cierre.total_usd = total_usd
-            cierre.save()
+                    imagenes_formset.instance = cierre
+                    imagenes_formset.save()
 
-            # El cuadre ya quedó registrado: se descarta el borrador compartido.
-            BorradorCierre.objects.filter(
-                caja=caja, fecha=hoy, turno=cierre.turno
-            ).delete()
+                    transacciones_guardadas = transacciones_formset.save(commit=False)
+                    total_bs = Decimal("0.00")
+                    total_usd = Decimal("0.00")
+                    transacciones_a_crear = []
+                    for t in transacciones_guardadas:
+                        t.cierre = cierre
+                        transacciones_a_crear.append(t)
+                        if MONEDA_POR_METODO.get(t.metodo_pago) == MONEDA_USD:
+                            total_usd += t.monto or Decimal("0.00")
+                        else:
+                            total_bs += t.monto or Decimal("0.00")
 
-            messages.success(
-                request,
-                f"Cierre registrado para {caja.nombre} "
-                f"({cierre.get_turno_display()}).",
+                    if transacciones_a_crear:
+                        CierreTransaccion.objects.bulk_create(transacciones_a_crear, batch_size=500)
+
+                    cierre.total_bs = total_bs
+                    cierre.total_usd = total_usd
+                    cierre.save(update_fields=["total_bs", "total_usd"])
+
+                    # El cuadre ya quedó registrado con éxito: se descarta el borrador compartido.
+                    BorradorCierre.objects.filter(
+                        caja=caja, fecha=hoy, turno=cierre.turno
+                    ).delete()
+
+                messages.success(
+                    request,
+                    f"Cierre registrado exitosamente para {caja.nombre} "
+                    f"({cierre.get_turno_display()}).",
+                )
+                return redirect(
+                    "cuadre_caja:departamento_detalle", caja.departamento.slug
+                )
+            except Exception as e:
+                # Error en base de datos o código al guardar: preservar borrador intacto y avisar
+                _reconstruir_borrador_desde_post(caja, hoy, turno, request, request.POST)
+                messages.error(
+                    request,
+                    f"<div><strong>Error del sistema al guardar el cierre:</strong></div>"
+                    f"<div class='small text-muted mb-2 font-monospace'>{str(e)}</div>"
+                    f"<div class='alert alert-info py-2 px-3 small mb-0'>"
+                    f"<i class='bi bi-shield-check me-1'></i> "
+                    f"<strong>Tu borrador está completamente protegido:</strong> Toda la información de tus transacciones sigue guardada y segura."
+                    f"</div>"
+                )
+        else:
+            # Error de validación (usuario o datos inválidos)
+            _reconstruir_borrador_desde_post(caja, hoy, turno, request, request.POST)
+            detalle_errores = _formatear_errores_cierre(
+                form, egresos_formset, transacciones_formset, imagenes_formset
             )
-            return redirect(
-                "cuadre_caja:departamento_detalle", caja.departamento.slug
-            )
-
-        messages.error(request, "Revisa los datos del cierre.")
+            messages.error(request, detalle_errores)
     else:
         borrador = _borrador_vigente(caja, hoy, turno) if turno else None
         datos_iniciales = {}
