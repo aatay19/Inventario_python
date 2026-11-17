@@ -433,15 +433,20 @@
         <div class="card cc-card h-100 border-start border-4 border-secondary">
             <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
                 <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-secondary"></i>Conteo por método de pago</h5>
-                <p class="small text-muted mb-0">Cantidad de transacciones registradas por método en el periodo.</p>
+                <p class="small text-muted mb-0">Cantidad de transacciones y total en bolívares por método en el periodo.</p>
             </div>
             <div class="card-body px-3 px-lg-4 pb-3">
                 <ul class="list-group list-group-flush">
                     {% for item in conteo_metodos %}
                     <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <span>{{ item.metodo }}</span>
-                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
-                            {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
+                                Bs {{ item.total_bs|floatformat:2 }}
+                            </span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
+                                {{ item.cantidad }} {% if item.cantidad == 1 %}transacción{% else %}transacciones{% endif %}
+                            </span>
                         </span>
                     </li>
                     {% endfor %}

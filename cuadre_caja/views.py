@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 import json
@@ -1864,6 +1864,7 @@ def reportes(request):
     )
 
     conteo = Counter()
+    total_bs_por_metodo = defaultdict(lambda: Decimal("0.00"))
     transacciones_por_cierre = {}
     for transaccion in transacciones:
         transacciones_por_cierre.setdefault(
@@ -1875,12 +1876,35 @@ def reportes(request):
 
     for cierre in cierres:
         registros = transacciones_por_cierre.get(cierre.id)
-        if not registros:
+        usa_detalles = not registros
+        if usa_detalles:
             registros = detalles_por_cierre.get(cierre.id, [])
-        conteo.update(registro.metodo_pago for registro in registros)
+        for registro in registros:
+            conteo[registro.metodo_pago] += 1
+            if usa_detalles:
+                monto_bs = registro.monto_bs or Decimal("0.00")
+                monto_usd = registro.monto_usd or Decimal("0.00")
+                total_bs_por_metodo[registro.metodo_pago] += monto_bs
+                if monto_usd and cierre.tasa:
+                    total_bs_por_metodo[registro.metodo_pago] += (
+                        monto_usd * cierre.tasa
+                    )
+            else:
+                monto = registro.monto or Decimal("0.00")
+                if MONEDA_POR_METODO.get(registro.metodo_pago) == MONEDA_USD:
+                    if cierre.tasa:
+                        total_bs_por_metodo[registro.metodo_pago] += (
+                            monto * cierre.tasa
+                        )
+                else:
+                    total_bs_por_metodo[registro.metodo_pago] += monto
 
     conteo_metodos = [
-        {"metodo": etiqueta, "cantidad": conteo[valor]}
+        {
+            "metodo": etiqueta,
+            "cantidad": conteo[valor],
+            "total_bs": total_bs_por_metodo[valor],
+        }
         for valor, etiqueta in MetodoPagoChoices.choices
         if conteo.get(valor)
     ]
