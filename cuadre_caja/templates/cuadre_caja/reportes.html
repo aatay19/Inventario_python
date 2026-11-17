@@ -272,82 +272,126 @@
     </div>
 </div>
 
-{% if grupos %}
+{% if secciones_departamento %}
 <div class="card cc-card mb-4">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
         <h5 class="mb-0 fw-bold">Resumen por departamento, caja y turno</h5>
-        <p class="small text-muted mb-0">Subtotales por cada nivel del periodo seleccionado.</p>
+        <p class="small text-muted mb-0">
+            Un bloque por cada departamento existente. Los departamentos sin cierres en el periodo se muestran en cero.
+        </p>
     </div>
-    <div class="card-body px-3 px-lg-4 pb-0">
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Caja</th>
-                        <th>Turno</th>
-                        <th class="text-end">Cierres</th>
-                        <th class="text-end">Total Bs</th>
-                        <th class="text-end">Total USD</th>
-                        <th class="text-end">Total en Bs</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for grupo in grupos %}
-                    <tr class="table-light">
-                        <td colspan="6" class="fw-bold text-uppercase small">
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="accordion" id="acordeon-departamentos">
+            {% for grupo in secciones_departamento %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="encabezado-depto-{{ grupo.departamento.id }}">
+                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#depto-{{ grupo.departamento.id }}"
+                        aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                        aria-controls="depto-{{ grupo.departamento.id }}">
+                        <span class="fw-bold text-uppercase small">
                             <i class="bi bi-diagram-3 me-1"></i>{{ grupo.departamento.nombre }}
-                        </td>
-                    </tr>
-                    {% for caja_item in grupo.lista_cajas %}
-                    {% for turno_item in caja_item.lista_turnos %}
-                    <tr>
-                        {% if forloop.first %}
-                        <td rowspan="{{ caja_item.lista_turnos|length }}" class="fw-semibold">
-                            {{ caja_item.caja.nombre }}
-                        </td>
+                        </span>
+                        {% if not grupo.departamento.activo %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-2">Inactivo</span>
                         {% endif %}
-                        <td>
-                            <span class="badge bg-light text-secondary border">{{ turno_item.turno }}</span>
-                        </td>
-                        <td class="text-end">{{ turno_item.cantidad }}</td>
-                        <td class="text-end monto">{{ turno_item.total_bs|floatformat:2 }}</td>
-                        <td class="text-end monto">{{ turno_item.total_usd|floatformat:2 }}</td>
-                        <td class="text-end monto">{{ turno_item.total_equivalente_bs|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr class="border-top">
-                        <td colspan="2" class="text-end small fw-semibold text-muted">
-                            Subtotal {{ caja_item.caja.nombre }}
-                        </td>
-                        <td class="text-end small fw-semibold">{{ caja_item.cantidad }}</td>
-                        <td class="text-end small fw-semibold monto">{{ caja_item.total_bs|floatformat:2 }}</td>
-                        <td class="text-end small fw-semibold monto">{{ caja_item.total_usd|floatformat:2 }}</td>
-                        <td class="text-end small fw-semibold monto">{{ caja_item.total_equivalente_bs|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr class="table-light fw-bold">
-                        <td colspan="2" class="text-end">Total {{ grupo.departamento.nombre }}</td>
-                        <td class="text-end">{{ grupo.cantidad }}</td>
-                        <td class="text-end monto">{{ grupo.total_bs|floatformat:2 }}</td>
-                        <td class="text-end monto">{{ grupo.total_usd|floatformat:2 }}</td>
-                        <td class="text-end monto">{{ grupo.total_equivalente_bs|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr class="fw-bold">
-                        <td colspan="2" class="text-end">Total general</td>
-                        <td class="text-end">{{ total_general.cantidad }}</td>
-                        <td class="text-end monto">Bs {{ total_general.total_bs|floatformat:2 }}</td>
-                        <td class="text-end monto">USD {{ total_general.total_usd|floatformat:2 }}</td>
-                        <td class="text-end monto">Bs {{ total_general.total_equivalente_bs|floatformat:2 }}</td>
-                    </tr>
-                </tfoot>
-            </table>
+                        <span class="badge bg-light text-secondary border ms-2">
+                            {{ grupo.cantidad }} cierre{{ grupo.cantidad|pluralize }}
+                        </span>
+                        <span class="ms-auto d-none d-md-flex gap-3 pe-2 small">
+                            <span class="text-muted">Bs {{ grupo.total_bs|floatformat:2 }}</span>
+                            <span class="text-muted">USD {{ grupo.total_usd|floatformat:2 }}</span>
+                            <span class="fw-semibold">Total Bs {{ grupo.total_equivalente_bs|floatformat:2 }}</span>
+                        </span>
+                    </button>
+                </h2>
+                <div id="depto-{{ grupo.departamento.id }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+                    aria-labelledby="encabezado-depto-{{ grupo.departamento.id }}">
+                    <div class="accordion-body px-0 pb-0">
+                        {% if grupo.lista_cajas %}
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Caja</th>
+                                        <th>Turno</th>
+                                        <th class="text-end">Cierres</th>
+                                        <th class="text-end">Total Bs</th>
+                                        <th class="text-end">Total USD</th>
+                                        <th class="text-end">Total en Bs</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for caja_item in grupo.lista_cajas %}
+                                    {% for turno_item in caja_item.lista_turnos %}
+                                    <tr>
+                                        {% if forloop.first %}
+                                        <td rowspan="{{ caja_item.lista_turnos|length }}" class="fw-semibold">
+                                            {{ caja_item.caja.nombre }}
+                                        </td>
+                                        {% endif %}
+                                        <td>
+                                            <span class="badge bg-light text-secondary border">{{ turno_item.turno }}</span>
+                                        </td>
+                                        <td class="text-end">{{ turno_item.cantidad }}</td>
+                                        <td class="text-end monto">{{ turno_item.total_bs|floatformat:2 }}</td>
+                                        <td class="text-end monto">{{ turno_item.total_usd|floatformat:2 }}</td>
+                                        <td class="text-end monto">{{ turno_item.total_equivalente_bs|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="border-top">
+                                        <td colspan="2" class="text-end small fw-semibold text-muted">
+                                            Subtotal {{ caja_item.caja.nombre }}
+                                        </td>
+                                        <td class="text-end small fw-semibold">{{ caja_item.cantidad }}</td>
+                                        <td class="text-end small fw-semibold monto">{{ caja_item.total_bs|floatformat:2 }}</td>
+                                        <td class="text-end small fw-semibold monto">{{ caja_item.total_usd|floatformat:2 }}</td>
+                                        <td class="text-end small fw-semibold monto">{{ caja_item.total_equivalente_bs|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-muted small px-3 py-3 mb-0">
+                            <i class="bi bi-inbox me-1"></i>Este departamento no tiene cierres en el periodo.
+                        </p>
+                        {% endif %}
+
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light rounded-3 px-3 py-2 mt-3">
+                            <span class="fw-semibold">Total {{ grupo.departamento.nombre }}</span>
+                            <span class="small text-muted">Cierres: <strong class="text-dark">{{ grupo.cantidad }}</strong></span>
+                            <span class="small text-muted">Bs <strong class="text-dark">{{ grupo.total_bs|floatformat:2 }}</strong></span>
+                            <span class="small text-muted">USD <strong class="text-dark">{{ grupo.total_usd|floatformat:2 }}</strong></span>
+                            <span class="small text-muted">Total en Bs <strong class="text-dark">{{ grupo.total_equivalente_bs|floatformat:2 }}</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 border-top mt-3 pt-3 fw-bold">
+            <span>Total general</span>
+            <span class="small">Cierres: {{ total_general.cantidad }}</span>
+            <span class="small">Bs {{ total_general.total_bs|floatformat:2 }}</span>
+            <span class="small">USD {{ total_general.total_usd|floatformat:2 }}</span>
+            <span class="small">Total en Bs {{ total_general.total_equivalente_bs|floatformat:2 }}</span>
         </div>
     </div>
 </div>
+{% else %}
+<div class="card cc-card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox fs-1 text-muted"></i>
+        <p class="mb-0 mt-2 text-muted">
+            No hay departamentos registrados para mostrar.
+        </p>
+    </div>
+</div>
+{% endif %}
 
+{% if grupos %}
 <div class="card cc-card">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
         <h5 class="mb-0 fw-bold">Resumen por turno</h5>
@@ -377,15 +421,6 @@
                 </tbody>
             </table>
         </div>
-    </div>
-</div>
-{% else %}
-<div class="card cc-card">
-    <div class="card-body text-center py-5">
-        <i class="bi bi-inbox fs-1 text-muted"></i>
-        <p class="mb-0 mt-2 text-muted">
-            No hay cierres registrados para los filtros seleccionados.
-        </p>
     </div>
 </div>
 {% endif %}

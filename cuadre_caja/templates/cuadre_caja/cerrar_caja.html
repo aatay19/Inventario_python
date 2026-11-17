@@ -206,14 +206,19 @@
                 </div>
 
                 <div class="col-12 col-md-6 col-xl-3">
-                    <label for="{{ form.nombre_cajera.id_for_label }}" class="form-label fw-semibold">{{ form.nombre_cajera.label }}</label>
+                    <label for="{{ form.nombre_cajera.id_for_label }}" class="form-label fw-semibold">
+                        {{ form.nombre_cajera.label }} <span class="text-danger" title="Obligatorio">*</span>
+                    </label>
                     {{ form.nombre_cajera }}
                     {% for error in form.nombre_cajera.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                 </div>
 
                 <div class="col-12 col-md-6 col-xl-3">
-                    <label for="{{ form.tasa.id_for_label }}" class="form-label fw-semibold">{{ form.tasa.label }}</label>
+                    <label for="{{ form.tasa.id_for_label }}" class="form-label fw-semibold">
+                        {{ form.tasa.label }} <span class="text-danger" title="Obligatorio">*</span>
+                    </label>
                     {{ form.tasa }}
+                    <div class="form-text">Obligatoria: se usa para convertir los montos en dólares.</div>
                     {% for error in form.tasa.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                 </div>
 
@@ -264,13 +269,21 @@
                                 <span class="fw-semibold text-dark">{{ tarjeta.etiqueta }}</span>
                                 <span class="badge bg-secondary-subtle text-secondary-emphasis small">Bs</span>
                             </div>
+                            {% if not tarjeta.corregir %}
                             <button type="button"
                                 class="btn btn-sm btn-outline-teal btn-agregar-fila"
                                 data-metodo="{{ tarjeta.valor }}"
                                 style="border-color:#0f766e;color:#0f766e;">
                                 <i class="bi bi-plus-lg me-1"></i>Añadir transacción
                             </button>
+                            {% endif %}
                         </div>
+                        {% if tarjeta.corregir %}
+                        <div class="alert alert-warning border-0 rounded-0 py-2 px-3 small mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Estas filas tienen datos pero no un método de pago válido. Elige el método y vuelve a guardar: no se ha borrado nada.
+                        </div>
+                        {% endif %}
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle mb-0">
@@ -285,11 +298,18 @@
                                             {% endif %}
                                         </tr>
                                     </thead>
-                                    <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
+                                    <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}"{% if tarjeta.corregir %} data-corregir="1"{% endif %}>
                                         {% for f in tarjeta.forms %}
                                         <tr class="fila-transaccion">
-                                            {{ f.metodo_pago.as_hidden }}
                                             <td>
+                                                {% if tarjeta.corregir %}
+                                                <div class="mb-1">
+                                                    {{ f.metodo_pago }}
+                                                    {% for e in f.metodo_pago.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                </div>
+                                                {% else %}
+                                                {{ f.metodo_pago.as_hidden }}
+                                                {% endif %}
                                                 {{ f.banco }}
                                                 {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                             </td>
@@ -351,13 +371,21 @@
                                 <span class="fw-semibold text-dark">{{ tarjeta.etiqueta }}</span>
                                 <span class="badge bg-info-subtle text-info-emphasis small">USD</span>
                             </div>
+                            {% if not tarjeta.corregir %}
                             <button type="button"
                                 class="btn btn-sm btn-agregar-fila"
                                 data-metodo="{{ tarjeta.valor }}"
                                 style="border:1px solid #0284c7;color:#0284c7;">
                                 <i class="bi bi-plus-lg me-1"></i>Añadir transacción
                             </button>
+                            {% endif %}
                         </div>
+                        {% if tarjeta.corregir %}
+                        <div class="alert alert-warning border-0 rounded-0 py-2 px-3 small mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Estas filas tienen datos pero no un método de pago válido. Elige el método y vuelve a guardar: no se ha borrado nada.
+                        </div>
+                        {% endif %}
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle mb-0">
@@ -372,11 +400,18 @@
                                             {% endif %}
                                         </tr>
                                     </thead>
-                                    <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}">
+                                    <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}"{% if tarjeta.corregir %} data-corregir="1"{% endif %}>
                                         {% for f in tarjeta.forms %}
                                         <tr class="fila-transaccion">
-                                            {{ f.metodo_pago.as_hidden }}
                                             <td>
+                                                {% if tarjeta.corregir %}
+                                                <div class="mb-1">
+                                                    {{ f.metodo_pago }}
+                                                    {% for e in f.metodo_pago.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                </div>
+                                                {% else %}
+                                                {{ f.metodo_pago.as_hidden }}
+                                                {% endif %}
                                                 {{ f.banco }}
                                                 {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                             </td>
@@ -426,7 +461,7 @@
                     </td>
                     <td>
                         <input type="text" name="transacciones-__prefix__-ref" id="id_transacciones-__prefix__-ref"
-                               class="form-control form-control-sm" placeholder="Referencia"
+                               class="form-control form-control-sm" placeholder="Referencia" maxlength="100"
                                inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
                     </td>
                     <td>
@@ -919,6 +954,12 @@
         let borradorDesactivado = false;
         let revisionActual = parseInt(form.dataset.borradorRevision || '0', 10) || 0;
         let ultimoGuardado = [];
+        // Firma del último estado confirmado por el servidor. Sirve para saber
+        // si hay filas escritas aquí que todavía no se han guardado y que, por
+        // lo tanto, nunca deben descartarse al sincronizar con otro usuario.
+        let firmaGuardada = '';
+        let reintentosConflicto = 0;
+        let ultimoAvisoRemoto = 0;
 
         function marcarEstadoBorrador(texto, clases) {
             if (!estadoBorrador) return;
@@ -936,15 +977,28 @@
                 const inputMonto = fila.querySelector('input[name$="-monto"]');
                 const inputRef = fila.querySelector('input[name$="-ref"]');
                 const inputNotas = fila.querySelector('input[name$="-notas"]');
+                const banco = selectBanco ? selectBanco.value : '';
                 const monto = numero(inputMonto ? inputMonto.value : 0);
-                if (monto <= 0) return;
+                const ref = inputRef ? inputRef.value : '';
+                const notas = inputNotas ? inputNotas.value : '';
+
+                // Se conserva toda fila con datos, aunque falte el monto: el
+                // borrador es la única copia de seguridad si se recarga la página.
+                if (
+                    !monto &&
+                    !String(banco).trim() &&
+                    !String(ref).trim() &&
+                    !String(notas).trim()
+                ) {
+                    return;
+                }
 
                 transacciones.push({
                     metodo_pago: metodoEl.value,
-                    banco: selectBanco ? selectBanco.value : '',
+                    banco: banco,
                     monto: monto,
-                    ref: inputRef ? inputRef.value : '',
-                    notas: inputNotas ? inputNotas.value : ''
+                    ref: ref,
+                    notas: notas
                 });
             });
 
@@ -959,6 +1013,18 @@
         // Último estado confirmado por el servidor; sirve para saber qué cambió
         // el otro usuario y no confundirlo con lo que se está escribiendo aquí.
         ultimoGuardado = datosBorrador().transacciones;
+        firmaGuardada = firmaTransacciones(ultimoGuardado);
+
+        function hayCambiosLocales() {
+            return firmaTransacciones(datosBorrador().transacciones) !== firmaGuardada;
+        }
+
+        function avisarCambioRemotoPendiente(texto) {
+            const ahora = Date.now();
+            if (ahora - ultimoAvisoRemoto < 20000) return;
+            ultimoAvisoRemoto = ahora;
+            mostrarAlertaRemota(texto);
+        }
 
         function guardarBorrador() {
             if (!borradorUrl || borradorDesactivado) return;
@@ -1007,19 +1073,44 @@
                 })
                 .then(function (resultado) {
                     if (resultado && resultado.conflicto) {
-                        // Otro usuario guardó primero: se adopta su estado y se
-                        // avisa, en lugar de sobrescribir sus cambios.
                         const actual = resultado.cuerpo && resultado.cuerpo.borrador;
-                        if (actual) {
-                            aplicarCambioRemoto(actual);
+                        if (!actual) {
+                            borradorPendiente = false;
+                            return;
                         }
+                        const mismoUsuario = String(actual.usuario_id) === String(miUsuarioId);
+                        if (mismoUsuario && reintentosConflicto < 3) {
+                            // Es otra pestaña del mismo usuario: se adopta la
+                            // revisión y se reenvía lo escrito aquí, sin perder
+                            // ninguna fila de este formulario.
+                            reintentosConflicto += 1;
+                            revisionActual = actual.revision || revisionActual;
+                            borradorPendiente = true;
+                            return;
+                        }
+                        if (hayCambiosLocales()) {
+                            // Otro usuario guardó primero. No se descarta nada de
+                            // lo que está escrito aquí; solo se avisa.
+                            revisionActual = actual.revision || revisionActual;
+                            borradorPendiente = false;
+                            avisarCambioRemotoPendiente(
+                                autorCambio(actual) + ' ' + (actual.usuario || 'otro usuario') +
+                                ' actualizó el borrador. Tus transacciones se conservan; ' +
+                                'revisa los totales antes de guardar el cierre.'
+                            );
+                            return;
+                        }
+                        // Sin cambios locales pendientes: se adopta su estado.
+                        aplicarCambioRemoto(actual);
                         borradorPendiente = false;
                         return;
                     }
                     if (resultado && resultado.borrador) {
                         revisionActual = resultado.borrador.revision;
                     }
+                    reintentosConflicto = 0;
                     ultimoGuardado = datos.transacciones;
+                    firmaGuardada = firmaTransacciones(datos.transacciones);
                     const hora = new Date().toLocaleTimeString('es-VE', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -1104,6 +1195,34 @@
                 t.ref || '',
                 t.notas || ''
             ].join('|');
+        }
+
+        // Firma del conjunto de transacciones (sin importar el orden de las filas).
+        function firmaTransacciones(lista) {
+            return (lista || []).map(function (t) {
+                return claveTransaccion(t);
+            }).sort().join('##');
+        }
+
+        // Cuenta las transacciones visibles en el formulario que no están en la
+        // lista remota (comparando como multiconjunto).
+        function filasLocalesQueFaltanEn(remotas) {
+            const disponibles = {};
+            (remotas || []).forEach(function (t) {
+                const clave = claveTransaccion(t);
+                disponibles[clave] = (disponibles[clave] || 0) + 1;
+            });
+
+            let faltan = 0;
+            datosBorrador().transacciones.forEach(function (t) {
+                const clave = claveTransaccion(t);
+                if (disponibles[clave]) {
+                    disponibles[clave] -= 1;
+                } else {
+                    faltan += 1;
+                }
+            });
+            return faltan;
         }
 
         function compararTransacciones(locales, remotas) {
@@ -1192,10 +1311,22 @@
                 '. El formulario se actualizó automáticamente.';
         }
 
+        // Índice con el que se inserta una fila nueva. Se usa un número (nunca
+        // un texto como "TEMP") porque Django solo lee las filas cuyo prefijo
+        // coincide con su posición dentro de TOTAL_FORMS.
+        function siguienteIndiceTransaccion() {
+            const filas = document.querySelectorAll('.cuerpo-metodo tr.fila-transaccion');
+            if (totalFormsTransacciones) {
+                const total = parseInt(totalFormsTransacciones.value, 10);
+                if (!isNaN(total) && total > filas.length) return total;
+            }
+            return filas.length;
+        }
+
         function insertarFilaVacia(tbody, metodo) {
             if (!plantillaFila) return null;
             const html = plantillaFila.innerHTML
-                .replace(/__prefix__/g, 'TEMP')
+                .replace(/__prefix__/g, siguienteIndiceTransaccion())
                 .replace(/__metodo__/g, metodo);
             tbody.insertAdjacentHTML('beforeend', html);
             return tbody.lastElementChild;
@@ -1209,6 +1340,9 @@
             });
 
             document.querySelectorAll('.cuerpo-metodo').forEach(function (tbody) {
+                // La tarjeta de corrección contiene filas locales que el
+                // servidor aún no conoce: no se reemplaza al sincronizar.
+                if (tbody.dataset.corregir) return;
                 const metodo = tbody.dataset.metodo;
                 const filas = porMetodo[metodo] || [];
                 tbody.innerHTML = '';
@@ -1243,10 +1377,25 @@
                     notas: t.notas
                 };
             });
+            firmaGuardada = firmaTransacciones(ultimoGuardado);
         }
 
         function aplicarCambioRemoto(borrador) {
             const remotas = borrador.transacciones || [];
+
+            // Nunca se descarta una fila que esté en pantalla, aunque el otro
+            // usuario la haya eliminado o modificado: solo se avisa.
+            const localesPerdidas = filasLocalesQueFaltanEn(remotas);
+            if (localesPerdidas > 0) {
+                avisarCambioRemotoPendiente(
+                    autorCambio(borrador) + ' ' + (borrador.usuario || 'otro usuario') +
+                    ' cambió el borrador y ' + localesPerdidas + ' ' +
+                    plural(localesPerdidas, 'transacción tuya ya no está allí', 'transacciones tuyas ya no están allí') +
+                    '. No se borró ninguna de este formulario; revisa los totales antes de guardar el cierre.'
+                );
+                return;
+            }
+
             const diff = compararTransacciones(ultimoGuardado, remotas);
             aplicarTransaccionesRemotas(remotas);
             revisionActual = borrador.revision || revisionActual;
@@ -1282,6 +1431,16 @@
                     if (String(borrador.usuario_id) === String(miUsuarioId)) {
                         // El cambio es de este usuario (por ejemplo, otra pestaña).
                         revisionActual = borrador.revision;
+                        return;
+                    }
+                    if (hayCambiosLocales()) {
+                        // Hay filas escritas aquí que todavía no se guardan: no
+                        // se reemplaza el formulario para no perderlas.
+                        avisarCambioRemotoPendiente(
+                            autorCambio(borrador) + ' ' + (borrador.usuario || 'otro usuario') +
+                            ' actualizó el borrador. Tus transacciones se conservan; ' +
+                            'revisa los totales antes de guardar el cierre.'
+                        );
                         return;
                     }
                     aplicarCambioRemoto(borrador);
@@ -1360,17 +1519,138 @@
             const filas = document.querySelectorAll('.cuerpo-metodo tr.fila-transaccion');
             filas.forEach(function (fila, idx) {
                 fila.querySelectorAll('input, select, textarea').forEach(function (el) {
+                    // Se acepta cualquier prefijo (numérico o no) para poder
+                    // reparar filas insertadas por JavaScript con marcadores
+                    // como "TEMP": si el prefijo no es numérico Django las
+                    // descarta sin avisar y el cierre se guardaría incompleto.
                     if (el.name && el.name.startsWith('transacciones-')) {
-                        el.name = el.name.replace(/^transacciones-\d+-/, 'transacciones-' + idx + '-');
+                        el.name = el.name.replace(/^transacciones-[^-]+-/, 'transacciones-' + idx + '-');
                     }
                     if (el.id && el.id.startsWith('id_transacciones-')) {
-                        el.id = el.id.replace(/^id_transacciones-\d+-/, 'id_transacciones-' + idx + '-');
+                        el.id = el.id.replace(/^id_transacciones-[^-]+-/, 'id_transacciones-' + idx + '-');
                     }
                 });
             });
             if (totalFormsTransacciones) {
                 totalFormsTransacciones.value = filas.length;
             }
+        }
+
+        // Verifica que cada fila vaya numerada como corresponde y que
+        // TOTAL_FORMS coincida con las filas visibles antes de enviar.
+        function formularioListoParaEnviar() {
+            reindexarTransacciones();
+            reindexarImagenes();
+            if (!totalFormsTransacciones) return true;
+            const filas = Array.from(document.querySelectorAll('.cuerpo-metodo tr.fila-transaccion'));
+            const total = parseInt(totalFormsTransacciones.value, 10);
+            if (isNaN(total) || total !== filas.length) return false;
+            return filas.every(function (fila, idx) {
+                return Array.from(fila.querySelectorAll('[name]')).every(function (el) {
+                    return !el.name || !el.name.startsWith('transacciones-') ||
+                        el.name.indexOf('transacciones-' + idx + '-') === 0;
+                });
+            });
+        }
+
+        // Devuelve las filas que tienen datos pero les falta el método de pago.
+        // Esas filas no se borran: se marcan para que el usuario elija uno.
+        function filasSinMetodo() {
+            const problemas = [];
+            document.querySelectorAll('.cuerpo-metodo tr.fila-transaccion').forEach(function (fila, idx) {
+                const metodo = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
+                if (metodo && String(metodo.value || '').trim() !== '') return;
+                const tieneDatos = Array.from(fila.querySelectorAll('input, select, textarea')).some(function (el) {
+                    if (!el.name) return false;
+                    if (el.name.endsWith('-metodo_pago') || el.name.endsWith('-DELETE')) return false;
+                    if (el.type === 'hidden' || el.type === 'checkbox' || el.type === 'file') return false;
+                    return String(el.value || '').trim() !== '';
+                });
+                if (tieneDatos) problemas.push('Fila ' + (idx + 1) + ' (sin método de pago)');
+            });
+            return problemas;
+        }
+
+        // Filas con datos a las que les falta el monto: el servidor las
+        // rechazaría y la cajera podría creer que se guardaron.
+        function filasSinMonto() {
+            const problemas = [];
+            document.querySelectorAll('.cuerpo-metodo tr.fila-transaccion').forEach(function (fila) {
+                const inputMonto = fila.querySelector('input[name$="-monto"]');
+                const selectBanco = fila.querySelector('select[name$="-banco"]');
+                const inputRef = fila.querySelector('input[name$="-ref"]');
+                const inputNotas = fila.querySelector('input[name$="-notas"]');
+                const monto = numero(inputMonto ? inputMonto.value : 0);
+                const banco = selectBanco ? String(selectBanco.value).trim() : '';
+                const ref = inputRef ? String(inputRef.value).trim() : '';
+                const notas = inputNotas ? String(inputNotas.value).trim() : '';
+                if (!monto && !banco && !ref && !notas) return;
+                if (monto > 0) return;
+
+                const tarjeta = fila.closest('.tarjeta-metodo');
+                const etiqueta = tarjeta
+                    ? (tarjeta.querySelector('.card-header .fw-semibold') || {}).textContent
+                    : '';
+                problemas.push((etiqueta || 'Método sin identificar') + ' — falta el monto');
+            });
+            return problemas;
+        }
+
+        // Salidas con datos pero incompletas: el servidor las rechazaría y el
+        // cierre no se guardaría. Se avisa antes de enviar, sin borrar nada.
+        function filasEgresoIncompletas() {
+            const problemas = [];
+            document.querySelectorAll('#cuerpo-egresos tr.fila-egreso').forEach(function (fila, idx) {
+                const valor = function (sufijo) {
+                    const el = fila.querySelector('[name$="' + sufijo + '"]');
+                    return el ? String(el.value || '').trim() : '';
+                };
+                const tipo = valor('-tipo');
+                const moneda = valor('-moneda');
+                const monto = numero(valor('-monto'));
+                const archivo = fila.querySelector('input[type="file"]');
+                const tieneArchivo = archivo && archivo.files && archivo.files.length > 0;
+                const datos = [
+                    tipo,
+                    moneda,
+                    monto ? String(monto) : '',
+                    valor('-cedula'),
+                    valor('-telefono'),
+                    valor('-banco'),
+                    valor('-referencia'),
+                    tieneArchivo ? 'archivo' : ''
+                ];
+                // Fila completamente vacía: se ignora, igual que en el servidor.
+                if (!datos.some(function (dato) { return dato; })) return;
+
+                const faltas = [];
+                if (!tipo) faltas.push('tipo');
+                if (!moneda) faltas.push('moneda');
+                if (!monto) faltas.push('monto mayor a cero');
+                if (faltas.length) {
+                    problemas.push('Salida ' + (idx + 1) + ': falta ' + faltas.join(', '));
+                }
+            });
+            return problemas;
+        }
+
+        // Imágenes con título pero sin archivo (o al revés): el servidor las
+        // rechazaría. Se conserva lo escrito y se pide completar la fila.
+        function imagenesIncompletas() {
+            const problemas = [];
+            document.querySelectorAll('#cuerpo-imagenes .fila-imagen').forEach(function (fila, idx) {
+                const titulo = fila.querySelector('input[name$="-titulo"]');
+                const archivo = fila.querySelector('input[type="file"]');
+                const conTitulo = !!(titulo && String(titulo.value || '').trim());
+                const conArchivo = !!(archivo && archivo.files && archivo.files.length > 0);
+                if (!conTitulo && !conArchivo) return;
+                if (conTitulo && !conArchivo) {
+                    problemas.push('Imagen ' + (idx + 1) + ': falta seleccionar el archivo');
+                } else if (conArchivo && !conTitulo) {
+                    problemas.push('Imagen ' + (idx + 1) + ': falta el título');
+                }
+            });
+            return problemas;
         }
 
         // Botones "Añadir transacción" (uno por cada método)
@@ -1380,9 +1660,10 @@
                 const tbody = document.getElementById('cuerpo-' + metodo);
                 if (!tbody || !plantillaFila) return;
 
-                // Usamos un marcador temporal y reindexamos inmediatamente
+                // La fila se inserta ya con un índice numérico y luego se
+                // renumera todo para que coincida con TOTAL_FORMS.
                 const html = plantillaFila.innerHTML
-                    .replace(/__prefix__/g, 'TEMP')
+                    .replace(/__prefix__/g, siguienteIndiceTransaccion())
                     .replace(/__metodo__/g, metodo);
                 tbody.insertAdjacentHTML('beforeend', html);
                 reindexarTransacciones();
@@ -1458,11 +1739,51 @@
         const contadorImagenes = document.getElementById('contador-imagenes');
         const MAX_IMAGENES = 5;
 
+        // Renumera las filas de imágenes y ajusta TOTAL_FORMS al número real de
+        // filas. Sin esto, quitar una fila y añadir otra dejaba TOTAL_FORMS por
+        // encima de max_num (5) y Django rechazaba el cierre completo con un
+        // error de "at most 5 forms", sin dejar guardar.
+        function reindexarImagenes() {
+            if (!cuerpoImagenes || !totalFormsImagenes) return;
+            const filas = cuerpoImagenes.querySelectorAll('.fila-imagen');
+            filas.forEach(function (fila, idx) {
+                fila.querySelectorAll('input, select, textarea').forEach(function (el) {
+                    if (el.name && /^imagenes-[^-]+-/.test(el.name)) {
+                        el.name = el.name.replace(/^imagenes-[^-]+-/, 'imagenes-' + idx + '-');
+                    }
+                    if (el.id && el.id.indexOf('id_imagenes-') === 0) {
+                        el.id = el.id.replace(/^id_imagenes-[^-]+-/, 'id_imagenes-' + idx + '-');
+                    }
+                });
+                fila.querySelectorAll('label[for]').forEach(function (etiqueta) {
+                    if (etiqueta.htmlFor && etiqueta.htmlFor.indexOf('id_imagenes-') === 0) {
+                        etiqueta.htmlFor = etiqueta.htmlFor.replace(
+                            /^id_imagenes-[^-]+-/, 'id_imagenes-' + idx + '-'
+                        );
+                    }
+                });
+            });
+            totalFormsImagenes.value = filas.length;
+        }
+
+        function imagenesAdjuntas() {
+            if (!cuerpoImagenes) return 0;
+            let total = 0;
+            cuerpoImagenes.querySelectorAll('.fila-imagen').forEach(function (fila) {
+                const titulo = fila.querySelector('input[name$="-titulo"]');
+                const archivo = fila.querySelector('input[type="file"]');
+                const conTitulo = titulo && String(titulo.value || '').trim();
+                const conArchivo = archivo && archivo.files && archivo.files.length > 0;
+                if (conTitulo || conArchivo) total += 1;
+            });
+            return total;
+        }
+
         function actualizarImagenes() {
             if (!cuerpoImagenes) return;
             const filas = cuerpoImagenes.querySelectorAll('.fila-imagen');
             if (contadorImagenes) {
-                contadorImagenes.textContent = filas.length + ' de ' + MAX_IMAGENES + ' imágenes.';
+                contadorImagenes.textContent = imagenesAdjuntas() + ' de ' + MAX_IMAGENES + ' imágenes.';
             }
             if (btnAgregarImagen) {
                 btnAgregarImagen.disabled = filas.length >= MAX_IMAGENES;
@@ -1471,13 +1792,12 @@
 
         if (btnAgregarImagen && totalFormsImagenes && cuerpoImagenes && plantillaImagen) {
             btnAgregarImagen.addEventListener('click', function () {
-                const filas = cuerpoImagenes.querySelectorAll('.fila-imagen');
-                if (filas.length >= MAX_IMAGENES) return;
+                if (cuerpoImagenes.querySelectorAll('.fila-imagen').length >= MAX_IMAGENES) return;
 
                 const indice = parseInt(totalFormsImagenes.value, 10) || 0;
                 const html = plantillaImagen.innerHTML.replace(/__prefix__/g, indice);
                 cuerpoImagenes.insertAdjacentHTML('beforeend', html);
-                totalFormsImagenes.value = indice + 1;
+                reindexarImagenes();
                 actualizarImagenes();
             });
 
@@ -1490,14 +1810,82 @@
                     eliminar.checked = true;
                 }
                 fila.remove();
+                reindexarImagenes();
                 actualizarImagenes();
             });
 
+            cuerpoImagenes.addEventListener('input', actualizarImagenes);
+            cuerpoImagenes.addEventListener('change', actualizarImagenes);
+            reindexarImagenes();
             actualizarImagenes();
         }
 
         form.addEventListener('submit', function (evento) {
             evento.preventDefault();
+
+            // Nunca se envía un formulario cuyas filas no van numeradas como
+            // el servidor espera: se reparan las numeraciones y, si aun así no
+            // cuadran, se avisa en lugar de guardar un cierre incompleto.
+            if (!formularioListoParaEnviar()) {
+                Swal.fire({
+                    title: 'No se pudo preparar el envío',
+                    html: '<div class="text-start">' +
+                        (borradorUrl
+                            ? 'Tus datos siguen guardados en el borrador. '
+                            : 'Tus datos siguen en el formulario. ') +
+                        'Recarga la página y vuelve a intentarlo.</div>',
+                    icon: 'error',
+                    confirmButtonColor: '#0f766e'
+                });
+                return;
+            }
+
+            // Ninguna fila puede quedar sin método: el servidor no sabría a qué
+            // tarjeta pertenece y el cierre no se guardaría.
+            const sinMetodo = filasSinMetodo();
+            if (sinMetodo.length) {
+                Swal.fire({
+                    title: 'Faltan métodos de pago',
+                    html: '<div class="text-start">Estas filas tienen datos pero no un método de pago:' +
+                        '<ul class="mt-2 mb-0 ps-3">' +
+                        sinMetodo.map(function (t) { return '<li>' + t + '</li>'; }).join('') +
+                        '</ul><div class="small text-muted mt-2">Ninguna se ha borrado: elige el método en la tarjeta «Sin método de pago».</div></div>',
+                    icon: 'warning',
+                    confirmButtonColor: '#0f766e'
+                });
+                return;
+            }
+
+            const sinMonto = filasSinMonto();
+            if (sinMonto.length) {
+                Swal.fire({
+                    title: 'Faltan montos',
+                    html: '<div class="text-start">Estas transacciones tienen datos pero no un monto mayor a cero:' +
+                        '<ul class="mt-2 mb-0 ps-3">' +
+                        sinMonto.map(function (t) { return '<li>' + t + '</li>'; }).join('') +
+                        '</ul><div class="small text-muted mt-2">Ninguna se ha borrado.</div></div>',
+                    icon: 'warning',
+                    confirmButtonColor: '#0f766e'
+                });
+                return;
+            }
+
+            // Salidas e imágenes incompletas: el servidor las rechazaría y se
+            // perdería el viaje (y en el caso de las imágenes, el archivo).
+            const incompletas = filasEgresoIncompletas().concat(imagenesIncompletas());
+            if (incompletas.length) {
+                Swal.fire({
+                    title: 'Faltan datos',
+                    html: '<div class="text-start">Estas filas están incompletas y el cierre no se guardaría:' +
+                        '<ul class="mt-2 mb-0 ps-3">' +
+                        incompletas.map(function (t) { return '<li>' + t + '</li>'; }).join('') +
+                        '</ul><div class="small text-muted mt-2">No se borró nada: completa o quita esas filas.</div></div>',
+                    icon: 'warning',
+                    confirmButtonColor: '#0f766e'
+                });
+                return;
+            }
+
             Swal.fire({
                 title: '¿Guardar el cierre?',
                 html: '<div class="text-start">' +
@@ -1518,6 +1906,7 @@
                     borradorDesactivado = true;
                     clearTimeout(temporizadorBorrador);
                     reindexarTransacciones();
+                    reindexarImagenes();
                     form.submit();
                 }
             });

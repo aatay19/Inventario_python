@@ -26,7 +26,30 @@ BANCOS_CHOICES = [
     ("Banesco", "Banesco"),
     ("Mercantil", "Mercantil"),
     ("Venezuela", "Venezuela"),
+    ("BNC", "BNC"),
+    ("Tesoro", "Tesoro"),
 ]
+
+# Métodos de pago realmente válidos. Se usa para distinguir un método heredado
+# (que solo se muestra para no perder la fila) de uno que se puede guardar.
+METODOS_PAGO_VALIDOS = {valor for valor, _ in MetodoPagoChoices.choices}
+
+
+def _conservar_banco_heredado(field, valor):
+    """Agrega a las opciones el banco recibido si no está en la lista.
+
+    ``banco`` se guarda como texto libre en la base de datos y los cierres o
+    borradores antiguos pueden tener entidades que ya no figuran en
+    ``BANCOS_CHOICES``. Sin agregar la opción, el ``<select>`` no puede mostrar
+    ese valor: al recuperar un borrador se perdería el banco y, si el valor se
+    reenvía, el formulario quedaría inválido y no dejaría guardar el cierre.
+    """
+    valor = (valor or "").strip()[:100]
+    if not valor:
+        return
+    if any(valor == opcion for opcion, _ in field.choices):
+        return
+    field.choices = [*field.choices, (valor, valor)]
 
 
 class DepartamentoForm(forms.ModelForm):
@@ -35,6 +58,7 @@ class DepartamentoForm(forms.ModelForm):
     slug = forms.SlugField(
         label="Identificador",
         required=False,
+        max_length=60,
         help_text="Si lo dejas vacío se genera desde el nombre.",
         widget=forms.TextInput(
             attrs={
@@ -192,7 +216,10 @@ class CierreCajaForm(forms.ModelForm):
             self.fields[f"monto_{valor}"] = forms.DecimalField(
                 label=f"{etiqueta} ({simbolo})",
                 required=False,
-                max_digits=14,
+                # Solo se muestran; el total real se calcula con las
+                # transacciones. Se deja holgado para que un total grande no
+                # invalide el cierre por un límite de dígitos.
+                max_digits=20,
                 decimal_places=2,
                 min_value=0,
                 initial=0,
@@ -208,6 +235,12 @@ class CierreCajaForm(forms.ModelForm):
                     }
                 ),
             )
+
+    def clean_tasa(self):
+        tasa = self.cleaned_data.get("tasa")
+        if tasa is not None and tasa < 0:
+            raise forms.ValidationError("La tasa no puede ser negativa.")
+        return tasa
 
     def clean(self):
         cleaned_data = super().clean()
@@ -266,6 +299,7 @@ class EgresoCierreForm(forms.ModelForm):
     cedula = forms.CharField(
         label="Cédula",
         required=False,
+        max_length=20,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control form-control-sm",
@@ -276,6 +310,7 @@ class EgresoCierreForm(forms.ModelForm):
     telefono = forms.CharField(
         label="Teléfono",
         required=False,
+        max_length=30,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control form-control-sm",
@@ -317,6 +352,7 @@ class EgresoCierreForm(forms.ModelForm):
     referencia = forms.CharField(
         label="Referencia",
         required=False,
+        max_length=100,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control form-control-sm",
@@ -347,6 +383,15 @@ class EgresoCierreForm(forms.ModelForm):
             "referencia",
             "imagen",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        banco = (
+            self.data.get(self.add_prefix("banco"))
+            if self.is_bound
+            else (self.initial.get("banco") or getattr(self.instance, "banco", ""))
+        )
+        _conservar_banco_heredado(self.fields["banco"], banco)
 
     def has_changed(self):
         """Ignora las filas completamente vacías del formset."""
@@ -429,6 +474,7 @@ class EgresoGeneralForm(forms.ModelForm):
     cedula = forms.CharField(
         label="Cédula",
         required=False,
+        max_length=20,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
@@ -439,6 +485,7 @@ class EgresoGeneralForm(forms.ModelForm):
     telefono = forms.CharField(
         label="Teléfono",
         required=False,
+        max_length=30,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
@@ -479,6 +526,7 @@ class EgresoGeneralForm(forms.ModelForm):
     referencia = forms.CharField(
         label="Referencia",
         required=False,
+        max_length=100,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
@@ -499,6 +547,7 @@ class EgresoGeneralForm(forms.ModelForm):
     motivo = forms.CharField(
         label="Motivo",
         required=True,
+        max_length=200,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
@@ -520,6 +569,15 @@ class EgresoGeneralForm(forms.ModelForm):
             "imagen",
             "motivo",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        banco = (
+            self.data.get(self.add_prefix("banco"))
+            if self.is_bound
+            else self.initial.get("banco")
+        )
+        _conservar_banco_heredado(self.fields["banco"], banco)
 
     def clean_monto(self):
         monto = self.cleaned_data.get("monto")
@@ -572,6 +630,7 @@ class CierreTransaccionForm(forms.ModelForm):
     ref = forms.CharField(
         label="Referencia",
         required=False,
+        max_length=100,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control form-control-sm",
@@ -596,6 +655,42 @@ class CierreTransaccionForm(forms.ModelForm):
     class Meta:
         model = CierreTransaccion
         fields = ["metodo_pago", "banco", "monto", "ref", "notas"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Un borrador puede traer un banco que ya no está en BANCOS_CHOICES.
+        # Se agrega como opción para no perderlo ni invalidar el cierre.
+        banco = (
+            self.data.get(self.add_prefix("banco"))
+            if self.is_bound
+            else (self.initial.get("banco") or getattr(self.instance, "banco", ""))
+        )
+        _conservar_banco_heredado(self.fields["banco"], banco)
+
+        # Igual con un método de pago desconocido: se agrega para que el
+        # ``<select>`` pueda mostrarlo y el usuario lo corrija, en lugar de
+        # perder la fila que no pasó la validación.
+        metodo = (
+            self.data.get(self.add_prefix("metodo_pago"))
+            if self.is_bound
+            else self.initial.get("metodo_pago")
+        )
+        metodo = (metodo or "").strip()
+        if metodo and metodo not in METODOS_PAGO_VALIDOS:
+            self.fields["metodo_pago"].choices = [
+                *self.fields["metodo_pago"].choices,
+                (metodo, metodo),
+            ]
+
+    def clean_metodo_pago(self):
+        metodo = (self.cleaned_data.get("metodo_pago") or "").strip()
+        if metodo and metodo not in METODOS_PAGO_VALIDOS:
+            # Se muestra tal cual para poder conservarlo, pero no se permite
+            # guardar un cierre con un método de pago inexistente.
+            raise forms.ValidationError(
+                "Selecciona un método de pago de la lista."
+            )
+        return metodo
 
     def has_changed(self):
         """Ignora las filas completamente vacías del formset.
@@ -623,7 +718,7 @@ class CierreTransaccionForm(forms.ModelForm):
         if not any([banco, monto, ref, notas]):
             return cleaned_data
 
-        if not metodo:
+        if not metodo and not self.has_error("metodo_pago"):
             self.add_error("metodo_pago", "Selecciona un método de pago.")
         if monto is None or monto <= 0:
             self.add_error("monto", "El monto debe ser mayor a cero.")
@@ -655,6 +750,7 @@ class ImagenCierreForm(forms.ModelForm):
     titulo = forms.CharField(
         label="Título",
         required=False,
+        max_length=150,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control form-control-sm",

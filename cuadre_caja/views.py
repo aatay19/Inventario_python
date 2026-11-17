@@ -2,15 +2,18 @@ from collections import Counter
 from datetime import datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 import json
+import logging
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import DataError, IntegrityError, OperationalError, transaction
 from django.db.models import Count, Prefetch, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.html import escape
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
@@ -52,6 +55,65 @@ from .permissions import (
 
 # Tiempo durante el cual se considera activo un borrador de cuadre.
 BORRADOR_VIGENCIA = timedelta(minutes=45)
+
+logger = logging.getLogger(__name__)
+
+# Campos que envía cada fila del formset de transacciones. Se usan para
+# reconocer y renumerar las filas del POST antes de validarlas.
+CAMPOS_TRANSACCION = ("metodo_pago", "banco", "monto", "ref", "notas", "DELETE")
+_RE_CLAVE_TRANSACCION = re.compile(
+    r"^transacciones-([^-]+)-(" + "|".join(CAMPOS_TRANSACCION) + r")$"
+)
+
+
+def _normalizar_transacciones_post(post):
+    """Renumera las filas del formset como 0..N-1 antes de validarlo.
+
+    Un formulario puede enviar prefijos no numéricos (por ejemplo "TEMP", el
+    marcador que usa el JavaScript al insertar filas) o índices que quedan por
+    encima de ``TOTAL_FORMS``. Django ignora esas claves sin avisar, de modo que
+    el cierre se guardaría incompleto y sin ningún error visible. Aquí se
+    detectan todas las claves ``transacciones-<prefijo>-<campo>`` y se
+    reescriben con índices consecutivos, conservando el orden en que llegaron.
+    """
+    grupos = {}
+    orden = []
+    for clave in post.keys():
+        coincidencia = _RE_CLAVE_TRANSACCION.match(clave)
+        if not coincidencia:
+            continue
+        prefijo, campo = coincidencia.groups()
+        if prefijo not in grupos:
+            grupos[prefijo] = {nombre: [] for nombre in CAMPOS_TRANSACCION}
+            orden.append(prefijo)
+        # getlist conserva los valores de prefijos repetidos (por ejemplo dos
+        # filas insertadas por el navegador con el mismo marcador "TEMP").
+        grupos[prefijo][campo].extend(post.getlist(clave))
+
+    if not orden:
+        return post
+
+    normalizado = post.copy()
+    for clave in list(normalizado.keys()):
+        if _RE_CLAVE_TRANSACCION.match(clave):
+            del normalizado[clave]
+
+    filas = 0
+    for prefijo in orden:
+        datos = grupos[prefijo]
+        cantidad = max((len(valores) for valores in datos.values()), default=0)
+        for posicion in range(cantidad):
+            for campo in CAMPOS_TRANSACCION:
+                valores = datos[campo]
+                valor = valores[posicion] if posicion < len(valores) else ""
+                normalizado[f"transacciones-{filas}-{campo}"] = valor
+            filas += 1
+
+    normalizado["transacciones-TOTAL_FORMS"] = str(filas)
+    normalizado["transacciones-INITIAL_FORMS"] = "0"
+    normalizado["transacciones-MIN_NUM_FORMS"] = "0"
+    normalizado["transacciones-MAX_NUM_FORMS"] = str(max(1000, filas))
+    return normalizado
 
 
 def _filas_formulario(form):
@@ -331,14 +393,29 @@ def caja_crear(request, slug):
     )
 
 
-def _decimal(valor, cuantia="0.01"):
+# Máximo que admiten los campos Decimal(max_digits=14, decimal_places=2).
+# Si un borrador recibe un valor mayor, se acota para no romper el guardado:
+# MySQL en modo estricto rechazaría la fila y se perdería todo el borrador.
+MAX_DECIMAL_14 = Decimal("999999999999.99")
+
+
+def _decimal(valor, cuantia="0.01", limite=None):
     """Convierte un valor de formulario/JSON a Decimal de forma segura."""
     try:
-        return Decimal(str(valor if valor not in (None, "") else "0")).quantize(
+        numero = Decimal(str(valor if valor not in (None, "") else "0")).quantize(
             Decimal(cuantia)
         )
     except (InvalidOperation, ValueError, TypeError):
         return Decimal("0.00")
+    if not numero.is_finite():
+        # json.loads acepta NaN e Infinity, que la base de datos rechaza.
+        return Decimal("0.00")
+    if limite is not None:
+        if numero > limite:
+            numero = limite
+        elif numero < -limite:
+            numero = -limite
+    return numero
 
 
 def _borrador_vigente(caja, fecha, turno):
@@ -364,75 +441,159 @@ def _limpiar_borradores_vencidos():
 
 
 def _reconstruir_borrador_desde_post(caja, hoy, turno, request, payload_post):
-    """Garantiza que el borrador en base de datos preserve los datos enviados en el POST.
+    """Vuelca el POST en el borrador para que un fallo no pierda ningún dato.
 
-    Si falla la validación o el guardado del cierre, esta función asegura que ningún dato
-    cargado por el usuario se pierda o se desactualice.
+    Devuelve la revisión guardada o ``None`` si no se pudo actualizar. Nunca
+    lanza una excepción: un problema al resguardar el borrador no debe tumbar la
+    respuesta ni borrar lo que el usuario ya tenía escrito.
     """
     if not turno:
-        return
-    try:
-        with transaction.atomic():
-            borrador, _ = BorradorCierre.objects.select_for_update().get_or_create(
-                caja=caja,
-                fecha=hoy,
-                turno=turno,
-                defaults={"usuario": request.user},
+        return None
+
+    nombre = str(payload_post.get("nombre_cajera") or "")[:100]
+    tasa = _decimal(payload_post.get("tasa"), "0.01", limite=MAX_DECIMAL_14)
+    observaciones = str(payload_post.get("observaciones") or "")
+
+    def _volcar(borrador):
+        borrador.usuario = request.user
+        borrador.nombre_cajera = nombre
+        borrador.tasa = tasa
+        borrador.observaciones = observaciones
+        borrador.actualizado_en = timezone.now()
+        borrador.revision = (borrador.revision or 0) + 1
+        borrador.save()
+
+        try:
+            total_forms = int(payload_post.get("transacciones-TOTAL_FORMS", "0") or 0)
+        except (TypeError, ValueError):
+            total_forms = 0
+
+        nuevas = []
+        orden = 0
+        for i in range(max(total_forms, 0)):
+            prefix = f"transacciones-{i}"
+            # Se guarda también el método inválido o vacío (recortado al largo
+            # del campo) para que la fila no desaparezca del borrador.
+            metodo = str(payload_post.get(f"{prefix}-metodo_pago") or "").strip()[:20]
+            banco = str(payload_post.get(f"{prefix}-banco") or "")[:100]
+            monto = _decimal(
+                payload_post.get(f"{prefix}-monto"), limite=MAX_DECIMAL_14
             )
-            borrador.usuario = request.user
-            borrador.nombre_cajera = str(payload_post.get("nombre_cajera") or "")[:100]
-            borrador.tasa = _decimal(payload_post.get("tasa"), "0.01")
-            borrador.observaciones = str(payload_post.get("observaciones") or "")
-            borrador.actualizado_en = timezone.now()
-            borrador.revision = (borrador.revision or 0) + 1
-            borrador.save()
+            ref = str(payload_post.get(f"{prefix}-ref") or "")[:100]
+            notas = str(payload_post.get(f"{prefix}-notas") or "")[:255]
 
-            # Extraer transacciones desde el POST
-            total_forms_raw = payload_post.get("transacciones-TOTAL_FORMS", "0")
-            try:
-                total_forms = int(total_forms_raw)
-            except (ValueError, TypeError):
-                total_forms = 0
+            # Fila completamente vacía: no se guarda en el borrador.
+            if not any([banco, monto > 0, ref, notas]):
+                continue
 
-            metodos_validos = {valor for valor, _ in MetodoPagoChoices.choices}
-            nuevas = []
-            orden = 0
-            for i in range(total_forms):
-                prefix = f"transacciones-{i}"
-                metodo = (payload_post.get(f"{prefix}-metodo_pago") or "").strip()
-                banco = str(payload_post.get(f"{prefix}-banco") or "")[:100]
-                monto = _decimal(payload_post.get(f"{prefix}-monto"))
-                ref = str(payload_post.get(f"{prefix}-ref") or "")[:100]
-                notas = str(payload_post.get(f"{prefix}-notas") or "")[:255]
+            nuevas.append(
+                BorradorTransaccion(
+                    borrador=borrador,
+                    metodo_pago=metodo,
+                    banco=banco,
+                    monto=monto if monto > 0 else Decimal("0.00"),
+                    ref=ref,
+                    notas=notas,
+                    orden=orden,
+                )
+            )
+            orden += 1
 
-                # Solo ignorar si no tiene nada
-                if not any([banco, monto > 0, ref, notas]):
-                    continue
+        # Solo se reemplaza cuando hay filas nuevas que escribir. Si el POST
+        # llegó sin transacciones, se conserva el borrador anterior en lugar de
+        # vaciarlo: es preferible un dato viejo a perderlo.
+        if nuevas:
+            borrador.transacciones.all().delete()
+            BorradorTransaccion.objects.bulk_create(nuevas)
+        return borrador.revision
 
-                if metodo in metodos_validos:
-                    nuevas.append(
-                        BorradorTransaccion(
-                            borrador=borrador,
-                            metodo_pago=metodo,
-                            banco=banco,
-                            monto=monto if monto > 0 else Decimal("0.00"),
-                            ref=ref,
-                            notas=notas,
-                            orden=orden,
-                        )
-                    )
-                    orden += 1
+    for intento in range(2):
+        try:
+            with transaction.atomic():
+                borrador, _ = BorradorCierre.objects.select_for_update().get_or_create(
+                    caja=caja,
+                    fecha=hoy,
+                    turno=turno,
+                    defaults={"usuario": request.user},
+                )
+                return _volcar(borrador)
+        except IntegrityError:
+            # Otra petición pudo crear el borrador al mismo tiempo. Se
+            # reintenta una vez para actualizarlo en lugar de descartar datos.
+            if intento == 0:
+                continue
+            logger.exception("No se pudo actualizar el borrador del cierre")
+            return None
+        except Exception:
+            logger.exception("No se pudo actualizar el borrador del cierre")
+            return None
+    return None
 
-            if nuevas or not borrador.transacciones.exists():
-                borrador.transacciones.all().delete()
-                if nuevas:
-                    BorradorTransaccion.objects.bulk_create(nuevas)
+
+def _recortar(texto, limite=80):
+    """Recorta un texto para mostrarlo dentro de una alerta."""
+    texto = str(texto or "").strip()
+    if len(texto) <= limite:
+        return texto
+    return texto[: limite - 1].rstrip() + "…"
+
+
+def _valor_enviado(form, campo, limite=40):
+    """Valor que escribió el usuario para un campo, ya escapado para HTML."""
+    try:
+        valor = form.data.get(form.add_prefix(campo))
     except Exception:
-        # Fallback silencioso para no romper la respuesta al usuario si hay un fallo de BD al resguardar
+        valor = ""
+    valor = _recortar(valor, limite)
+    return escape(valor) if valor else ""
+
+
+def _etiqueta_fila_transaccion(form, numero):
+    """Nombre legible de la fila: método de pago y posición dentro de su tarjeta."""
+    crudo = ""
+    try:
+        crudo = str(form.data.get(form.add_prefix("metodo_pago")) or "").strip()
+    except Exception:
         pass
+    etiquetas = dict(MetodoPagoChoices.choices)
+    if crudo in etiquetas:
+        base = etiquetas[crudo]
+    elif crudo:
+        base = f"Método «{escape(_recortar(crudo, 30))}»"
+    else:
+        base = "Fila sin método de pago"
+    return f"{base}, fila {numero}"
 
 
-def _formatear_errores_cierre(form, egresos_formset, transacciones_formset, imagenes_formset):
+def _fila_transaccion_tiene_datos(form, campos=("banco", "monto", "ref", "notas")):
+    """True si la fila tiene algún dato escrito (aunque el método sea inválido)."""
+    for campo in campos:
+        try:
+            valor = form.data.get(form.add_prefix(campo))
+        except Exception:
+            valor = ""
+        if str(valor or "").strip():
+            return True
+    return False
+
+
+def _detalle_error_campo(form, field):
+    """Mensaje de error con el nombre del campo y el valor que lo provocó."""
+    mensajes = "; ".join(escape(str(error)) for error in field.errors)
+    etiqueta = escape(field.label or field.name)
+    valor = _valor_enviado(form, field.name)
+    if valor:
+        return f"<strong>{etiqueta}</strong> «{valor}»: {mensajes}"
+    return f"<strong>{etiqueta}:</strong> {mensajes}"
+
+
+def _formatear_errores_cierre(
+    form,
+    egresos_formset,
+    transacciones_formset,
+    imagenes_formset,
+    borrador_actualizado=True,
+):
     """Genera un detalle específico en HTML de los errores para el usuario."""
     secciones = []
 
@@ -440,83 +601,184 @@ def _formatear_errores_cierre(form, egresos_formset, transacciones_formset, imag
     errores_form = []
     if form.non_field_errors():
         for err in form.non_field_errors():
-            errores_form.append(str(err))
+            errores_form.append(escape(str(err)))
     for field in form:
         if field.errors:
-            nombre = field.label or field.name
-            for err in field.errors:
-                errores_form.append(f"<strong>{nombre}:</strong> {err}")
+            errores_form.append(_detalle_error_campo(form, field))
     if errores_form:
         items = "".join(f"<li>{e}</li>" for e in errores_form)
-        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Datos generales:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+        secciones.append(
+            "<div><h6 class='fw-bold mb-1 text-danger'>Datos generales:</h6>"
+            f"<ul class='mb-2 ps-3 small'>{items}</ul></div>"
+        )
 
-    # 2. Errores de transacciones
+    # 2. Errores de transacciones (numerando las filas como se ven en pantalla)
     errores_trans = []
     if transacciones_formset.non_form_errors():
         for err in transacciones_formset.non_form_errors():
-            errores_trans.append(str(err))
-    for idx, f in enumerate(transacciones_formset.forms):
-        if f.errors:
-            metodo = f.cleaned_data.get("metodo_pago") or f.data.get(f"{f.prefix}-metodo_pago") or f"Fila #{idx + 1}"
-            metodo_label = dict(MetodoPagoChoices.choices).get(metodo, metodo)
-            sub_errs = []
-            if f.non_field_errors():
-                sub_errs.extend([str(e) for e in f.non_field_errors()])
-            for field in f:
-                if field.errors:
-                    sub_errs.append(f"{field.label or field.name}: {', '.join(field.errors)}")
-            errores_trans.append(f"<strong>{metodo_label} (fila {idx + 1}):</strong> {'; '.join(sub_errs)}")
+            errores_trans.append(escape(str(err)))
+
+    posicion_metodo = {}
+    for f in transacciones_formset.forms:
+        try:
+            metodo_crudo = str(f.data.get(f.add_prefix("metodo_pago")) or "").strip()
+        except Exception:
+            metodo_crudo = ""
+        posicion_metodo[metodo_crudo] = posicion_metodo.get(metodo_crudo, 0) + 1
+        if not f.errors:
+            continue
+
+        sub_errs = [escape(str(e)) for e in f.non_field_errors()]
+        for field in f:
+            if field.errors:
+                sub_errs.append(_detalle_error_campo(f, field))
+        etiqueta = _etiqueta_fila_transaccion(f, posicion_metodo[metodo_crudo])
+        errores_trans.append(f"<strong>{etiqueta}:</strong> {'; '.join(sub_errs)}")
+
     if errores_trans:
-        # Mostrar hasta 8 errores específicos para no desbordar el alert si hay muchos
         visibles = errores_trans[:8]
         resto = len(errores_trans) - len(visibles)
         items = "".join(f"<li>{e}</li>" for e in visibles)
         if resto > 0:
-            items += f"<li class='text-muted'>... y {resto} transacciones más con observaciones.</li>"
-        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Transacciones:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+            items += (
+                f"<li class='text-muted'>… y {resto} fila(s) más con errores.</li>"
+            )
+        secciones.append(
+            "<div><h6 class='fw-bold mb-1 text-danger'>Transacciones:</h6>"
+            f"<ul class='mb-2 ps-3 small'>{items}</ul></div>"
+        )
 
     # 3. Errores de salidas / egresos
     errores_egr = []
     if egresos_formset.non_form_errors():
         for err in egresos_formset.non_form_errors():
-            errores_egr.append(str(err))
-    for idx, f in enumerate(egresos_formset.forms):
-        if f.errors:
-            sub_errs = []
-            for field in f:
-                if field.errors:
-                    sub_errs.append(f"{field.label or field.name}: {', '.join(field.errors)}")
-            errores_egr.append(f"<strong>Salida #{idx + 1}:</strong> {'; '.join(sub_errs)}")
+            errores_egr.append(escape(str(err)))
+
+    salida = 0
+    for f in egresos_formset.forms:
+        if not f.errors:
+            continue
+        salida += 1
+        sub_errs = [escape(str(e)) for e in f.non_field_errors()]
+        for field in f:
+            if field.errors:
+                sub_errs.append(_detalle_error_campo(f, field))
+        errores_egr.append(f"<strong>Salida {salida}:</strong> {'; '.join(sub_errs)}")
+
     if errores_egr:
-        items = "".join(f"<li>{e}</li>" for e in errores_egr)
-        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Salidas:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+        visibles = errores_egr[:6]
+        resto = len(errores_egr) - len(visibles)
+        items = "".join(f"<li>{e}</li>" for e in visibles)
+        if resto > 0:
+            items += f"<li class='text-muted'>… y {resto} salida(s) más con errores.</li>"
+        secciones.append(
+            "<div><h6 class='fw-bold mb-1 text-danger'>Salidas:</h6>"
+            f"<ul class='mb-2 ps-3 small'>{items}</ul></div>"
+        )
 
     # 4. Errores de imágenes
     errores_img = []
     if imagenes_formset.non_form_errors():
         for err in imagenes_formset.non_form_errors():
-            errores_img.append(str(err))
-    for idx, f in enumerate(imagenes_formset.forms):
-        if f.errors:
-            sub_errs = []
-            for field in f:
-                if field.errors:
-                    sub_errs.append(f"{field.label or field.name}: {', '.join(field.errors)}")
-            errores_img.append(f"<strong>Imagen #{idx + 1}:</strong> {'; '.join(sub_errs)}")
+            errores_img.append(escape(str(err)))
+
+    imagen = 0
+    for f in imagenes_formset.forms:
+        if not f.errors:
+            continue
+        imagen += 1
+        sub_errs = [escape(str(e)) for e in f.non_field_errors()]
+        for field in f:
+            if field.errors:
+                sub_errs.append(_detalle_error_campo(f, field))
+        errores_img.append(f"<strong>Imagen {imagen}:</strong> {'; '.join(sub_errs)}")
+
     if errores_img:
-        items = "".join(f"<li>{e}</li>" for e in errores_img)
-        secciones.append(f"<div><h6 class='fw-bold mb-1 text-danger'>Imágenes:</h6><ul class='mb-2 ps-3 small'>{items}</ul></div>")
+        visibles = errores_img[:6]
+        resto = len(errores_img) - len(visibles)
+        items = "".join(f"<li>{e}</li>" for e in visibles)
+        if resto > 0:
+            items += f"<li class='text-muted'>… y {resto} imagen(es) más con errores.</li>"
+        secciones.append(
+            "<div><h6 class='fw-bold mb-1 text-danger'>Imágenes:</h6>"
+            f"<ul class='mb-2 ps-3 small'>{items}</ul></div>"
+        )
 
     if not secciones:
-        return "Revisa que los datos ingresados y montos sean válidos."
+        return (
+            "<div><strong>No se guardó el cierre:</strong> revisa que los datos "
+            "y montos ingresados sean válidos.</div>"
+            + _aviso_borrador_cierre(borrador_actualizado)
+        )
 
-    aviso_borrador = (
-        "<div class='alert alert-info py-2 px-3 small mt-3 mb-0'>"
-        "<i class='bi bi-shield-check me-1'></i> "
-        "<strong>Tu borrador está a salvo:</strong> Ninguna transacción se ha perdido ni eliminado. Corrige los datos indicados y vuelve a guardar."
+    encabezado = (
+        "<div class='alert alert-warning py-2 px-3 small mb-3'>"
+        "<i class='bi bi-shield-exclamation me-1'></i> "
+        "<strong>No se guardó el cierre:</strong> no se registró ningún cuadre "
+        "ni se guardaron transacciones, salidas o imágenes a medias. Corrige lo "
+        "siguiente y vuelve a intentar."
         "</div>"
     )
-    return "".join(secciones) + aviso_borrador
+    return encabezado + "".join(secciones) + _aviso_borrador_cierre(
+        borrador_actualizado
+    )
+
+
+def _aviso_borrador_cierre(borrador_actualizado):
+    """Nota final que explica qué pasó con los datos que el usuario envió."""
+    if borrador_actualizado:
+        return (
+            "<div class='alert alert-info py-2 px-3 small mt-3 mb-0'>"
+            "<i class='bi bi-shield-check me-1'></i> "
+            "<strong>Tus datos están a salvo:</strong> siguen escritos en el "
+            "formulario y el borrador se actualizó con todo lo que enviaste. "
+            "No se borró ninguna fila ni ningún dato."
+            "</div>"
+        )
+    return (
+        "<div class='alert alert-danger py-2 px-3 small mt-3 mb-0'>"
+        "<i class='bi bi-exclamation-triangle me-1'></i> "
+        "<strong>Tus datos siguen en el formulario.</strong> No se pudo "
+        "actualizar el borrador, así que <strong>no recargues la página</strong>: "
+        "corrige lo indicado y vuelve a guardar."
+        "</div>"
+    )
+
+
+def _describir_error_sistema(exc):
+    """Traduce una excepción de guardado a un mensaje claro para el usuario."""
+    if isinstance(exc, IntegrityError):
+        detalle = (
+            "Ya existe un cierre para esta caja, fecha y turno. Puede que otra "
+            "persona lo haya guardado al mismo tiempo."
+        )
+    elif isinstance(exc, DataError):
+        detalle = (
+            "Alguno de los datos no cabe en la base de datos (texto demasiado "
+            "largo o monto fuera de rango)."
+        )
+    elif isinstance(exc, OperationalError):
+        detalle = "No se pudo comunicar con la base de datos."
+    else:
+        detalle = "Ocurrió un error inesperado al guardar el cierre."
+    tecnico = _recortar(f"{type(exc).__name__}: {exc}", 300)
+    return detalle, tecnico
+
+
+def _mensaje_error_sistema(exc, borrador_actualizado=True):
+    """Alerta HTML para un fallo al guardar, indicando qué falló y el rollback."""
+    detalle, tecnico = _describir_error_sistema(exc)
+    return (
+        "<div><strong>No se guardó el cierre:</strong> "
+        f"{escape(detalle)}</div>"
+        f"<div class='small text-muted mb-2 font-monospace'>{escape(tecnico)}</div>"
+        "<div class='alert alert-warning py-2 px-3 small mb-2'>"
+        "<i class='bi bi-arrow-counterclockwise me-1'></i> "
+        "<strong>Se revirtió todo (rollback):</strong> no se creó el cierre ni "
+        "quedaron transacciones, salidas o imágenes registradas a medias."
+        "</div>"
+        + _aviso_borrador_cierre(borrador_actualizado)
+    )
 
 
 def _resumen_borrador(borrador):
@@ -753,16 +1015,17 @@ def borrador_guardar(request, caja_id, turno):
             {"ok": False, "error": "Datos inválidos."}, status=400
         )
 
-    transacciones = payload.get("transacciones") or []
-    if not isinstance(transacciones, list):
-        transacciones = []
+    # ``None`` significa "el aviso no incluyó transacciones" (payload
+    # incompleto): en ese caso no se toca lo que ya está en el borrador. Una
+    # lista vacía sí es intencional y limpia las filas.
+    transacciones = payload.get("transacciones")
+    if transacciones is not None and not isinstance(transacciones, list):
+        transacciones = None
 
     try:
         revision_cliente = int(payload.get("revision"))
     except (TypeError, ValueError):
         revision_cliente = None
-
-    metodos_validos = {valor for valor, _ in MetodoPagoChoices.choices}
 
     with transaction.atomic():
         borrador, creado = BorradorCierre.objects.select_for_update().get_or_create(
@@ -795,32 +1058,41 @@ def borrador_guardar(request, caja_id, turno):
 
         borrador.usuario = request.user
         borrador.nombre_cajera = str(payload.get("nombre_cajera") or "")[:100]
-        borrador.tasa = _decimal(payload.get("tasa"), "0.01")
+        borrador.tasa = _decimal(payload.get("tasa"), "0.01", limite=MAX_DECIMAL_14)
         borrador.observaciones = str(payload.get("observaciones") or "")
         borrador.revision = (borrador.revision or 0) + 1
         borrador.save()
 
-        borrador.transacciones.all().delete()
-        nuevas = []
-        for orden, item in enumerate(transacciones):
-            if not isinstance(item, dict):
-                continue
-            metodo = item.get("metodo_pago") or ""
-            monto = _decimal(item.get("monto"))
-            if metodo not in metodos_validos or monto <= 0:
-                continue
-            nuevas.append(
-                BorradorTransaccion(
-                    borrador=borrador,
-                    metodo_pago=metodo,
-                    banco=str(item.get("banco") or "")[:100],
-                    monto=monto,
-                    ref=str(item.get("ref") or "")[:100],
-                    notas=str(item.get("notas") or "")[:255],
-                    orden=orden,
+        if transacciones is not None:
+            borrador.transacciones.all().delete()
+            nuevas = []
+            for orden, item in enumerate(transacciones):
+                if not isinstance(item, dict):
+                    continue
+                # Se guarda cualquier método (incluso vacío o desconocido) para no
+                # perder la fila; el método inválido se corrige al restaurarla.
+                metodo = str(item.get("metodo_pago") or "").strip()[:20]
+                monto = _decimal(item.get("monto"), limite=MAX_DECIMAL_14)
+                banco = str(item.get("banco") or "")[:100]
+                ref = str(item.get("ref") or "")[:100]
+                notas = str(item.get("notas") or "")[:255]
+                # Se conserva cualquier fila con datos, incluso si todavía no
+                # tiene monto: así el borrador nunca pierde lo escrito.
+                if not any([banco, ref.strip(), notas.strip(), monto > 0]):
+                    continue
+                nuevas.append(
+                    BorradorTransaccion(
+                        borrador=borrador,
+                        metodo_pago=metodo,
+                        banco=banco,
+                        monto=monto if monto > 0 else Decimal("0.00"),
+                        ref=ref,
+                        notas=notas,
+                        orden=orden,
+                    )
                 )
-            )
-        BorradorTransaccion.objects.bulk_create(nuevas)
+            if nuevas:
+                BorradorTransaccion.objects.bulk_create(nuevas)
 
     borrador = (
         BorradorCierre.objects.select_related("usuario")
@@ -938,17 +1210,21 @@ def cerrar_caja(request, caja_id, turno=None):
         return redirect("cuadre_caja:departamento_detalle", caja.departamento.slug)
 
     borrador_revision = 0
+    borrador_actualizado = True
 
     if request.method == "POST":
-        form = CierreCajaForm(request.POST, caja=caja, turno=turno)
+        # Las filas del formset se renumeran antes de validar para que ninguna
+        # transacción se pierda si el navegador envía prefijos inconsistentes.
+        datos_post = _normalizar_transacciones_post(request.POST)
+        form = CierreCajaForm(datos_post, caja=caja, turno=turno)
         egresos_formset = EgresoCierreFormSet(
-            request.POST, request.FILES, prefix="egresos", instance=CierreCaja()
+            datos_post, request.FILES, prefix="egresos", instance=CierreCaja()
         )
         transacciones_formset = CierreTransaccionFormSet(
-            request.POST, prefix="transacciones", instance=CierreCaja()
+            datos_post, prefix="transacciones", instance=CierreCaja()
         )
         imagenes_formset = ImagenCierreFormSet(
-            request.POST, request.FILES, prefix="imagenes", instance=CierreCaja()
+            datos_post, request.FILES, prefix="imagenes", instance=CierreCaja()
         )
 
         valido_form = form.is_valid()
@@ -1004,22 +1280,38 @@ def cerrar_caja(request, caja_id, turno=None):
                     "cuadre_caja:departamento_detalle", caja.departamento.slug
                 )
             except Exception as e:
-                # Error en base de datos o código al guardar: preservar borrador intacto y avisar
-                _reconstruir_borrador_desde_post(caja, hoy, turno, request, request.POST)
+                # La transacción ya se revirtió por completo (rollback). El
+                # borrador se actualiza con lo enviado para que nada se pierda.
+                logger.exception(
+                    "Falló el guardado del cierre de %s (%s %s)",
+                    caja,
+                    hoy,
+                    turno,
+                )
+                revision = _reconstruir_borrador_desde_post(
+                    caja, hoy, turno, request, datos_post
+                )
+                borrador_actualizado = revision is not None
+                if revision is not None:
+                    borrador_revision = revision
                 messages.error(
-                    request,
-                    f"<div><strong>Error del sistema al guardar el cierre:</strong></div>"
-                    f"<div class='small text-muted mb-2 font-monospace'>{str(e)}</div>"
-                    f"<div class='alert alert-info py-2 px-3 small mb-0'>"
-                    f"<i class='bi bi-shield-check me-1'></i> "
-                    f"<strong>Tu borrador está completamente protegido:</strong> Toda la información de tus transacciones sigue guardada y segura."
-                    f"</div>"
+                    request, _mensaje_error_sistema(e, borrador_actualizado)
                 )
         else:
-            # Error de validación (usuario o datos inválidos)
-            _reconstruir_borrador_desde_post(caja, hoy, turno, request, request.POST)
+            # Error de validación: no se intentó escribir nada en la base de
+            # datos. Se conserva cada valor enviado y se detalla qué falló.
+            revision = _reconstruir_borrador_desde_post(
+                caja, hoy, turno, request, datos_post
+            )
+            borrador_actualizado = revision is not None
+            if revision is not None:
+                borrador_revision = revision
             detalle_errores = _formatear_errores_cierre(
-                form, egresos_formset, transacciones_formset, imagenes_formset
+                form,
+                egresos_formset,
+                transacciones_formset,
+                imagenes_formset,
+                borrador_actualizado,
             )
             messages.error(request, detalle_errores)
     else:
@@ -1070,7 +1362,7 @@ def cerrar_caja(request, caja_id, turno=None):
         tarjetas_metodo = []
         for valor, etiqueta in MetodoPagoChoices.choices:
             # Al menos 1 fila vacía por método (aunque no haya borrador)
-            filas_datos = metodo_filas.get(valor, [{}])
+            filas_datos = metodo_filas.pop(valor, [{}])
             forms_fila = []
             for datos in filas_datos:
                 forms_fila.append(
@@ -1091,6 +1383,38 @@ def cerrar_caja(request, caja_id, turno=None):
                 "etiqueta": etiqueta,
                 "moneda": MONEDA_POR_METODO.get(valor, MONEDA_BS),
                 "forms": forms_fila,
+                "corregir": False,
+            })
+
+        # Filas de un borrador con un método desconocido o vacío: no se
+        # descartan, se muestran aparte para que el usuario corrija el método.
+        filas_sin_metodo = [
+            (metodo, datos)
+            for metodo, filas_datos in metodo_filas.items()
+            for datos in filas_datos
+        ]
+        if filas_sin_metodo:
+            forms_fila = []
+            for metodo, datos in filas_sin_metodo:
+                forms_fila.append(
+                    CierreTransaccionForm(
+                        initial={
+                            "metodo_pago": metodo,
+                            "banco": datos.get("banco", ""),
+                            "monto": datos.get("monto", ""),
+                            "ref": datos.get("ref", ""),
+                            "notas": datos.get("notas", ""),
+                        },
+                        prefix=f"transacciones-{global_index}",
+                    )
+                )
+                global_index += 1
+            tarjetas_metodo.append({
+                "valor": "SIN_METODO",
+                "etiqueta": "Sin método de pago (corrige)",
+                "moneda": MONEDA_BS,
+                "forms": forms_fila,
+                "corregir": True,
             })
 
         transacciones_total_forms = global_index
@@ -1107,10 +1431,15 @@ def cerrar_caja(request, caja_id, turno=None):
     if request.method == "POST":
         # Reconstruir tarjetas agrupando los forms bound por método de pago.
         metodo_forms = {valor: [] for valor, _ in MetodoPagoChoices.choices}
+        sobrantes = []
         for f in transacciones_formset.forms:
-            metodo = request.POST.get(f"{f.prefix}-metodo_pago", "")
+            metodo = datos_post.get(f"{f.prefix}-metodo_pago", "")
             if metodo in metodo_forms:
                 metodo_forms[metodo].append(f)
+            elif _fila_transaccion_tiene_datos(f):
+                # Fila con datos pero con método inválido o vacío. Si no se
+                # muestra, el usuario perdería de vista lo que escribió.
+                sobrantes.append(f)
 
         tarjetas_metodo = [
             {
@@ -1118,9 +1447,18 @@ def cerrar_caja(request, caja_id, turno=None):
                 "etiqueta": etiqueta,
                 "moneda": MONEDA_POR_METODO.get(valor, MONEDA_BS),
                 "forms": metodo_forms.get(valor, []),
+                "corregir": False,
             }
             for valor, etiqueta in MetodoPagoChoices.choices
         ]
+        if sobrantes:
+            tarjetas_metodo.append({
+                "valor": "SIN_METODO",
+                "etiqueta": "Sin método de pago (corrige)",
+                "moneda": MONEDA_BS,
+                "forms": sobrantes,
+                "corregir": True,
+            })
         transacciones_total_forms = transacciones_formset.total_form_count()
         transacciones_initial_forms = transacciones_formset.initial_form_count()
 
@@ -1279,17 +1617,79 @@ def historial(request):
         total_usd=Sum("total_usd"),
     )
 
-    paginator = Paginator(cierres, 25)
+    # El historial se organiza en "carpetas" por día: se pagina por fecha y,
+    # al abrir una carpeta, se muestra el desglose completo de ese día.
+    fechas = cierres.order_by("-fecha").values_list("fecha", flat=True).distinct()
+    paginator = Paginator(fechas, 15)
     pagina = paginator.get_page(request.GET.get("page"))
+    fechas_pagina = list(pagina.object_list)
+
+    cierres_pagina = list(
+        cierres.filter(fecha__in=fechas_pagina).order_by(
+            "-fecha",
+            "caja__departamento__orden",
+            "caja__departamento__nombre",
+            "caja__numero",
+            "turno",
+        )
+    )
+
+    cierres_por_fecha = {}
+    for cierre in cierres_pagina:
+        cierres_por_fecha.setdefault(cierre.fecha, []).append(cierre)
+
+    dias = []
+    for fecha in fechas_pagina:
+        cierres_dia = cierres_por_fecha.get(fecha, [])
+        departamentos = {}
+        total_bs = Decimal("0.00")
+        total_usd = Decimal("0.00")
+        total_equivalente_bs = Decimal("0.00")
+
+        for cierre in cierres_dia:
+            grupo = departamentos.setdefault(
+                cierre.caja.departamento_id,
+                {
+                    "departamento": cierre.caja.departamento,
+                    "cierres": [],
+                    "cantidad": 0,
+                    "total_bs": Decimal("0.00"),
+                    "total_usd": Decimal("0.00"),
+                    "total_equivalente_bs": Decimal("0.00"),
+                },
+            )
+            grupo["cierres"].append(cierre)
+            grupo["cantidad"] += 1
+            grupo["total_bs"] += cierre.total_bs or Decimal("0.00")
+            grupo["total_usd"] += cierre.total_usd or Decimal("0.00")
+            grupo["total_equivalente_bs"] += cierre.total_equivalente_bs
+
+            total_bs += cierre.total_bs or Decimal("0.00")
+            total_usd += cierre.total_usd or Decimal("0.00")
+            total_equivalente_bs += cierre.total_equivalente_bs
+
+        dias.append(
+            {
+                "fecha": fecha,
+                "cierres": cierres_dia,
+                "cantidad": len(cierres_dia),
+                "departamentos": list(departamentos.values()),
+                "total_bs": total_bs,
+                "total_usd": total_usd,
+                "total_equivalente_bs": total_equivalente_bs,
+            }
+        )
 
     return render(
         request,
         "cuadre_caja/historial.html",
         {
             "form": form,
-            "cierres": pagina,
+            "dias": dias,
+            "pagina": pagina,
             "totales": totales,
-            "total_registros": paginator.count,
+            "total_registros": cierres.count(),
+            "total_dias": paginator.count,
         },
     )
 
@@ -1371,6 +1771,43 @@ def reportes(request):
     )
 
     grupos, total_general, resumen_turnos = _resumen_cierres(cierres)
+
+    # El reporte se divide por departamentos existentes: se muestra un bloque
+    # por cada departamento activo, aunque no tenga cierres en el periodo, más
+    # los departamentos inactivos que sí tengan movimientos (para no ocultar
+    # información histórica).
+    cero = Decimal("0.00")
+    grupos_por_departamento = {grupo["departamento"].id: grupo for grupo in grupos}
+    # Si se filtra por caja, el reporte se limita al departamento de esa caja.
+    departamento_filtrado = departamento
+    if departamento_filtrado is None and caja is not None:
+        departamento_filtrado = caja.departamento
+    consulta_departamentos = Departamento.objects.filter(activo=True)
+    if departamento_filtrado:
+        consulta_departamentos = consulta_departamentos.filter(
+            pk=departamento_filtrado.pk
+        )
+
+    secciones_departamento = []
+    departamentos_vistos = set()
+    for depto in consulta_departamentos.order_by("orden", "nombre"):
+        grupo = grupos_por_departamento.get(depto.id)
+        if grupo is None:
+            grupo = {
+                "departamento": depto,
+                "lista_cajas": [],
+                "cantidad": 0,
+                "total_bs": cero,
+                "total_usd": cero,
+                "total_equivalente_bs": cero,
+            }
+        secciones_departamento.append(grupo)
+        departamentos_vistos.add(depto.id)
+
+    for grupo in grupos:
+        if grupo["departamento"].id in departamentos_vistos:
+            continue
+        secciones_departamento.append(grupo)
 
     # Vueltos de caja registrados dentro de los cuadres filtrados.
     vueltos_cuadre = EgresoCierre.objects.filter(
@@ -1492,6 +1929,7 @@ def reportes(request):
             "caja": caja,
             "turno": turno,
             "grupos": grupos,
+            "secciones_departamento": secciones_departamento,
             "total_general": total_general,
             "resumen_turnos": resumen_turnos,
             "totales_vueltos": totales_vueltos,
