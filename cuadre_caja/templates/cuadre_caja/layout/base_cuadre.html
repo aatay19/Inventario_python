@@ -144,6 +144,9 @@
             </a>
 
             <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'index' %}" class="btn btn-sm btn-outline-light" title="Volver al Inventario">
+                    <i class="bi bi-box-seam me-1"></i> Inventario
+                </a>
                 {% if cuadre_puede_gestionar %}
                 <a href="{% url 'cuadre_caja:egresos' %}" class="btn btn-sm btn-outline-light"
                     title="Registrar egresos, devoluciones o abonos">
