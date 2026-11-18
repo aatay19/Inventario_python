@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 
 TIEMPO_MAXIMO_NINO = 90
 TIEMPO_MAXIMO = 210
+MAX_RECARGAS_NINO = 5
 
 
 class ControlNino(models.Model):
@@ -37,19 +38,20 @@ class ControlNino(models.Model):
     def puede_agregar_45(self):
         if self.salio:
             return False
-        # Si culminó su tiempo (está en 0), se permite una recarga de +45 min solo si no ha recargado aún
+        # Si culminó su tiempo (está en 0), se permite recargar si no ha superado el máximo de 5 recargas
         if self.segundos_restantes <= 0:
-            return (self.recargas or 0) == 0
+            return (self.recargas or 0) < MAX_RECARGAS_NINO
         # Si aún tiene tiempo corriendo, solo se suma si no supera el límite de 90 min de sesión activa
-        return self.tiempo + 45 <= TIEMPO_MAXIMO_NINO
+        # y no ha alcanzado el límite de recargas
+        return (self.tiempo + 45 <= TIEMPO_MAXIMO_NINO) and ((self.recargas or 0) < MAX_RECARGAS_NINO)
 
     @property
     def tiempo_maximo_alcanzado(self):
         if self.salio:
             return False
         if self.segundos_restantes <= 0:
-            return (self.recargas or 0) > 0
-        return self.tiempo >= TIEMPO_MAXIMO_NINO
+            return (self.recargas or 0) >= MAX_RECARGAS_NINO
+        return self.tiempo >= TIEMPO_MAXIMO_NINO or (self.recargas or 0) >= MAX_RECARGAS_NINO
 
     @property
     def fecha_fin(self):

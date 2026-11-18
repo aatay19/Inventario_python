@@ -173,7 +173,7 @@
                                             </form>
                                         </div>
                                         <div class="small border-top pt-2 etiq-agregar-tiempo opacity-75 bloque-tiempo-maximo{% if not nino.tiempo_maximo_alcanzado %} d-none{% endif %}">
-                                            {% if nino.recargas > 0 and nino.segundos_restantes <= 0 %}Recarga de brazalete ya utilizada.{% else %}Tiempo máximo alcanzado ({{ tiempo_maximo_nino|default:90 }} min).{% endif %}
+                                            {% if nino.recargas >= 5 %}Máximo de 5 recargas alcanzado.{% elif nino.recargas > 0 and nino.segundos_restantes <= 0 %}Recarga de brazalete ya utilizada.{% else %}Tiempo máximo alcanzado ({{ tiempo_maximo_nino|default:90 }} min).{% endif %}
                                         </div>
                                     </div>
                                 </div>
@@ -938,17 +938,16 @@
                     if (it.salida === '1') {
                         bloqueAgregar.classList.add('d-none');
                         bloqueMax.classList.add('d-none');
+                    } else if (recargas >= 5) {
+                        // Límite de 5 recargas alcanzado
+                        bloqueAgregar.classList.add('d-none');
+                        bloqueMax.textContent = 'Máximo de 5 recargas alcanzado.';
+                        bloqueMax.classList.remove('d-none');
                     } else if (restante <= 0) {
-                        // Estando en 0: se permite recarga solo si no ha recargado ya
-                        if (recargas > 0) {
-                            bloqueAgregar.classList.add('d-none');
-                            bloqueMax.textContent = 'Recarga de brazalete ya utilizada.';
-                            bloqueMax.classList.remove('d-none');
-                        } else {
-                            bloqueAgregar.classList.remove('d-none');
-                            bloqueMax.classList.add('d-none');
-                            if (btnAgregar) btnAgregar.textContent = 'Recarga +45 min';
-                        }
+                        // Estando en 0: se permite recarga si no ha llegado al máximo de 5 recargas
+                        bloqueAgregar.classList.remove('d-none');
+                        bloqueMax.classList.add('d-none');
+                        if (btnAgregar) btnAgregar.textContent = 'Recarga +45 min';
                     } else if (it.totalSeg >= 90 * 60) {
                         // Corriendo y ya tiene 90 min: no puede agregar más hasta culminar
                         bloqueAgregar.classList.add('d-none');

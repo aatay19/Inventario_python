@@ -13,7 +13,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
 
 from libreria.views.auth import eliminar_permitido
-from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO, TIEMPO_MAXIMO_NINO
+from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO, TIEMPO_MAXIMO_NINO, MAX_RECARGAS_NINO
 from .forms import ControlNinoForm, FiestaForm, NovedadManualForm
 from .permissions import control_nino_required, control_nino_gestion_required
 
@@ -209,10 +209,12 @@ def agregar_tiempo_nino(request, pk):
         error = 'Solo se permite agregar 45 minutos.'
     elif nino.salio:
         error = 'El niño ya tiene salida registrada.'
+    elif (nino.recargas or 0) >= MAX_RECARGAS_NINO:
+        error = f'El niño ya alcanzó el máximo permitido de {MAX_RECARGAS_NINO} recargas.'
     elif tiempo_culminado:
-        # Si culminó su tiempo, solo se permite 1 recarga de brazalete
-        if (nino.recargas or 0) > 0:
-            error = 'Ya se realizó una recarga de brazalete a este niño. No se pueden agregar más minutos.'
+        # Si culminó su tiempo, se valida que no supere las 5 recargas
+        if (nino.recargas or 0) >= MAX_RECARGAS_NINO:
+            error = f'Ya se realizaron las {MAX_RECARGAS_NINO} recargas permitidas para este niño.'
     else:
         # Si aún tiene tiempo corriendo, solo se suma si no supera el límite de 90 min de sesión activa
         if nino.tiempo >= TIEMPO_MAXIMO_NINO:
