@@ -6,5 +6,6 @@ from .registros_views import (
     borrar_foto_factura_abono1, borrar_foto_factura_abono2,
     lista_productos, crear_producto, editar_producto, eliminar_producto,
     lista_combos, crear_combo, editar_combo, eliminar_combo,
-    lista_brazaletes, crear_brazalete, editar_brazalete, eliminar_brazalete
+    lista_brazaletes, crear_brazalete, editar_brazalete, eliminar_brazalete,
+    lista_abonos, generar_pdf_abonos
 )

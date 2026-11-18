@@ -11,6 +11,8 @@ urlpatterns = [
     
     # Eventos CRUD
     path('eventos/', views.lista_eventos, name='lista_eventos'),
+    path('eventos/abonos/', views.lista_abonos, name='lista_abonos'),
+    path('eventos/abonos/pdf/', views.generar_pdf_abonos, name='pdf_abonos'),
     path('eventos/nuevo/', views.crear_evento, name='crear_evento'),
     path('eventos/editar/<int:pk>/', views.editar_evento, name='editar_evento'),
     path('eventos/eliminar/<int:pk>/', views.eliminar_evento, name='eliminar_evento'),

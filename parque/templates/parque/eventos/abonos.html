@@ -1,0 +1,458 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block title %}Abonos Realizados – Control Parque{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Visor modal de imágenes */
+    #modalImagen .modal-content {
+        background: #111827;
+    }
+    #modalImagen .modal-body img {
+        max-height: 75vh;
+        object-fit: contain;
+    }
+    /* Tabla de lista */
+    .tabla-abonos thead th {
+        font-size: 0.76rem;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        background-color: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .tabla-abonos tbody td {
+        font-size: 0.88rem;
+        vertical-align: middle;
+    }
+    .tabla-abonos tbody tr:hover {
+        background-color: #f1f5f9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Modal de confirmación para desconfirmar abono -->
+<div class="modal fade" id="modalDesconfirmar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 position-relative">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-danger bg-opacity-10 text-danger d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; min-width:48px;">
+                        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0" style="font-size:1.05rem;">¿Quitar confirmación?</h6>
+                        <p class="text-muted mb-0 small" id="detDesconfirmarSubtitulo">Abono</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 pt-3 pb-2">
+                <p class="text-secondary mb-0" style="font-size:0.95rem;">
+                    Este abono ya fue marcado como <strong class="text-success">Confirmado</strong>.
+                    Si lo cambias a <strong class="text-danger">No confirmado</strong>, se retirará la validación.
+                </p>
+                <p class="text-muted small mt-2 mb-0">¿Estás seguro de continuar?</p>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-2 gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger rounded-pill px-4" id="detBtnConfirmarDesconfirmar">
+                    <i class="bi bi-x-circle me-1"></i>Sí, quitar confirmación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid py-2">
+    <!-- Encabezado -->
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-3">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800 fw-bold">
+                <i class="bi bi-cash-stack text-success me-2"></i>Abonos Realizados
+            </h1>
+            <p class="text-muted small mb-0">
+                Desglose detallado y registro de todos los pagos y abonos realizados en los eventos del parque.
+            </p>
+        </div>
+        <div>
+            <!-- Botón Imprimir / Exportar Reporte PDF -->
+            <a href="{% url 'parque:pdf_abonos' %}?{{ request.GET.urlencode }}" target="_blank" class="btn btn-danger shadow-sm rounded-pill px-3 fw-semibold">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Imprimir Reporte PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros de búsqueda -->
+    <div class="card shadow-sm border-0 mb-4 rounded-4">
+        <div class="card-body p-3">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-semibold text-muted mb-1">Búsqueda rápida</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="q" class="form-control" placeholder="Cliente, evento, banco, ref..." value="{{ q }}">
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Tipo de Abono</label>
+                    <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los tipos</option>
+                        <option value="1" {% if filtro_tipo == '1' %}selected{% endif %}>Abono 1 (Reserva)</option>
+                        <option value="2" {% if filtro_tipo == '2' %}selected{% endif %}>Abono 2 (Día del Evento)</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Confirmación</label>
+                    <select name="confirmado" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="si" {% if filtro_confirmado == 'si' %}selected{% endif %}>Confirmados (Sí)</option>
+                        <option value="no" {% if filtro_confirmado == 'no' %}selected{% endif %}>Sin confirmar (No)</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Desde</label>
+                    <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Hasta</label>
+                    <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
+                </div>
+                <div class="col-12 col-md-1 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-dark flex-grow-1" title="Aplicar filtros">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    {% if q or filtro_tipo or filtro_confirmado or desde or hasta %}
+                    <a href="{% url 'parque:lista_abonos' %}" class="btn btn-sm btn-outline-secondary" title="Limpiar filtros">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Título de sección de la lista -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h5 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-table text-primary me-2"></i>Desglose de Abonos
+            </h5>
+            <small class="text-muted">{{ page_obj.paginator.count }} registro{{ page_obj.paginator.count|pluralize:"s" }} registrado{{ page_obj.paginator.count|pluralize:"s" }}</small>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         TABLA DESGLOSADA EN FORMATO LISTA
+         ============================================================ -->
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden mb-4">
+        <div class="table-responsive">
+            <table class="table tabla-abonos align-middle mb-0">
+                <thead>
+                    <tr class="text-secondary text-uppercase">
+                        <th class="ps-3" style="width: 36px;">#</th>
+                        <th>Fecha</th>
+                        <th>Cliente / Evento</th>
+                        <th>Tipo Abono</th>
+                        <th class="text-end">Monto ($)</th>
+                        <th>Método</th>
+                        <th>Banco / Referencia</th>
+                        <th>Tasa</th>
+                        <th>Nota / Detalle</th>
+                        <th class="text-center">Confirmado</th>
+                        <th>Confirmado Por</th>
+                        <th class="text-center">Evidencias</th>
+                        <th class="text-end pe-3">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for abono in page_obj %}
+                    <tr>
+                        <!-- # -->
+                        <td class="ps-3 text-muted small fw-semibold">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+
+                        <!-- Fecha -->
+                        <td class="fw-semibold text-nowrap">
+                            <i class="bi bi-calendar-check text-muted me-1"></i>{{ abono.fecha|date:"d/m/Y"|default:"-" }}
+                        </td>
+
+                        <!-- Cliente / Evento -->
+                        <td>
+                            <a href="{% url 'parque:detalle_evento' abono.evento.id %}" class="fw-bold text-dark text-decoration-none d-block">
+                                {{ abono.evento.nombre_reserva|default:abono.evento.titulo }}
+                            </a>
+                            <small class="text-muted d-block">
+                                <span class="badge bg-light text-dark border">#{{ abono.evento.id }}</span>
+                                {{ abono.evento.titulo }}
+                                {% if abono.evento.zona %}· {{ abono.evento.get_zona_display }}{% endif %}
+                            </small>
+                        </td>
+
+                        <!-- Tipo Abono -->
+                        <td>
+                            <span class="badge {% if abono.tipo_numero == 1 %}bg-primary{% else %}bg-warning text-dark{% endif %} rounded-pill px-2 py-1 small">
+                                {{ abono.tipo_label }}
+                            </span>
+                        </td>
+
+                        <!-- Monto -->
+                        <td class="text-end fw-bold text-success fs-6 text-nowrap">
+                            ${{ abono.monto|floatformat:2 }}
+                        </td>
+
+                        <!-- Método de pago -->
+                        <td>
+                            <span class="badge bg-light text-secondary border">
+                                {{ abono.metodo }}
+                            </span>
+                        </td>
+
+                        <!-- Banco / Referencia -->
+                        <td>
+                            <div class="small">
+                                <span class="fw-bold text-dark d-block">{{ abono.banco }}</span>
+                                <span class="text-muted font-monospace">Ref: {{ abono.ref }}</span>
+                            </div>
+                        </td>
+
+                        <!-- Tasa -->
+                        <td class="small text-muted text-nowrap">
+                            {% if abono.tasa != '-' %}{{ abono.tasa }}{% else %}-{% endif %}
+                        </td>
+
+                        <!-- Nota / Detalle -->
+                        <td class="small text-muted" style="max-width: 170px;">
+                            <span title="{{ abono.nota }}">{{ abono.nota|truncatechars:35 }}</span>
+                        </td>
+
+                        <!-- Confirmado (Toggle con confirmación amigable) -->
+                        <td class="text-center text-nowrap">
+                            {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
+                                <form method="post" action="{% url 'parque:toggle_confirmado' abono.evento.pk abono.tipo_numero %}" class="d-inline m-0 p-0 form-toggle-conf"
+                                    data-esta-confirmado="{% if abono.confirmado == 'Sí' %}1{% else %}0{% endif %}"
+                                    data-label="{{ abono.tipo_label }} - Evento #{{ abono.evento.id }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="btn btn-sm {% if abono.confirmado == 'Sí' %}btn-success{% else %}btn-danger{% endif %} rounded-pill px-2 py-0" title="Clic para alternar confirmación">
+                                        {% if abono.confirmado == 'Sí' %}
+                                            <i class="bi bi-check-circle me-1"></i>Sí
+                                        {% else %}
+                                            <i class="bi bi-x-circle me-1"></i>No
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="badge {% if abono.confirmado == 'Sí' %}bg-success{% else %}bg-danger{% endif %} rounded-pill px-2 py-1">
+                                    {% if abono.confirmado == 'Sí' %}Sí{% else %}No{% endif %}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Confirmado Por -->
+                        <td class="small">
+                            {% if abono.confirmado_usuario %}
+                                <strong class="text-dark">{{ abono.confirmado_usuario }}</strong>
+                            {% elif abono.confirmado_por != '-' %}
+                                <span class="text-muted">{{ abono.confirmado_por }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Evidencias fotográficas -->
+                        <td class="text-center text-nowrap">
+                            <div class="d-inline-flex gap-1">
+                                {% if abono.foto %}
+                                    <button type="button" class="btn btn-sm btn-outline-dark px-2 py-1"
+                                        data-bs-toggle="modal" data-bs-target="#modalImagen"
+                                        data-imagen-url="{{ abono.foto.url }}"
+                                        data-imagen-titulo="Comprobante · {{ abono.tipo_label }} · Evento #{{ abono.evento.id }}"
+                                        title="Ver Comprobante">
+                                        <i class="bi bi-receipt"></i>
+                                    </button>
+                                {% endif %}
+                                {% if abono.foto_factura %}
+                                    <button type="button" class="btn btn-sm btn-outline-warning text-dark px-2 py-1"
+                                        data-bs-toggle="modal" data-bs-target="#modalImagen"
+                                        data-imagen-url="{{ abono.foto_factura.url }}"
+                                        data-imagen-titulo="Factura · {{ abono.tipo_label }} · Evento #{{ abono.evento.id }}"
+                                        title="Ver Factura">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </button>
+                                {% endif %}
+                                {% if not abono.foto and not abono.foto_factura %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Acciones -->
+                        <td class="text-end pe-3 text-nowrap">
+                            <div class="d-inline-flex gap-1">
+                                {% if abono.tipo_numero == 1 %}
+                                    <a href="{% url 'parque:generar_pdf_abono1' abono.evento.id %}" class="btn btn-sm btn-outline-secondary" title="Descargar Recibo Abono 1 (PDF)">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'parque:generar_pdf_abono2' abono.evento.id %}" class="btn btn-sm btn-outline-secondary" title="Descargar Recibo Abono 2 (PDF)">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                {% endif %}
+                                <a href="{% url 'parque:detalle_evento' abono.evento.id %}" class="btn btn-sm btn-outline-primary" title="Ver Evento Completo">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="13" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            No se encontraron abonos registrados con los criterios seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         PAGINACIÓN (HASTA 10 REGISTROS POR PÁGINA)
+         ============================================================ -->
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4 pt-2 pb-4">
+        <small class="text-muted">
+            Mostrando <strong>{{ page_obj.start_index }}</strong> - <strong>{{ page_obj.end_index }}</strong> de <strong>{{ page_obj.paginator.count }}</strong> abonos
+        </small>
+        <nav aria-label="Navegación de páginas">
+            <ul class="pagination pagination-sm mb-0 shadow-sm rounded-pill overflow-hidden">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if querystring %}&{{ querystring }}{% endif %}" title="Primera página">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">
+                            Anterior
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-left"></i></span></li>
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if querystring %}&{{ querystring }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">
+                            Siguiente
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if querystring %}&{{ querystring }}{% endif %}" title="Última página">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                    <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-right"></i></span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ============================================================
+     MODAL · VISOR AMPLIADO DE COMPROBANTES Y FACTURAS
+     ============================================================ -->
+<div class="modal fade" id="modalImagen" tabindex="-1" aria-labelledby="modalImagenTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 text-white">
+                <h6 class="modal-title fw-bold" id="modalImagenTitulo">Imagen</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center p-2 p-md-3">
+                <img id="modalImagenSrc" src="" alt="Imagen ampliada" class="img-fluid rounded">
+            </div>
+            <div class="modal-footer border-0 justify-content-between">
+                <span class="text-white-50 small d-none d-sm-inline">Usa “Abrir original” para verla en tamaño real.</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a id="modalImagenAbrir" href="#" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir original
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Visor de imágenes de comprobantes y facturas
+    const modalImagen = document.getElementById('modalImagen');
+    if (modalImagen) {
+        modalImagen.addEventListener('show.bs.modal', function (event) {
+            const boton = event.relatedTarget;
+            if (!boton) return;
+
+            const url = boton.getAttribute('data-imagen-url');
+            const titulo = boton.getAttribute('data-imagen-titulo') || 'Imagen';
+
+            document.getElementById('modalImagenTitulo').textContent = titulo;
+            const imagen = document.getElementById('modalImagenSrc');
+            imagen.src = url;
+            imagen.alt = titulo;
+            document.getElementById('modalImagenAbrir').href = url;
+        });
+
+        modalImagen.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('modalImagenSrc').src = '';
+        });
+    }
+
+    // Modal de confirmación para desconfirmar abonos
+    let formularioPendiente = null;
+    document.querySelectorAll('.form-toggle-conf').forEach(function (formEl) {
+        formEl.addEventListener('submit', function (e) {
+            if (formEl.dataset.estaConfirmado === '1') {
+                e.preventDefault();
+                formularioPendiente = formEl;
+                document.getElementById('detDesconfirmarSubtitulo').textContent = formEl.dataset.label || 'este abono';
+                new bootstrap.Modal(document.getElementById('modalDesconfirmar')).show();
+            }
+        });
+    });
+
+    const btnConfirmarDesconfirmar = document.getElementById('detBtnConfirmarDesconfirmar');
+    if (btnConfirmarDesconfirmar) {
+        btnConfirmarDesconfirmar.addEventListener('click', function () {
+            bootstrap.Modal.getInstance(document.getElementById('modalDesconfirmar'))?.hide();
+            if (formularioPendiente) {
+                formularioPendiente.dataset.estaConfirmado = '0';
+                formularioPendiente.submit();
+                formularioPendiente = null;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -20,6 +20,13 @@
             </a>
         </li>
 
+        <!-- Abonos Realizados -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'lista_abonos' %}active-park{% endif %}" href="{% url 'parque:lista_abonos' %}">
+                <i class="bi bi-cash-stack me-3 opacity-75"></i> Abonos Realizados
+            </a>
+        </li>
+
         {% comment %}
         <!-- Dashboard -->
         <li class="nav-item mb-1">
@@ -36,6 +43,7 @@
                 <i class="bi bi-chevron-right small arrow-icon"></i>
             </a>
             <ul class="submenu list-unstyled ms-3 mt-1 rounded">
+                <li><a class="nav-link small py-2 {% if request.resolver_match.url_name == 'lista_abonos' %}text-warning fw-bold{% endif %}" href="{% url 'parque:lista_abonos' %}">➤ Abonos Realizados</a></li>
                 <li><a class="nav-link small py-2" href="{% url 'parque:lista_eventos' %}">➤ Historial de Eventos</a></li>
                 <li><a class="nav-link small py-2" href="{% url 'parque:crear_evento' %}">➤ Nueva Reserva</a></li>
                 <li><a class="nav-link small py-2" href="{% url 'parque:lista_brazaletes' %}">➤ Precios Brazaletes</a></li>

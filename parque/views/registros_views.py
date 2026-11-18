@@ -741,3 +741,312 @@ def eliminar_brazalete(request, pk):
         return redirect('parque:lista_brazaletes')
     return render(request, 'parque/brazaletes/eliminar.html', {'brazalete': brazalete})
 
+
+def _obtener_abonos_filtrados(request):
+    """Extrae y filtra los abonos 1 y 2 según los parámetros de la solicitud."""
+    from django.db.models import Q
+    from datetime import date
+    actualizar_estados_eventos()
+
+    q = request.GET.get('q', '').strip()
+    filtro_tipo = request.GET.get('tipo', '').strip()  # '1', '2' o ''
+    filtro_confirmado = request.GET.get('confirmado', '').strip()  # 'si', 'no' o ''
+    desde = request.GET.get('desde', '').strip()
+    hasta = request.GET.get('hasta', '').strip()
+
+    # Traer todos los eventos que tengan al menos un abono registrado
+    eventos = Evento.objects.filter(
+        Q(monto_abono1__gt=0) | Q(fecha_abono1__isnull=False) |
+        Q(monto_abono2__gt=0) | Q(fecha_abono2__isnull=False)
+    ).order_by('-fecha_inicio', '-hora_inicio')
+
+    if q:
+        eventos = eventos.filter(
+            Q(nombre_reserva__icontains=q) |
+            Q(titulo__icontains=q) |
+            Q(referencia_bancaria__icontains=q) |
+            Q(referencia_bancaria2__icontains=q) |
+            Q(banco__icontains=q) |
+            Q(banco2__icontains=q)
+        )
+
+    abonos = []
+    total_monto = 0.0
+
+    for ev in eventos:
+        # Abono 1
+        tiene_abono1 = bool(ev.monto_abono1) or bool(ev.fecha_abono1) or bool(ev.metodo_pago)
+        if tiene_abono1:
+            fecha_a1 = ev.fecha_abono1
+            if not desde or (fecha_a1 and fecha_a1.strftime('%Y-%m-%d') >= desde):
+                if not hasta or (fecha_a1 and fecha_a1.strftime('%Y-%m-%d') <= hasta):
+                    es_conf1 = (ev.confirmado == 'Sí')
+                    pasa_conf1 = True
+                    if filtro_confirmado == 'si' and not es_conf1:
+                        pasa_conf1 = False
+                    elif filtro_confirmado == 'no' and es_conf1:
+                        pasa_conf1 = False
+
+                    if pasa_conf1 and (not filtro_tipo or filtro_tipo == '1'):
+                        abonos.append({
+                            'evento': ev,
+                            'tipo_numero': 1,
+                            'tipo_label': 'Abono 1 (Reserva)',
+                            'tipo_corto': 'Abono 1',
+                            'fecha': fecha_a1,
+                            'monto': float(ev.monto_abono1 or 0),
+                            'metodo': ev.get_metodo_pago_display() if ev.metodo_pago else 'No especificado',
+                            'nota': ev.nota_forma_pago or '-',
+                            'confirmado_por': ev.confirmado_por or '-',
+                            'tasa': ev.tasa_dia or '-',
+                            'banco': ev.banco or '-',
+                            'ref': ev.referencia_bancaria or '-',
+                            'confirmado': ev.confirmado,
+                            'confirmado_usuario': ev.confirmado_usuario or '',
+                            'foto': ev.foto_abono1,
+                            'foto_factura': ev.foto_factura_abono1,
+                        })
+                        total_monto += float(ev.monto_abono1 or 0)
+
+        # Abono 2
+        tiene_abono2 = bool(ev.monto_abono2) or bool(ev.fecha_abono2) or bool(ev.metodo_pago2)
+        if tiene_abono2:
+            fecha_a2 = ev.fecha_abono2
+            if not desde or (fecha_a2 and fecha_a2.strftime('%Y-%m-%d') >= desde):
+                if not hasta or (fecha_a2 and fecha_a2.strftime('%Y-%m-%d') <= hasta):
+                    es_conf2 = (ev.confirmado2 == 'Sí')
+                    pasa_conf2 = True
+                    if filtro_confirmado == 'si' and not es_conf2:
+                        pasa_conf2 = False
+                    elif filtro_confirmado == 'no' and es_conf2:
+                        pasa_conf2 = False
+
+                    if pasa_conf2 and (not filtro_tipo or filtro_tipo == '2'):
+                        abonos.append({
+                            'evento': ev,
+                            'tipo_numero': 2,
+                            'tipo_label': 'Abono 2 (Día del Evento)',
+                            'tipo_corto': 'Abono 2',
+                            'fecha': fecha_a2,
+                            'monto': float(ev.monto_abono2 or 0),
+                            'metodo': ev.get_metodo_pago2_display() if ev.metodo_pago2 else 'No especificado',
+                            'nota': ev.nota_forma_pago2 or '-',
+                            'confirmado_por': ev.confirmado_por2 or '-',
+                            'tasa': ev.tasa_dia2 or '-',
+                            'banco': ev.banco2 or '-',
+                            'ref': ev.referencia_bancaria2 or '-',
+                            'confirmado': ev.confirmado2,
+                            'confirmado_usuario': ev.confirmado_usuario2 or '',
+                            'foto': ev.foto_abono2,
+                            'foto_factura': ev.foto_factura_abono2,
+                        })
+                        total_monto += float(ev.monto_abono2 or 0)
+
+    # Ordenar por fecha de abono desc (los más recientes primero)
+    abonos.sort(key=lambda a: (a['fecha'] or a['evento'].fecha_inicio or date.min), reverse=True)
+
+    return {
+        'abonos': abonos,
+        'total_monto': round(total_monto, 2),
+        'total_registros': len(abonos),
+        'q': q,
+        'filtro_tipo': filtro_tipo,
+        'filtro_confirmado': filtro_confirmado,
+        'desde': desde,
+        'hasta': hasta,
+    }
+
+
+def _limpiar_pdf_txt(texto):
+    """Sanitiza strings para evitar excepciones de codificación con FPDF estándar."""
+    if not texto:
+        return ''
+    texto = str(texto)
+    reemplazos = {
+        'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+        'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+        'Ñ': 'N', 'ñ': 'n', '–': '-', '—': '-', '“': '"', '”': '"',
+        '‘': "'", '’': "'", '°': 'o', 'º': 'o', 'ª': 'a', '€': 'EUR',
+    }
+    for orig, rep in reemplazos.items():
+        texto = texto.replace(orig, rep)
+    return texto.encode('latin-1', 'replace').decode('latin-1')
+
+
+@login_required
+def lista_abonos(request):
+    """Listado completo y detallado de todos los abonos realizados en los eventos del parque con paginación de 10."""
+    if not (hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol.lower() in ['soporte', 'parque', 'admin']):
+        messages.error(request, "No tienes permisos para acceder a esta sección.")
+        return redirect('index')
+
+    from django.core.paginator import Paginator
+
+    datos = _obtener_abonos_filtrados(request)
+    abonos = datos['abonos']
+
+    # Paginación hasta 10 registros por página
+    paginator = Paginator(abonos, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Preservar filtros actuales en los links de paginación
+    params = request.GET.copy()
+    if 'page' in params:
+        del params['page']
+    querystring = params.urlencode()
+
+    context = {
+        **datos,
+        'page_obj': page_obj,
+        'querystring': querystring,
+    }
+    return render(request, 'parque/eventos/abonos.html', context)
+
+
+@login_required
+def generar_pdf_abonos(request):
+    """Genera un reporte PDF desglosado en formato lista/tabla de los abonos del parque."""
+    if not (hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.rol.lower() in ['soporte', 'parque', 'admin']):
+        messages.error(request, "No tienes permisos para acceder a esta función.")
+        return redirect('index')
+
+    datos = _obtener_abonos_filtrados(request)
+    abonos = datos['abonos']
+    total_monto = datos['total_monto']
+    total_registros = datos['total_registros']
+
+    # Hoja Horizontal (Landscape) para presentar todas las columnas cómodamente
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=12)
+    pdf.add_page()
+
+    # Título Principal
+    pdf.set_font("Helvetica", 'B', 15)
+    pdf.cell(0, 8, txt=_limpiar_pdf_txt("CONTROL PARQUE - REPORTE DETALLADO DE ABONOS Y PAGOS"), ln=True, align='C')
+
+    # Subtítulo con filtros y fecha de generación
+    from django.utils import timezone
+    ahora = timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M")
+    filtros_txt = []
+    if datos['desde']:
+        filtros_txt.append(f"Desde: {datos['desde']}")
+    if datos['hasta']:
+        filtros_txt.append(f"Hasta: {datos['hasta']}")
+    if datos['filtro_tipo']:
+        filtros_txt.append(f"Tipo: Abono {datos['filtro_tipo']}")
+    if datos['filtro_confirmado']:
+        filtros_txt.append(f"Confirmado: {'Si' if datos['filtro_confirmado'] == 'si' else 'No'}")
+    if datos['q']:
+        filtros_txt.append(f"Busqueda: '{datos['q']}'")
+
+    subtitulo = f"Generado: {ahora}"
+    if filtros_txt:
+        subtitulo += " | Filtros: " + ", ".join(filtros_txt)
+    else:
+        subtitulo += " | Mostrando todos los registros"
+
+    pdf.set_font("Helvetica", size=9)
+    pdf.cell(0, 5, txt=_limpiar_pdf_txt(subtitulo), ln=True, align='C')
+    pdf.ln(3)
+
+    # Bloque de Resumen
+    pdf.set_font("Helvetica", 'B', 10)
+    pdf.set_fill_color(230, 245, 235)
+    resumen_txt = f"TOTAL ABONOS REGISTRADOS: {total_registros}    |    MONTO TOTAL RECAUDADO: ${total_monto:,.2f}"
+    pdf.cell(0, 7, txt=_limpiar_pdf_txt(resumen_txt), border=1, ln=True, align='C', fill=True)
+    pdf.ln(3)
+
+    # Columnas de la tabla (Ancho total disponible ~273mm en A4 Landscape con márgenes)
+    # Fecha: 22mm
+    # Cliente / Evento: 48mm
+    # Tipo: 24mm
+    # Monto: 22mm
+    # Metodo: 28mm
+    # Banco: 26mm
+    # Referencia: 28mm
+    # Tasa: 18mm
+    # Conf.: 16mm
+    # Confirmado Por: 41mm
+    # Suma: 22+48+24+22+28+26+28+18+16+41 = 273mm
+    cols = [
+        ("Fecha", 22, 'C'),
+        ("Cliente / Evento", 48, 'L'),
+        ("Tipo Abono", 24, 'C'),
+        ("Monto ($)", 22, 'R'),
+        ("Metodo", 28, 'L'),
+        ("Banco", 26, 'L'),
+        ("Referencia", 28, 'L'),
+        ("Tasa", 18, 'C'),
+        ("Conf.", 16, 'C'),
+        ("Confirmado Por", 41, 'L'),
+    ]
+
+    # Encabezado de la tabla
+    pdf.set_font("Helvetica", 'B', 8)
+    pdf.set_fill_color(40, 116, 166)
+    pdf.set_text_color(255, 255, 255)
+    for titulo_col, ancho, alineacion in cols:
+        pdf.cell(ancho, 7, txt=_limpiar_pdf_txt(titulo_col), border=1, fill=True, align=alineacion)
+    pdf.ln()
+
+    # Filas de la lista
+    pdf.set_font("Helvetica", size=7.5)
+    pdf.set_text_color(0, 0, 0)
+    fill = False
+
+    for a in abonos:
+        ev = a['evento']
+        fecha_str = a['fecha'].strftime('%d/%m/%Y') if a['fecha'] else '-'
+        cliente_ev = f"{ev.nombre_reserva or ev.titulo or 'Evento #' + str(ev.id)}"
+        if len(cliente_ev) > 28:
+            cliente_ev = cliente_ev[:26] + '..'
+        tipo_str = a['tipo_corto']
+        monto_str = f"${float(a['monto']):,.2f}"
+        metodo_str = (a['metodo'] or '-')[:16]
+        banco_str = (a['banco'] or '-')[:15]
+        ref_str = (a['ref'] or '-')[:16]
+        tasa_str = str(a['tasa'] or '-')[:10]
+        conf_str = "SI" if a['confirmado'] == 'Sí' else "NO"
+        conf_por = (a['confirmado_usuario'] or a['confirmado_por'] or '-')[:25]
+
+        if fill:
+            pdf.set_fill_color(245, 247, 250)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+
+        pdf.cell(22, 6, txt=_limpiar_pdf_txt(fecha_str), border='TB', fill=fill, align='C')
+        pdf.cell(48, 6, txt=_limpiar_pdf_txt(cliente_ev), border='TB', fill=fill, align='L')
+        pdf.cell(24, 6, txt=_limpiar_pdf_txt(tipo_str), border='TB', fill=fill, align='C')
+        pdf.cell(22, 6, txt=_limpiar_pdf_txt(monto_str), border='TB', fill=fill, align='R')
+        pdf.cell(28, 6, txt=_limpiar_pdf_txt(metodo_str), border='TB', fill=fill, align='L')
+        pdf.cell(26, 6, txt=_limpiar_pdf_txt(banco_str), border='TB', fill=fill, align='L')
+        pdf.cell(28, 6, txt=_limpiar_pdf_txt(ref_str), border='TB', fill=fill, align='L')
+        pdf.cell(18, 6, txt=_limpiar_pdf_txt(tasa_str), border='TB', fill=fill, align='C')
+        pdf.cell(16, 6, txt=_limpiar_pdf_txt(conf_str), border='TB', fill=fill, align='C')
+        pdf.cell(41, 6, txt=_limpiar_pdf_txt(conf_por), border='TB', fill=fill, align='L')
+        pdf.ln()
+        fill = not fill
+
+    # Fila totalizadora al final
+    pdf.set_font("Helvetica", 'B', 8)
+    pdf.set_fill_color(230, 235, 240)
+    pdf.cell(22 + 48 + 24, 7, txt=_limpiar_pdf_txt(f"TOTAL GENERAL ({total_registros} abonos)"), border=1, fill=True, align='R')
+    pdf.cell(22, 7, txt=_limpiar_pdf_txt(f"${total_monto:,.2f}"), border=1, fill=True, align='R')
+    pdf.cell(28 + 26 + 28 + 18 + 16 + 41, 7, txt="", border=1, fill=True)
+    pdf.ln()
+
+    # Retorno en modo inline para vista previa e impresión directa en el navegador
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_abonos_parque.pdf"'
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, str):
+        response.write(pdf_output.encode('latin-1', 'replace'))
+    elif isinstance(pdf_output, bytearray):
+        response.write(bytes(pdf_output))
+    else:
+        response.write(pdf_output)
+    return response
+
+
+
