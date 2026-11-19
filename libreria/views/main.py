@@ -11,6 +11,77 @@ from ..models import Proveedor, Inventario, MovimientosInventario
 from datetime import timedelta
 
 @login_required
+def hub(request):
+    """Vista principal de bienvenida: muestra las secciones disponibles según el rol del usuario."""
+    perfil = getattr(request.user, 'perfilusuario', None)
+    rol = perfil.rol.lower() if perfil else ''
+
+    # Roles exclusivos que no usan el hub
+    if rol == 'almacenista':
+        return redirect('movimientos.entrada')
+    if rol in {'supervisor_caja', 'cuadre_caja'}:
+        return redirect('cuadre_caja:index')
+
+    # Determinar qué secciones mostrar según el rol
+    ROLES_ADMIN     = {'admin', 'soporte'}
+    ROLES_PARQUE    = {'admin', 'soporte', 'parque'}
+    ROLES_NINO      = {'admin', 'soporte', 'control_nino'}
+    ROLES_CAJA      = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
+    ROLES_INV       = {'admin', 'soporte', 'almacenista'}
+
+    secciones = []
+
+    if rol in ROLES_INV or not rol:
+        secciones.append({
+            'nombre': 'Control Inventario',
+            'descripcion': 'Gestión de productos, movimientos, compras y proveedores.',
+            'url_name': 'index',
+            'icono': 'bi-boxes',
+            'color': 'primary',
+            'gradiente': 'linear-gradient(135deg, #1a73e8, #0d47a1)',
+        })
+
+    if rol in ROLES_NINO or not rol:
+        secciones.append({
+            'nombre': 'Control Niño',
+            'descripcion': 'Registro de niños, control de tiempo y reportes de fiestas.',
+            'url_name': 'control_nino:lista_control_ninos',
+            'icono': 'bi-balloon-fill',
+            'color': 'success',
+            'gradiente': 'linear-gradient(135deg, #34a853, #1b5e20)',
+        })
+
+    if rol in ROLES_CAJA or not rol:
+        secciones.append({
+            'nombre': 'Cuadre de Caja',
+            'descripcion': 'Gestión de turnos, ingresos, egresos y cierre de caja.',
+            'url_name': 'cuadre_caja:index',
+            'icono': 'bi-cash-coin',
+            'color': 'warning',
+            'gradiente': 'linear-gradient(135deg, #fbbc04, #e37400)',
+        })
+
+    if rol in ROLES_PARQUE or not rol:
+        secciones.append({
+            'nombre': 'Control Parque',
+            'descripcion': 'Reservas de eventos, abonos, productos y brazaletes del parque.',
+            'url_name': 'parque:calendario',
+            'icono': 'bi-tree-fill',
+            'color': 'danger',
+            'gradiente': 'linear-gradient(135deg, #ea4335, #b71c1c)',
+        })
+
+    # Si solo hay una sección disponible, ir directo
+    if len(secciones) == 1:
+        return redirect(secciones[0]['url_name'])
+
+    return render(request, 'hub.html', {
+        'secciones': secciones,
+        'nombre_usuario': request.user.first_name or request.user.username,
+    })
+
+
+@login_required
 def index(request):
     perfil = getattr(request.user, 'perfilusuario', None)
     rol = perfil.rol.lower() if perfil else None

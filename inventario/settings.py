@@ -142,8 +142,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # 1. Si intento entrar a una página protegida, mándame aquí:
 LOGIN_URL = '/accounts/login/'
 
-# 2. Cuando inicie sesión correctamente, mándame automáticamente al inicio (index):
-LOGIN_REDIRECT_URL = '/'
+# 2. Cuando inicie sesión correctamente, mándame al hub de secciones:
+LOGIN_REDIRECT_URL = '/hub/'
 
 # 3. Cuando cierre sesión, mándame de vuelta al login:
 LOGOUT_REDIRECT_URL = '/accounts/login/'
