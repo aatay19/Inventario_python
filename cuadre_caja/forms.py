@@ -463,8 +463,9 @@ class EgresoGeneralForm(forms.ModelForm):
 
     tipo = forms.ChoiceField(
         label="Tipo",
-        required=True,
+        required=False,
         choices=[
+            ("", "Tipo"),
             (TipoSalidaChoices.EGRESO, "Egreso"),
             (TipoSalidaChoices.DEVOLUCION, "Devolución"),
             (TipoSalidaChoices.ABONO, "Abono"),
@@ -501,8 +502,9 @@ class EgresoGeneralForm(forms.ModelForm):
     )
     moneda = forms.ChoiceField(
         label="Moneda",
-        required=True,
+        required=False,
         choices=[
+            ("", "Moneda"),
             (MONEDA_BS, "Bolívares (Bs)"),
             (MONEDA_USD, "Dólares (USD)"),
         ],
@@ -510,7 +512,7 @@ class EgresoGeneralForm(forms.ModelForm):
     )
     monto = forms.DecimalField(
         label="Monto",
-        required=True,
+        required=False,
         max_digits=14,
         decimal_places=2,
         min_value=0,
@@ -520,6 +522,21 @@ class EgresoGeneralForm(forms.ModelForm):
                 "step": "0.01",
                 "min": "0",
                 "placeholder": "0.00",
+            }
+        ),
+    )
+    tasa_dia = forms.DecimalField(
+        label="Tasa del día (Bs/USD)",
+        required=False,
+        max_digits=12,
+        decimal_places=2,
+        min_value=0,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control text-end",
+                "step": "0.01",
+                "min": "0",
+                "placeholder": "Tasa del día",
             }
         ),
     )
@@ -546,7 +563,7 @@ class EgresoGeneralForm(forms.ModelForm):
     )
     motivo = forms.CharField(
         label="Motivo",
-        required=True,
+        required=False,
         max_length=200,
         widget=forms.TextInput(
             attrs={
@@ -565,6 +582,7 @@ class EgresoGeneralForm(forms.ModelForm):
             "banco",
             "moneda",
             "monto",
+            "tasa_dia",
             "referencia",
             "imagen",
             "motivo",

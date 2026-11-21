@@ -1134,6 +1134,9 @@ def egresos(request):
         form = EgresoGeneralForm(request.POST, request.FILES)
         if form.is_valid():
             egreso = form.save(commit=False)
+            egreso.tipo = egreso.tipo or TipoSalidaChoices.EGRESO
+            egreso.moneda = egreso.moneda or MONEDA_BS
+            egreso.monto = egreso.monto or Decimal("0.00")
             egreso.usuario = request.user
             egreso.save()
             if egreso.es_abono:
@@ -1157,6 +1160,10 @@ def egresos(request):
     )
     totales["total_bs"] = totales["total_bs"] or Decimal("0.00")
     totales["total_usd"] = totales["total_usd"] or Decimal("0.00")
+    totales["total_equivalente_usd"] = sum(
+        (registro.equivalente_usd or Decimal("0.00") for registro in registros),
+        Decimal("0.00"),
+    )
 
     paginator = Paginator(registros, 20)
     pagina = paginator.get_page(request.GET.get("page"))

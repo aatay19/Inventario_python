@@ -28,7 +28,7 @@
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="card cc-card h-100">
             <div class="card-body">
                 <div class="stat-label mb-1">Registros</div>
@@ -36,7 +36,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="card cc-card h-100">
             <div class="card-body">
                 <div class="stat-label mb-1">Total en bolívares</div>
@@ -44,11 +44,19 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="card cc-card h-100">
             <div class="card-body">
                 <div class="stat-label mb-1">Total en dólares</div>
                 <div class="stat-valor">USD {{ totales.total_usd|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card cc-card h-100">
+            <div class="card-body">
+                <div class="stat-label mb-1">Equivalente USD según tasa</div>
+                <div class="stat-valor text-primary">USD {{ totales.total_equivalente_usd|floatformat:2 }}</div>
             </div>
         </div>
     </div>
@@ -115,6 +123,12 @@
                     {{ form.monto }}
                     {% for error in form.monto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                 </div>
+                <div class="col-12 col-md-3">
+                    <label for="{{ form.tasa_dia.id_for_label }}" class="form-label fw-semibold">{{ form.tasa_dia.label }}</label>
+                    {{ form.tasa_dia }}
+                    {% for error in form.tasa_dia.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    <div class="form-text">Convierte el monto en Bs a dólares (Bs ÷ tasa).</div>
+                </div>
                 <div class="col-12 col-md-5">
                     <label for="{{ form.referencia.id_for_label }}" class="form-label fw-semibold">{{ form.referencia.label }}</label>
                     {{ form.referencia }}
@@ -158,6 +172,8 @@
                         <th>Banco</th>
                         <th>Moneda</th>
                         <th class="text-end">Monto</th>
+                        <th class="text-end">Tasa del día</th>
+                        <th class="text-end">Equivalente USD</th>
                         <th>Referencia</th>
                         <th>Imagen</th>
                         <th class="pe-3">Usuario</th>
@@ -182,6 +198,12 @@
                         <td>{{ egreso.banco|default:"—" }}</td>
                         <td>{{ egreso.get_moneda_display }}</td>
                         <td class="text-end monto fw-semibold">{{ egreso.monto|floatformat:2 }}</td>
+                        <td class="text-end small text-muted">
+                            {% if egreso.tasa_dia %}{{ egreso.tasa_dia|floatformat:2 }}{% else %}—{% endif %}
+                        </td>
+                        <td class="text-end fw-semibold text-primary">
+                            {% if egreso.equivalente_usd %}USD {{ egreso.equivalente_usd|floatformat:2 }}{% else %}—{% endif %}
+                        </td>
                         <td>{{ egreso.referencia|default:"—" }}</td>
                         <td>
                             {% if egreso.imagen %}
@@ -198,7 +220,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-5">
+                        <td colspan="13" class="text-center text-muted py-5">
                             <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                             No hay egresos, devoluciones ni abonos registrados.
                         </td>

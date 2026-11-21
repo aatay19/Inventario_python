@@ -381,6 +381,13 @@ class EgresoGeneral(models.Model):
         default=0,
         verbose_name="Monto",
     )
+    tasa_dia = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Tasa del Día (Bs/USD)",
+    )
     referencia = models.CharField(
         max_length=100,
         blank=True,
@@ -430,6 +437,15 @@ class EgresoGeneral(models.Model):
     @property
     def monto_usd(self):
         return self.monto if self.moneda == MONEDA_USD else Decimal("0.00")
+
+    @property
+    def equivalente_usd(self):
+        """Equivalente en dólares según la tasa del día (monto Bs entre tasa)."""
+        if self.moneda == MONEDA_USD:
+            return self.monto or Decimal("0.00")
+        if self.monto and self.tasa_dia:
+            return (self.monto / self.tasa_dia).quantize(Decimal("0.01"))
+        return None
 
 
 class CierreTransaccion(models.Model):
