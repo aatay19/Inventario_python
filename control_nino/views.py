@@ -13,7 +13,10 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from fpdf import FPDF
 
 from libreria.views.auth import eliminar_permitido
-from .models import ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO, TIEMPO_MAXIMO_NINO, MAX_RECARGAS_NINO
+from .models import (
+    ControlNino, Fiesta, BrazaleteFiesta, Novedad, TIEMPO_MAXIMO,
+    TIEMPO_MAXIMO_NINO, MAX_RECARGAS_NINO, MAX_RECARGAS_FIESTA,
+)
 from .forms import ControlNinoForm, FiestaForm, NovedadManualForm
 from .permissions import control_nino_required, control_nino_gestion_required
 
@@ -119,6 +122,7 @@ def lista_control_ninos(request):
         'historico_total': historico_ninos + historico_fiestas,
         'tiempo_maximo': TIEMPO_MAXIMO,
         'tiempo_maximo_nino': TIEMPO_MAXIMO_NINO,
+        'max_recargas_fiesta': MAX_RECARGAS_FIESTA,
     })
 
 
@@ -798,7 +802,7 @@ def estadisticas_control_ninos(request):
             clave = _obtener_clave_periodo(local, periodo)
             datos = resumen[clave]
             datos['fiestas'] += 1
-            datos['tiempo_fiestas'] += min(tiempo or 0, TIEMPO_MAXIMO)
+            datos['tiempo_fiestas'] += tiempo or 0
 
     # Brazaletes de fiesta
     for dt in BrazaleteFiesta.objects.values_list('fiesta__fecha_registro', flat=True).iterator():
@@ -1289,8 +1293,10 @@ def detalle_fiesta(request, pk):
     fiesta = get_object_or_404(Fiesta.objects.prefetch_related('brazaletes'), pk=pk)
     return render(request, 'control_nino/fiesta_detalle.html', {
         'fiesta': fiesta,
+        'novedades': fiesta.novedades.select_related('usuario').all(),
         'ahora_ms': int(timezone.now().timestamp() * 1000),
         'tiempo_maximo': TIEMPO_MAXIMO,
+        'max_recargas_fiesta': MAX_RECARGAS_FIESTA,
     })
 
 
@@ -1348,7 +1354,7 @@ def deshacer_salida_fiesta(request, pk):
 @login_required
 @control_nino_required
 def agregar_tiempo_fiesta(request, pk):
-    """Suma 45 o 90 minutos al tiempo total de una fiesta, sin superar el máximo."""
+    """Agrega 45 min solo cuando culminó el tiempo de la fiesta, máximo 5 veces."""
     fiesta = get_object_or_404(Fiesta, pk=pk)
     es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
@@ -1356,19 +1362,24 @@ def agregar_tiempo_fiesta(request, pk):
         return JsonResponse({'ok': False, 'error': 'Método no permitido.'}, status=405) if es_ajax else redirect('control_nino:lista_control_ninos')
 
     try:
-        minutos = int(request.POST.get('minutos', 0))
+        minutos = int(request.POST.get('minutos', 45))
     except (TypeError, ValueError):
-        minutos = 0
+        minutos = 45
+
+    restante = fiesta.segundos_restantes
+    tiempo_culminado = restante is not None and restante <= 0
 
     error = None
-    if minutos not in (45, 90):
-        error = 'Solo se permiten 45 o 90 minutos.'
+    if minutos != 45:
+        error = 'Solo se permite agregar 45 minutos.'
     elif fiesta.salio:
         error = 'La fiesta ya finalizó.'
-    elif fiesta.tiempo >= TIEMPO_MAXIMO:
-        error = f"La fiesta ya alcanzó el máximo de {TIEMPO_MAXIMO} minutos."
-    elif fiesta.tiempo + minutos > TIEMPO_MAXIMO:
-        error = f"No se pueden superar los {TIEMPO_MAXIMO} minutos en total."
+    elif not fiesta.iniciada:
+        error = 'La fiesta aún no ha iniciado su tiempo.'
+    elif (fiesta.recargas or 0) >= MAX_RECARGAS_FIESTA:
+        error = f'La fiesta ya alcanzó el máximo permitido de {MAX_RECARGAS_FIESTA} recargas.'
+    elif not tiempo_culminado:
+        error = 'Solo se puede agregar tiempo cuando haya culminado el tiempo de la fiesta.'
 
     if error:
         if es_ajax:
@@ -1378,10 +1389,18 @@ def agregar_tiempo_fiesta(request, pk):
         tiempo_ant = fiesta.tiempo
         fiesta.tiempo += minutos
         fiesta.tiempo_adicional += minutos
-        fiesta.save(update_fields=['tiempo', 'tiempo_adicional'])
+        fiesta.recargas = (fiesta.recargas or 0) + 1
+        # La recarga corre desde ahora: se reubicó el inicio para que el nuevo
+        # tiempo restante sea exactamente 45 min, aunque ya hubiera vencido.
+        fiesta.hora_inicio = timezone.now() - timedelta(minutes=tiempo_ant)
+        fiesta.save(update_fields=['tiempo', 'tiempo_adicional', 'recargas', 'hora_inicio'])
         registrar_novedad_sistema(
             titulo=f"Tiempo añadido a fiesta: {fiesta.nombre}",
-            descripcion=f"Se agregaron +{minutos} min a la fiesta '{fiesta.nombre}'. Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {fiesta.tiempo} min.",
+            descripcion=(
+                f"Se agregaron +{minutos} min a la fiesta '{fiesta.nombre}' tras culminar su tiempo "
+                f"(recarga {fiesta.recargas} de {MAX_RECARGAS_FIESTA}). "
+                f"Tiempo anterior: {tiempo_ant} min ➜ Nuevo tiempo: {fiesta.tiempo} min."
+            ),
             usuario=request.user,
             fiesta=fiesta
         )
@@ -1389,7 +1408,16 @@ def agregar_tiempo_fiesta(request, pk):
             messages.success(request, f"Se agregaron {minutos} minutos a la fiesta '{fiesta.nombre}'.")
 
     if es_ajax:
-        return JsonResponse({'ok': error is None, 'tiempo': fiesta.tiempo, 'error': error})
+        return JsonResponse({
+            'ok': error is None,
+            'tiempo': fiesta.tiempo,
+            'error': error,
+            'inicio_ms': fiesta.inicio_ms,
+            'segundos_restantes': fiesta.segundos_restantes,
+            'recargas': fiesta.recargas or 0,
+            'puede_agregar_45': fiesta.puede_agregar_45,
+            'tiempo_maximo_alcanzado': fiesta.tiempo_maximo_alcanzado,
+        })
 
     next_url = request.POST.get('next')
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):

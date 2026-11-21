@@ -68,6 +68,34 @@ class FiestaForm(forms.ModelForm):
             'tiempo': 'Tiempo general',
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.tiempo:
+            tiempo_actual = self.instance.tiempo
+            choices_existentes = [c[0] for c in self.fields['tiempo'].choices]
+            if tiempo_actual not in choices_existentes:
+                nuevos_choices = list(self.fields['tiempo'].choices) + [
+                    (tiempo_actual, f"{tiempo_actual} minutos (actual)")
+                ]
+                self.fields['tiempo'].choices = sorted(
+                    nuevos_choices,
+                    key=lambda c: int(c[0]) if str(c[0]).isdigit() else 0
+                )
+            self.initial['tiempo'] = tiempo_actual
+
+    def _get_validation_exclusions(self):
+        exclude = super()._get_validation_exclusions()
+        original = getattr(self.instance, 'tiempo', None)
+        actual = self.cleaned_data.get('tiempo')
+        if original is not None and actual is not None:
+            try:
+                if int(actual) == int(original):
+                    # El tiempo extendido no está en las choices del modelo.
+                    exclude.add('tiempo')
+            except (TypeError, ValueError):
+                pass
+        return exclude
+
 
 class BrazaleteFiestaForm(forms.ModelForm):
     class Meta:

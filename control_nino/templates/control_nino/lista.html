@@ -213,6 +213,7 @@
                         <div class="card tarjeta-nino estado-{{ fiesta.color_estado }} shadow-sm border-0 h-100"
                              data-inicio="{% if fiesta.iniciada %}{{ fiesta.inicio_ms }}{% endif %}"
                              data-tiempo="{{ fiesta.tiempo }}"
+                             data-recargas="{{ fiesta.recargas|default:0 }}"
                              data-id="{{ fiesta.pk }}"
                              data-nombre="{{ fiesta.nombre }}"
                              data-descripcion="{{ fiesta.resumen_brazaletes }}"
@@ -315,31 +316,19 @@
                                         </a>
                                         {% endif %}
                                     </div>
-                                    {% if fiesta.puede_agregar_45 or fiesta.puede_agregar_90 %}
-                                    <div class="d-flex align-items-center flex-wrap gap-1 border-top pt-2 bloque-agregar-tiempo">
-                                        <span class="small text-muted me-1">Agregar tiempo:</span>
-                                        {% if fiesta.puede_agregar_45 %}
-                                        <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="45">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="minutos" value="45">
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-agregar-fiesta py-0">+45 min</button>
-                                        </form>
-                                        {% endif %}
-                                        {% if fiesta.puede_agregar_90 %}
-                                        <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="90">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="minutos" value="90">
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" class="btn btn-sm btn-agregar-fiesta py-0">+90 min</button>
-                                        </form>
-                                        {% endif %}
+                                    <div class="contenedor-acciones-tiempo">
+                                        <div class="d-flex align-items-center gap-1 border-top pt-2 bloque-agregar-tiempo{% if not fiesta.puede_agregar_45 %} d-none{% endif %}">
+                                            <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="45">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="minutos" value="45">
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="btn btn-sm btn-agregar-fiesta py-0">Recarga +45 min</button>
+                                            </form>
+                                        </div>
+                                        <div class="small border-top pt-2 etiq-agregar-tiempo opacity-75 bloque-tiempo-maximo{% if not fiesta.tiempo_maximo_alcanzado %} d-none{% endif %}">
+                                            Máximo de {{ max_recargas_fiesta }} recargas alcanzado.
+                                        </div>
                                     </div>
-                                    {% elif fiesta.tiempo_maximo_alcanzado %}
-                                    <div class="small text-muted border-top pt-2">
-                                        Tiempo máximo alcanzado ({{ tiempo_maximo }} min).
-                                    </div>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -645,7 +634,8 @@
 
     const serverNow = parseInt(contenedor.dataset.now, 10) || Date.now();
     const offset = Date.now() - serverNow;
-    const MAX_SEG = {{ tiempo_maximo }} * 60;
+    const MAX_RECARGAS_FIESTA = {{ max_recargas_fiesta }};
+    function ahoraServidor() { return Date.now() - offset; }
     let alertados = [];
     try { alertados = JSON.parse(localStorage.getItem('alertas_control_nino') || '[]'); } catch (e) { alertados = []; }
     const alertadosSet = new Set(alertados);
@@ -774,20 +764,35 @@
         }).catch(function () { });
     }
 
-    function actualizarBotonera(it) {
+    function actualizarBloqueFiesta(it, restante) {
         const bloque = it.card.querySelector('.bloque-agregar-tiempo');
-        if (!bloque) return;
-        if (it.card.dataset.tipo === 'fiesta') {
-            if (it.totalSeg >= MAX_SEG) {
-                bloque.classList.add('d-none');
-                return;
-            }
+        const bloqueMax = it.card.querySelector('.bloque-tiempo-maximo');
+        if (!bloque || !bloqueMax) return;
+
+        const recargas = parseInt(it.card.dataset.recargas, 10) || 0;
+        if (it.salida === '1') {
+            bloque.classList.add('d-none');
+            bloqueMax.classList.add('d-none');
+        } else if (recargas >= MAX_RECARGAS_FIESTA) {
+            bloque.classList.add('d-none');
+            bloqueMax.textContent = 'Máximo de ' + MAX_RECARGAS_FIESTA + ' recargas alcanzado.';
+            bloqueMax.classList.remove('d-none');
+        } else if (restante <= 0) {
             bloque.classList.remove('d-none');
-            bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
-                const minutos = parseInt(form.dataset.minutos, 10) || 0;
-                form.classList.toggle('d-none', it.totalSeg + minutos * 60 > MAX_SEG);
-            });
+            bloqueMax.classList.add('d-none');
+            const btn = bloque.querySelector('.btn-agregar-fiesta');
+            if (btn) btn.textContent = 'Recarga +45 min';
+        } else {
+            // Con tiempo corriendo no se permite recargar: solo al vencerse.
+            bloque.classList.add('d-none');
+            bloqueMax.classList.add('d-none');
         }
+    }
+
+    function actualizarBotonera(it) {
+        if (it.card.dataset.tipo !== 'fiesta') return;
+        const restante = it.inicio == null ? 1 : Math.max(0, it.totalSeg - Math.floor((ahoraServidor() - it.inicio) / 1000));
+        actualizarBloqueFiesta(it, restante);
     }
 
     function mostrarAlertaResumen() {
@@ -960,6 +965,8 @@
                         if (btnAgregar) btnAgregar.textContent = '+45 min';
                     }
                 }
+            } else if (card.dataset.tipo === 'fiesta') {
+                actualizarBloqueFiesta(it, restante);
             }
 
             let estado;

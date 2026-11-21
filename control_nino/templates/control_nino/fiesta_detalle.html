@@ -4,7 +4,8 @@
 <div class="container-fluid" id="fiestaControles" data-now="{{ ahora_ms }}"
      data-iniciada="{% if fiesta.iniciada %}1{% else %}0{% endif %}"
      data-salio="{% if fiesta.salio %}1{% else %}0{% endif %}"
-     data-inicio="{% if fiesta.iniciada %}{{ fiesta.inicio_ms }}{% endif %}">
+     data-inicio="{% if fiesta.iniciada %}{{ fiesta.inicio_ms }}{% endif %}"
+     data-recargas="{{ fiesta.recargas|default:0 }}">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
@@ -53,33 +54,19 @@
                     </form>
                     {% endif %}
 
-                    {% if fiesta.puede_agregar_45 or fiesta.puede_agregar_90 %}
                     <hr>
-                    <div class="d-flex align-items-center flex-wrap gap-2" id="bloqueAgregarTiempo">
+                    <div class="d-flex align-items-center flex-wrap gap-2{% if not fiesta.puede_agregar_45 %} d-none{% endif %}" id="bloqueAgregarTiempo">
                         <span class="small text-muted">Agregar tiempo:</span>
-                        {% if fiesta.puede_agregar_45 %}
                         <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="45">
                             {% csrf_token %}
                             <input type="hidden" name="minutos" value="45">
                             <input type="hidden" name="next" value="{{ request.path }}">
-                            <button type="submit" class="btn btn-sm btn-light">+45 min</button>
+                            <button type="submit" class="btn btn-sm btn-light">Recarga +45 min</button>
                         </form>
-                        {% endif %}
-                        {% if fiesta.puede_agregar_90 %}
-                        <form method="post" action="{% url 'control_nino:agregar_tiempo_fiesta' fiesta.pk %}" class="d-inline" data-minutos="90">
-                            {% csrf_token %}
-                            <input type="hidden" name="minutos" value="90">
-                            <input type="hidden" name="next" value="{{ request.path }}">
-                            <button type="submit" class="btn btn-sm btn-light">+90 min</button>
-                        </form>
-                        {% endif %}
                     </div>
-                    {% elif fiesta.tiempo_maximo_alcanzado %}
-                    <hr>
-                    <div class="small text-muted">
-                        <i class="bi bi-info-circle me-1"></i> Tiempo máximo alcanzado ({{ tiempo_maximo }} min).
+                    <div class="small text-muted{% if not fiesta.tiempo_maximo_alcanzado %} d-none{% endif %}" id="bloqueMaxRecargas">
+                        <i class="bi bi-info-circle me-1"></i> Máximo de {{ max_recargas_fiesta }} recargas alcanzado.
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -109,6 +96,75 @@
                         </tr>
                         {% empty %}
                         <tr><td colspan="3" class="text-center text-muted py-4">Sin brazaletes.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Novedades / bitácora de la fiesta -->
+    <div class="card shadow-sm border-0 mt-3">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+            <h6 class="mb-0 fw-bold text-dark">
+                <i class="bi bi-journal-text me-2 text-warning"></i>Novedades de la fiesta
+            </h6>
+            <a href="{% url 'control_nino:lista_novedades' %}?q={{ fiesta.nombre|urlencode }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Ver bitácora completa
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 130px;">Fecha y Hora</th>
+                            <th style="width: 110px;">Tipo</th>
+                            <th style="width: 25%;">Título / Asunto</th>
+                            <th>Descripción / Detalle</th>
+                            <th style="width: 140px;">Responsable</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for n in novedades %}
+                        <tr>
+                            <td class="small text-muted fw-semibold">
+                                <i class="bi bi-calendar3 me-1"></i>{{ n.fecha_registro|date:"d/m/Y" }}<br>
+                                <i class="bi bi-clock me-1"></i>{{ n.fecha_registro|date:"H:i" }}
+                            </td>
+                            <td>
+                                {% if n.tipo == 'INCIDENTE' %}
+                                    <span class="badge bg-danger rounded-pill px-2 py-1">
+                                        <i class="bi bi-exclamation-triangle-fill me-1 small"></i>Incidente
+                                    </span>
+                                {% elif n.tipo == 'MANUAL' %}
+                                    <span class="badge bg-warning text-dark rounded-pill px-2 py-1">
+                                        <i class="bi bi-pencil-fill me-1 small"></i>Manual
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-info bg-opacity-25 text-info-emphasis rounded-pill px-2 py-1">
+                                        <i class="bi bi-gear-fill me-1 small"></i>Sistema
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-dark">{{ n.titulo }}</td>
+                            <td class="small text-secondary" style="white-space: pre-line;">{{ n.descripcion }}</td>
+                            <td>
+                                {% if n.usuario %}
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-person-fill me-1 text-primary"></i>{{ n.usuario.get_full_name|default:n.usuario.username }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small">Sistema</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-4 d-block mb-2"></i>Sin novedades registradas para esta fiesta.
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -158,9 +214,10 @@
     const salio = contenedor.dataset.salio === '1';
     const serverNow = parseInt(contenedor.dataset.now, 10) || Date.now();
     const offset = Date.now() - serverNow;
-    const inicio = parseInt(contenedor.dataset.inicio, 10);
+    let inicio = parseInt(contenedor.dataset.inicio, 10);
     let totalSeg = {{ fiesta.tiempo }} * 60;
-    const MAX_SEG = {{ tiempo_maximo }} * 60;
+    const MAX_RECARGAS = {{ max_recargas_fiesta }};
+    let recargas = parseInt(contenedor.dataset.recargas, 10) || 0;
     const nombreFiesta = "{{ fiesta.nombre|escapejs }}";
     const fiestaPk = {{ fiesta.pk }};
     let alertadosIniciales = [];
@@ -205,7 +262,10 @@
             }
             const claveVieja = claveActual();
             totalSeg = (data.tiempo || 0) * 60;
+            if (data.inicio_ms) inicio = parseInt(data.inicio_ms, 10);
+            if (typeof data.recargas !== 'undefined') recargas = parseInt(data.recargas, 10) || 0;
             alertadosSet.delete(claveVieja);
+            alertadosSet.delete(claveActual());
             try { localStorage.setItem('alertas_control_nino', JSON.stringify(Array.from(alertadosSet))); } catch (e) { }
             const totalEl = document.getElementById('tiempoTotal');
             if (totalEl) totalEl.textContent = data.tiempo;
@@ -215,16 +275,22 @@
 
     function actualizarBotonesTiempo() {
         const bloque = document.getElementById('bloqueAgregarTiempo');
+        const bloqueMax = document.getElementById('bloqueMaxRecargas');
         if (!bloque) return;
-        if (totalSeg >= MAX_SEG) {
+        if (salio || recargas >= MAX_RECARGAS) {
             bloque.classList.add('d-none');
+            if (bloqueMax && !salio) bloqueMax.classList.remove('d-none');
+            return;
+        }
+        const restante = isNaN(inicio) ? 1 : Math.max(0, totalSeg - Math.floor(((Date.now() - offset) - inicio) / 1000));
+        if (restante > 0) {
+            // Solo se recarga cuando el tiempo ya culminó.
+            bloque.classList.add('d-none');
+            if (bloqueMax) bloqueMax.classList.add('d-none');
             return;
         }
         bloque.classList.remove('d-none');
-        bloque.querySelectorAll('form[data-minutos]').forEach(function (form) {
-            const minutos = parseInt(form.dataset.minutos, 10) || 0;
-            form.classList.toggle('d-none', totalSeg + minutos * 60 > MAX_SEG);
-        });
+        if (bloqueMax) bloqueMax.classList.add('d-none');
     }
 
     if (salio) {
@@ -300,20 +366,18 @@
     }
 
     function alertaAmigable() {
-        const puede45 = totalSeg + 45 * 60 <= MAX_SEG;
-        const puede90 = totalSeg + 90 * 60 <= MAX_SEG;
+        const puede45 = !salio && recargas < MAX_RECARGAS;
         if (window.Swal) {
             Swal.fire({
                 icon: 'info',
                 title: '¡La fiesta terminó!',
-                text: (puede45 || puede90)
-                    ? 'La fiesta "' + nombreFiesta + '" llegó a su tiempo límite. ¿Deseas agregar más tiempo?'
-                    : 'La fiesta "' + nombreFiesta + '" alcanzó el máximo de {{ tiempo_maximo }} minutos.',
+                text: puede45
+                    ? 'La fiesta "' + nombreFiesta + '" llegó a su tiempo límite. ¿Deseas agregar 45 minutos más? (Recarga ' + (recargas + 1) + ' de ' + MAX_RECARGAS + ')'
+                    : 'La fiesta "' + nombreFiesta + '" alcanzó el máximo de ' + MAX_RECARGAS + ' recargas de 45 minutos.',
                 showDenyButton: puede45,
-                showCancelButton: puede90,
+                showCancelButton: false,
                 confirmButtonText: 'Entendido',
                 denyButtonText: 'Agregar 45 min',
-                cancelButtonText: 'Agregar 90 min',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 customClass: {
@@ -321,12 +385,10 @@
                     actions: 'gap-2 flex-wrap',
                     confirmButton: 'btn btn-outline-secondary px-3',
                     denyButton: 'btn btn-primary px-3',
-                    cancelButton: 'btn btn-success px-3',
                 },
                 buttonsStyling: false,
             }).then(function (result) {
                 if (result.isDenied && puede45) agregarTiempo(45);
-                else if (result.isDismissed && puede90) agregarTiempo(90);
             });
         } else {
             alert('¡Tiempo cumplido!\n\nFiesta: ' + nombreFiesta);

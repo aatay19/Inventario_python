@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 TIEMPO_MAXIMO_NINO = 90
 TIEMPO_MAXIMO = 210
 MAX_RECARGAS_NINO = 5
+MAX_RECARGAS_FIESTA = 5
 
 
 class ControlNino(models.Model):
@@ -111,6 +112,7 @@ class Fiesta(models.Model):
     nombre = models.CharField(max_length=100, verbose_name="Nombre de la fiesta")
     tiempo = models.PositiveIntegerField(choices=TIEMPO_CHOICES, default=120, verbose_name="Tiempo general (min)")
     tiempo_adicional = models.PositiveIntegerField(default=0, verbose_name="Tiempo adicional agregado (min)")
+    recargas = models.PositiveIntegerField(default=0, verbose_name="Recargas de la fiesta (+45 min)")
     fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Hora de ingreso")
     hora_inicio = models.DateTimeField(null=True, blank=True, verbose_name="Hora de inicio del tiempo")
     hora_salida = models.DateTimeField(null=True, blank=True, verbose_name="Hora de salida")
@@ -132,15 +134,17 @@ class Fiesta(models.Model):
 
     @property
     def puede_agregar_45(self):
-        return not self.salio and self.tiempo + 45 <= TIEMPO_MAXIMO
-
-    @property
-    def puede_agregar_90(self):
-        return not self.salio and self.tiempo + 90 <= TIEMPO_MAXIMO
+        """Solo se permite recargar cuando el tiempo ya culminó y faltan recargas."""
+        if self.salio or not self.iniciada:
+            return False
+        restante = self.segundos_restantes
+        if restante is None or restante > 0:
+            return False
+        return (self.recargas or 0) < MAX_RECARGAS_FIESTA
 
     @property
     def tiempo_maximo_alcanzado(self):
-        return not self.salio and self.tiempo >= TIEMPO_MAXIMO
+        return not self.salio and (self.recargas or 0) >= MAX_RECARGAS_FIESTA
 
     @property
     def todos_brazaletes_completos(self):
