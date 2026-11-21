@@ -3,12 +3,12 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
 from django.contrib import messages
 from django.core.paginator import Paginator
-from .auth import eliminar_permitido, es_admin
+from .auth import eliminar_permitido, es_soporte_gestion
 from ..models import PerfilUsuario
 from ..forms import UserForm, PerfilUsuarioForm
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_soporte_gestion, login_url='index')
 def usuarios_index(request):
     q = request.GET.get('q', '').strip()
     page_size = 10
@@ -27,7 +27,7 @@ def usuarios_index(request):
     return render(request, 'usuarios/index.html', {'page_obj': page_obj, 'q': q})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_soporte_gestion, login_url='index')
 def usuarios_crear(request):
     if request.method == 'POST':
         user_form = UserForm(request.POST)
@@ -46,7 +46,7 @@ def usuarios_crear(request):
     return render(request, 'usuarios/crear.html', {'user_form': user_form, 'perfil_form': perfil_form})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_soporte_gestion, login_url='index')
 def usuarios_editar(request, id):
     perfil = get_object_or_404(PerfilUsuario, id=id)
     user = perfil.user
@@ -64,7 +64,7 @@ def usuarios_editar(request, id):
     return render(request, 'usuarios/editar.html', {'user_form': user_form, 'perfil_form': perfil_form})
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_soporte_gestion, login_url='index')
 @eliminar_permitido('usuarios.index')
 def usuarios_eliminar(request, id):
     perfil = get_object_or_404(PerfilUsuario, id=id)

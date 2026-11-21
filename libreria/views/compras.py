@@ -11,7 +11,6 @@ from django.http import HttpResponse, JsonResponse
 from fpdf import FPDF
 from .auth import (
     eliminar_permitido,
-    es_admin,
     es_gestion_pedidos,
     es_inventario_acceso,
     es_pleno_acceso,

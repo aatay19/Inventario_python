@@ -1,8 +1,24 @@
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import logout
-from django.shortcuts import redirect
+from django.contrib.auth.views import LoginView
+from django.shortcuts import redirect, resolve_url
+
+
+class HubLoginView(LoginView):
+    """Login que siempre lleva al hub, ignorando el parámetro ?next=.
+
+    Sin esto, si el usuario abría la raíz "/" sin sesión, Django añadía
+    ?next=/ y tras iniciar sesión lo mandaba al inventario en lugar del hub.
+    """
+
+    template_name = 'login.html'
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return resolve_url(settings.LOGIN_REDIRECT_URL)
 
 # --- Grupos de roles ---
 
@@ -31,14 +47,18 @@ def custom_logout(request):
 
 # --- Decoradores para verificar roles ---
 
-def es_admin(user):
-    """Gestión de usuarios y respaldos: Administrador y Soporte."""
+def es_soporte_gestion(user):
+    """Gestión de usuarios y respaldos: exclusivo del rol Soporte.
+
+    El rol Administrador no puede ver ni acceder a Usuarios ni a Copia de
+    Respaldo. Un superusuario sin perfil conserva el acceso de emergencia.
+    """
     if not user.is_authenticated:
         return False
-    if user.is_superuser:
-        return True
     perfil = getattr(user, 'perfilusuario', None)
-    return bool(perfil) and perfil.rol.lower() in ['admin', 'soporte']
+    if perfil is not None:
+        return perfil.rol.lower() == 'soporte'
+    return user.is_superuser
 
 
 def es_inventario_acceso(user):

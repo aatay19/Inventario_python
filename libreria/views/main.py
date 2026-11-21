@@ -6,7 +6,7 @@ from django.db.models import Q, F, Sum
 from django.utils import timezone
 from django.http import HttpResponse
 from django.core.management import call_command
-from .auth import es_admin
+from .auth import es_soporte_gestion
 from ..models import Proveedor, Inventario, MovimientosInventario
 from datetime import timedelta
 
@@ -16,18 +16,12 @@ def hub(request):
     perfil = getattr(request.user, 'perfilusuario', None)
     rol = perfil.rol.lower() if perfil else ''
 
-    # Roles exclusivos que no usan el hub
-    if rol == 'almacenista':
-        return redirect('movimientos.entrada')
-    if rol in {'supervisor_caja', 'cuadre_caja'}:
-        return redirect('cuadre_caja:index')
-
-    # Determinar qué secciones mostrar según el rol
-    ROLES_ADMIN     = {'admin', 'soporte'}
+    # Todos los usuarios entran al hub; solo se filtran las tarjetas de las
+    # secciones a las que tienen acceso.
     ROLES_PARQUE    = {'admin', 'soporte', 'parque'}
     ROLES_NINO      = {'admin', 'soporte', 'control_nino'}
-    ROLES_CAJA      = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja'}
-    ROLES_INV       = {'admin', 'soporte', 'almacenista'}
+    ROLES_CAJA      = {'admin', 'soporte', 'supervisor_caja', 'cuadre_caja', 'supervisor_cuadre_caja'}
+    ROLES_INV       = {'admin', 'soporte', 'almacenista', 'inventario', 'supervisor_inventario'}
 
     secciones = []
 
@@ -70,10 +64,6 @@ def hub(request):
             'color': 'danger',
             'gradiente': 'linear-gradient(135deg, #ea4335, #b71c1c)',
         })
-
-    # Si solo hay una sección disponible, ir directo
-    if len(secciones) == 1:
-        return redirect(secciones[0]['url_name'])
 
     return render(request, 'hub.html', {
         'secciones': secciones,
@@ -161,7 +151,7 @@ def index(request):
 from django.http import JsonResponse
 
 @login_required
-@user_passes_test(es_admin, login_url='index')
+@user_passes_test(es_soporte_gestion, login_url='index')
 def realizar_copia_seguridad(request):
     output = io.StringIO()
     modelos_a_incluir = [

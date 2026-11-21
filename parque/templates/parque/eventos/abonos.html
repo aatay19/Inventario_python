@@ -160,7 +160,8 @@
                         <th class="text-end">Monto ($)</th>
                         <th>Método</th>
                         <th>Banco / Referencia</th>
-                        <th>Tasa</th>
+                        <th class="text-end">Tasa (Bs/$)</th>
+                        <th class="text-end">Monto (Bs)</th>
                         <th>Nota / Detalle</th>
                         <th class="text-center">Confirmado</th>
                         <th>Confirmado Por</th>
@@ -219,8 +220,13 @@
                         </td>
 
                         <!-- Tasa -->
-                        <td class="small text-muted text-nowrap">
+                        <td class="small text-muted text-end text-nowrap">
                             {% if abono.tasa != '-' %}{{ abono.tasa }}{% else %}-{% endif %}
+                        </td>
+
+                        <!-- Monto convertido a Bs -->
+                        <td class="text-end fw-semibold text-primary text-nowrap">
+                            {% if abono.monto_bs %}Bs {{ abono.monto_bs|floatformat:"2g" }}{% else %}-{% endif %}
                         </td>
 
                         <!-- Nota / Detalle -->
@@ -309,7 +315,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="13" class="text-center py-5 text-muted">
+                        <td colspan="14" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
                             No se encontraron abonos registrados con los criterios seleccionados.
                         </td>

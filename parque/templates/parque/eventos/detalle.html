@@ -225,6 +225,7 @@
                                 <span class="text-muted small d-block">Confirmado por: <strong>{{ evento.confirmado_por|default:"-" }}</strong></span>
                                 <div class="text-muted small mt-1 border-top pt-1 d-flex align-items-center flex-wrap gap-2">
                                     <span>Tasa: <strong>{% if evento.tasa_dia %}{{ evento.tasa_dia }}{% else %}-{% endif %}</strong> |</span>
+                                    <span>Monto Bs: <strong>{% if evento.monto_abono1_bs %}Bs {{ evento.monto_abono1_bs|floatformat:"2g" }}{% else %}-{% endif %}</strong> |</span>
                                     <span>Banco: <strong>{{ evento.banco|default:"-" }}</strong> |</span>
                                     <span>Ref: <strong>{{ evento.referencia_bancaria|default:"-" }}</strong> |</span>
                                     <div class="d-inline-flex align-items-center gap-2">
@@ -280,6 +281,7 @@
                                 <span class="text-muted small d-block">Confirmado por: <strong>{{ evento.confirmado_por2|default:"-" }}</strong></span>
                                 <div class="text-muted small mt-1 border-top pt-1 d-flex align-items-center flex-wrap gap-2">
                                     <span>Tasa: <strong>{% if evento.tasa_dia2 %}{{ evento.tasa_dia2 }}{% else %}-{% endif %}</strong> |</span>
+                                    <span>Monto Bs: <strong>{% if evento.monto_abono2_bs %}Bs {{ evento.monto_abono2_bs|floatformat:"2g" }}{% else %}-{% endif %}</strong> |</span>
                                     <span>Banco: <strong>{{ evento.banco2|default:"-" }}</strong> |</span>
                                     <span>Ref: <strong>{{ evento.referencia_bancaria2|default:"-" }}</strong> |</span>
                                     <div class="d-inline-flex align-items-center gap-2">

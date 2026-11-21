@@ -140,6 +140,20 @@ class Evento(models.Model):
     def __str__(self):
         return f"{self.titulo} ({self.get_estado_display()})"
 
+    @property
+    def monto_abono1_bs(self):
+        """Monto del Abono 1 convertido a bolívares con la tasa registrada."""
+        if self.monto_abono1 and self.tasa_dia:
+            return round(self.monto_abono1 * self.tasa_dia, 2)
+        return None
+
+    @property
+    def monto_abono2_bs(self):
+        """Monto del Abono 2 convertido a bolívares con la tasa registrada."""
+        if self.monto_abono2 and self.tasa_dia2:
+            return round(self.monto_abono2 * self.tasa_dia2, 2)
+        return None
+
 class DetalleEvento(models.Model):
     TIPO_CHOICES = [
         ('BRAZALETE', 'Brazalete'),

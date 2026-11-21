@@ -252,7 +252,7 @@ def generar_pdf_evento(request, pk):
     # InformaciÃƒÂ³n de Pagos (Abonos)
     pdf.ln(5)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(190, 8, txt="InformaciÃƒÂ³n de Pagos / Abonos", ln=True)
+    pdf.cell(190, 8, txt=_limpiar_pdf_txt("Información de Pagos / Abonos"), ln=True)
     pdf.set_font("Helvetica", size=10)
 
     # Abono 1
@@ -266,6 +266,10 @@ def generar_pdf_evento(request, pk):
             pdf.cell(95, 7, txt=f"  Monto: ${evento.monto_abono1}", ln=True)
         else:
             pdf.ln(7)
+        if evento.tasa_dia:
+            pdf.cell(190, 7, txt=f"  Tasa del Dia: {evento.tasa_dia} Bs/$", ln=True)
+        if evento.monto_abono1_bs:
+            pdf.cell(190, 7, txt=f"  Monto en Bs: Bs {evento.monto_abono1_bs:,.2f}", ln=True)
         if evento.metodo_pago:
             pdf.cell(190, 7, txt=f"  Metodo de Pago: {evento.get_metodo_pago_display()}", ln=True)
         if evento.nota_forma_pago:
@@ -275,7 +279,7 @@ def generar_pdf_evento(request, pk):
     # Abono 2
     if evento.monto_abono2 or evento.metodo_pago2:
         pdf.set_font("Helvetica", 'B', 10)
-        pdf.cell(190, 7, txt="Abono 2 (DÃƒÂ­a del Evento):", ln=True)
+        pdf.cell(190, 7, txt=_limpiar_pdf_txt("Abono 2 (Día del Evento):"), ln=True)
         pdf.set_font("Helvetica", size=10)
         if evento.fecha_abono2:
             pdf.cell(95, 7, txt=f"  Fecha: {evento.fecha_abono2.strftime('%d/%m/%Y')}", ln=False)
@@ -283,6 +287,10 @@ def generar_pdf_evento(request, pk):
             pdf.cell(95, 7, txt=f"  Monto: ${evento.monto_abono2}", ln=True)
         else:
             pdf.ln(7)
+        if evento.tasa_dia2:
+            pdf.cell(190, 7, txt=f"  Tasa del Dia: {evento.tasa_dia2} Bs/$", ln=True)
+        if evento.monto_abono2_bs:
+            pdf.cell(190, 7, txt=f"  Monto en Bs: Bs {evento.monto_abono2_bs:,.2f}", ln=True)
         if evento.metodo_pago2:
             pdf.cell(190, 7, txt=f"  Metodo de Pago: {evento.get_metodo_pago2_display()}", ln=True)
         if evento.nota_forma_pago2:
@@ -356,13 +364,17 @@ def generar_pdf_abono1(request, pk):
     
     pdf.ln(5)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(190, 8, txt="InformaciÃƒÂ³n del Abono", ln=True)
+    pdf.cell(190, 8, txt=_limpiar_pdf_txt("Información del Abono"), ln=True)
     pdf.set_font("Helvetica", size=11)
     
     if evento.fecha_abono1:
         pdf.cell(190, 7, txt=f"Fecha de Abono: {evento.fecha_abono1.strftime('%d/%m/%Y')}", ln=True)
     if evento.monto_abono1:
         pdf.cell(190, 7, txt=f"Monto: ${evento.monto_abono1}", ln=True)
+    if evento.tasa_dia:
+        pdf.cell(190, 7, txt=f"Tasa del Dia: {evento.tasa_dia} Bs/$", ln=True)
+    if evento.monto_abono1_bs:
+        pdf.cell(190, 7, txt=f"Monto en Bs: Bs {evento.monto_abono1_bs:,.2f}", ln=True)
     if evento.metodo_pago:
         pdf.cell(190, 7, txt=f"Metodo de Pago: {evento.get_metodo_pago_display()}", ln=True)
     if evento.nota_forma_pago:
@@ -392,7 +404,7 @@ def generar_pdf_abono2(request, pk):
 
     # TÃƒÂ­tulo
     pdf.set_font("Helvetica", 'B', 16)
-    pdf.cell(190, 10, txt="RECIBO DE ABONO 2 (DÃƒÂA DEL EVENTO)", ln=True, align='C')
+    pdf.cell(190, 10, txt=_limpiar_pdf_txt("RECIBO DE ABONO 2 (DÍA DEL EVENTO)"), ln=True, align='C')
     pdf.ln(10)
 
     # InformaciÃƒÂ³n General
@@ -408,13 +420,17 @@ def generar_pdf_abono2(request, pk):
 
     pdf.ln(5)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(190, 8, txt="InformaciÃƒÂ³n del Abono 2", ln=True)
+    pdf.cell(190, 8, txt=_limpiar_pdf_txt("Información del Abono 2"), ln=True)
     pdf.set_font("Helvetica", size=11)
 
     if evento.fecha_abono2:
         pdf.cell(190, 7, txt=f"Fecha de Abono: {evento.fecha_abono2.strftime('%d/%m/%Y')}", ln=True)
     if evento.monto_abono2:
         pdf.cell(190, 7, txt=f"Monto: ${evento.monto_abono2}", ln=True)
+    if evento.tasa_dia2:
+        pdf.cell(190, 7, txt=f"Tasa del Dia: {evento.tasa_dia2} Bs/$", ln=True)
+    if evento.monto_abono2_bs:
+        pdf.cell(190, 7, txt=f"Monto en Bs: Bs {evento.monto_abono2_bs:,.2f}", ln=True)
     if evento.metodo_pago2:
         pdf.cell(190, 7, txt=f"Metodo de Pago: {evento.get_metodo_pago2_display()}", ln=True)
     if evento.nota_forma_pago2:
@@ -423,7 +439,7 @@ def generar_pdf_abono2(request, pk):
     if not evento.monto_abono2 and not evento.metodo_pago2:
         pdf.ln(3)
         pdf.set_font("Helvetica", 'I', 10)
-        pdf.cell(190, 7, txt="Este evento aÃƒÂºn no registra un segundo abono.", ln=True)
+        pdf.cell(190, 7, txt=_limpiar_pdf_txt("Este evento aún no registra un segundo abono."), ln=True)
 
     # Generar respuesta
     response = HttpResponse(content_type='application/pdf')
@@ -772,6 +788,7 @@ def _obtener_abonos_filtrados(request):
 
     abonos = []
     total_monto = 0.0
+    total_monto_bs = 0.0
 
     for ev in eventos:
         # Abono 1
@@ -799,6 +816,7 @@ def _obtener_abonos_filtrados(request):
                             'nota': ev.nota_forma_pago or '-',
                             'confirmado_por': ev.confirmado_por or '-',
                             'tasa': ev.tasa_dia or '-',
+                            'monto_bs': ev.monto_abono1_bs,
                             'banco': ev.banco or '-',
                             'ref': ev.referencia_bancaria or '-',
                             'confirmado': ev.confirmado,
@@ -807,6 +825,7 @@ def _obtener_abonos_filtrados(request):
                             'foto_factura': ev.foto_factura_abono1,
                         })
                         total_monto += float(ev.monto_abono1 or 0)
+                        total_monto_bs += float(ev.monto_abono1_bs or 0)
 
         # Abono 2
         tiene_abono2 = bool(ev.monto_abono2) or bool(ev.fecha_abono2) or bool(ev.metodo_pago2)
@@ -833,6 +852,7 @@ def _obtener_abonos_filtrados(request):
                             'nota': ev.nota_forma_pago2 or '-',
                             'confirmado_por': ev.confirmado_por2 or '-',
                             'tasa': ev.tasa_dia2 or '-',
+                            'monto_bs': ev.monto_abono2_bs,
                             'banco': ev.banco2 or '-',
                             'ref': ev.referencia_bancaria2 or '-',
                             'confirmado': ev.confirmado2,
@@ -841,6 +861,7 @@ def _obtener_abonos_filtrados(request):
                             'foto_factura': ev.foto_factura_abono2,
                         })
                         total_monto += float(ev.monto_abono2 or 0)
+                        total_monto_bs += float(ev.monto_abono2_bs or 0)
 
     # Ordenar por fecha de abono desc (los más recientes primero)
     abonos.sort(key=lambda a: (a['fecha'] or a['evento'].fecha_inicio or date.min), reverse=True)
@@ -848,6 +869,7 @@ def _obtener_abonos_filtrados(request):
     return {
         'abonos': abonos,
         'total_monto': round(total_monto, 2),
+        'total_monto_bs': round(total_monto_bs, 2),
         'total_registros': len(abonos),
         'q': q,
         'filtro_tipo': filtro_tipo,
@@ -914,6 +936,7 @@ def generar_pdf_abonos(request):
     datos = _obtener_abonos_filtrados(request)
     abonos = datos['abonos']
     total_monto = datos['total_monto']
+    total_monto_bs = datos['total_monto_bs']
     total_registros = datos['total_registros']
 
     # Hoja Horizontal (Landscape) para presentar todas las columnas cómodamente
@@ -953,33 +976,35 @@ def generar_pdf_abonos(request):
     # Bloque de Resumen
     pdf.set_font("Helvetica", 'B', 10)
     pdf.set_fill_color(230, 245, 235)
-    resumen_txt = f"TOTAL ABONOS REGISTRADOS: {total_registros}    |    MONTO TOTAL RECAUDADO: ${total_monto:,.2f}"
+    resumen_txt = f"TOTAL ABONOS REGISTRADOS: {total_registros}    |    MONTO TOTAL RECAUDADO: ${total_monto:,.2f}    |    EQUIVALENTE: Bs {total_monto_bs:,.2f}"
     pdf.cell(0, 7, txt=_limpiar_pdf_txt(resumen_txt), border=1, ln=True, align='C', fill=True)
     pdf.ln(3)
 
     # Columnas de la tabla (Ancho total disponible ~273mm en A4 Landscape con márgenes)
     # Fecha: 22mm
-    # Cliente / Evento: 48mm
+    # Cliente / Evento: 42mm
     # Tipo: 24mm
     # Monto: 22mm
-    # Metodo: 28mm
-    # Banco: 26mm
-    # Referencia: 28mm
-    # Tasa: 18mm
+    # Metodo: 26mm
+    # Banco: 24mm
+    # Referencia: 26mm
+    # Tasa: 16mm
+    # Monto Bs: 22mm
     # Conf.: 16mm
-    # Confirmado Por: 41mm
-    # Suma: 22+48+24+22+28+26+28+18+16+41 = 273mm
+    # Confirmado Por: 33mm
+    # Suma: 22+42+24+22+26+24+26+16+22+16+33 = 273mm
     cols = [
         ("Fecha", 22, 'C'),
-        ("Cliente / Evento", 48, 'L'),
+        ("Cliente / Evento", 42, 'L'),
         ("Tipo Abono", 24, 'C'),
         ("Monto ($)", 22, 'R'),
-        ("Metodo", 28, 'L'),
-        ("Banco", 26, 'L'),
-        ("Referencia", 28, 'L'),
-        ("Tasa", 18, 'C'),
+        ("Metodo", 26, 'L'),
+        ("Banco", 24, 'L'),
+        ("Referencia", 26, 'L'),
+        ("Tasa", 16, 'C'),
+        ("Monto (Bs)", 22, 'R'),
         ("Conf.", 16, 'C'),
-        ("Confirmado Por", 41, 'L'),
+        ("Confirmado Por", 33, 'L'),
     ]
 
     # Encabezado de la tabla
@@ -1007,6 +1032,8 @@ def generar_pdf_abonos(request):
         banco_str = (a['banco'] or '-')[:15]
         ref_str = (a['ref'] or '-')[:16]
         tasa_str = str(a['tasa'] or '-')[:10]
+        monto_bs = a.get('monto_bs')
+        monto_bs_str = f"Bs {float(monto_bs):,.2f}" if monto_bs else '-'
         conf_str = "SI" if a['confirmado'] == 'Sí' else "NO"
         conf_por = (a['confirmado_usuario'] or a['confirmado_por'] or '-')[:25]
 
@@ -1016,24 +1043,27 @@ def generar_pdf_abonos(request):
             pdf.set_fill_color(255, 255, 255)
 
         pdf.cell(22, 6, txt=_limpiar_pdf_txt(fecha_str), border='TB', fill=fill, align='C')
-        pdf.cell(48, 6, txt=_limpiar_pdf_txt(cliente_ev), border='TB', fill=fill, align='L')
+        pdf.cell(42, 6, txt=_limpiar_pdf_txt(cliente_ev), border='TB', fill=fill, align='L')
         pdf.cell(24, 6, txt=_limpiar_pdf_txt(tipo_str), border='TB', fill=fill, align='C')
         pdf.cell(22, 6, txt=_limpiar_pdf_txt(monto_str), border='TB', fill=fill, align='R')
-        pdf.cell(28, 6, txt=_limpiar_pdf_txt(metodo_str), border='TB', fill=fill, align='L')
-        pdf.cell(26, 6, txt=_limpiar_pdf_txt(banco_str), border='TB', fill=fill, align='L')
-        pdf.cell(28, 6, txt=_limpiar_pdf_txt(ref_str), border='TB', fill=fill, align='L')
-        pdf.cell(18, 6, txt=_limpiar_pdf_txt(tasa_str), border='TB', fill=fill, align='C')
+        pdf.cell(26, 6, txt=_limpiar_pdf_txt(metodo_str), border='TB', fill=fill, align='L')
+        pdf.cell(24, 6, txt=_limpiar_pdf_txt(banco_str), border='TB', fill=fill, align='L')
+        pdf.cell(26, 6, txt=_limpiar_pdf_txt(ref_str), border='TB', fill=fill, align='L')
+        pdf.cell(16, 6, txt=_limpiar_pdf_txt(tasa_str), border='TB', fill=fill, align='C')
+        pdf.cell(22, 6, txt=_limpiar_pdf_txt(monto_bs_str), border='TB', fill=fill, align='R')
         pdf.cell(16, 6, txt=_limpiar_pdf_txt(conf_str), border='TB', fill=fill, align='C')
-        pdf.cell(41, 6, txt=_limpiar_pdf_txt(conf_por), border='TB', fill=fill, align='L')
+        pdf.cell(33, 6, txt=_limpiar_pdf_txt(conf_por), border='TB', fill=fill, align='L')
         pdf.ln()
         fill = not fill
 
     # Fila totalizadora al final
     pdf.set_font("Helvetica", 'B', 8)
     pdf.set_fill_color(230, 235, 240)
-    pdf.cell(22 + 48 + 24, 7, txt=_limpiar_pdf_txt(f"TOTAL GENERAL ({total_registros} abonos)"), border=1, fill=True, align='R')
+    pdf.cell(22 + 42 + 24, 7, txt=_limpiar_pdf_txt(f"TOTAL GENERAL ({total_registros} abonos)"), border=1, fill=True, align='R')
     pdf.cell(22, 7, txt=_limpiar_pdf_txt(f"${total_monto:,.2f}"), border=1, fill=True, align='R')
-    pdf.cell(28 + 26 + 28 + 18 + 16 + 41, 7, txt="", border=1, fill=True)
+    pdf.cell(26 + 24 + 26 + 16, 7, txt="", border=1, fill=True)
+    pdf.cell(22, 7, txt=_limpiar_pdf_txt(f"Bs {total_monto_bs:,.2f}"), border=1, fill=True, align='R')
+    pdf.cell(16 + 33, 7, txt="", border=1, fill=True)
     pdf.ln()
 
     # Retorno en modo inline para vista previa e impresión directa en el navegador
