@@ -27,6 +27,7 @@ from .forms import (
     EgresoCierreFormSet,
     CierreTransaccionForm,
     CierreTransaccionFormSet,
+    CierreTransaccionAjusteFormSet,
     ImagenCierreFormSet,
     ReporteFiltroForm,
 )
@@ -196,6 +197,7 @@ def _montos_por_metodo(transacciones, detalles, moneda):
     for valor, etiqueta in metodos:
         filas.append(
             {
+                "valor": valor,
                 "metodo": etiqueta,
                 "monto": montos[valor],
                 "bancos": [
@@ -1503,16 +1505,18 @@ def cerrar_caja(request, caja_id, turno=None):
     )
 
 
-@cuadre_caja_required
-def cierre_detalle(request, cierre_id):
-    """Comprobante de un cierre registrado."""
-    cierre = get_object_or_404(
+def _obtener_cierre_completo(cierre_id):
+    """Carga un cierre con todas sus relaciones para detalle y ajuste."""
+    return get_object_or_404(
         CierreCaja.objects.select_related(
             "caja__departamento", "usuario"
         ).prefetch_related("detalles", "transacciones", "egresos", "imagenes"),
         pk=cierre_id,
     )
 
+
+def _datos_cierre(cierre):
+    """Reúne todos los datos asociados a un cierre ya registrado."""
     orden_metodos = {
         valor: indice for indice, (valor, _) in enumerate(MetodoPagoChoices.choices)
     }
@@ -1523,24 +1527,18 @@ def cierre_detalle(request, cierre_id):
 
     egresos = list(cierre.egresos.all())
     vueltos = [egreso for egreso in egresos if egreso.es_vuelto]
-    devoluciones = [egreso for egreso in egresos if not egreso.es_vuelto]
+    informativos = [egreso for egreso in egresos if not egreso.es_vuelto]
 
-    total_vueltos_bs = sum(
-        (egreso.monto for egreso in vueltos if egreso.moneda == MONEDA_BS),
-        Decimal("0.00"),
-    )
-    total_vueltos_usd = sum(
-        (egreso.monto for egreso in vueltos if egreso.moneda == MONEDA_USD),
-        Decimal("0.00"),
-    )
-    total_devoluciones_bs = sum(
-        (egreso.monto for egreso in devoluciones if egreso.moneda == MONEDA_BS),
-        Decimal("0.00"),
-    )
-    total_devoluciones_usd = sum(
-        (egreso.monto for egreso in devoluciones if egreso.moneda == MONEDA_USD),
-        Decimal("0.00"),
-    )
+    def total_egresos(grupo, moneda):
+        return sum(
+            (egreso.monto for egreso in grupo if egreso.moneda == moneda),
+            Decimal("0.00"),
+        )
+
+    total_vueltos_bs = total_egresos(vueltos, MONEDA_BS)
+    total_vueltos_usd = total_egresos(vueltos, MONEDA_USD)
+    total_devoluciones_bs = total_egresos(informativos, MONEDA_BS)
+    total_devoluciones_usd = total_egresos(informativos, MONEDA_USD)
 
     transacciones = list(cierre.transacciones.all())
     imagenes = list(cierre.imagenes.all())
@@ -1556,6 +1554,7 @@ def cierre_detalle(request, cierre_id):
     if total_distribucion_bs == 0 and cierre.total_bs:
         distribucion_bs.append(
             {
+                "valor": "LEGADO_BS",
                 "metodo": "Total registrado",
                 "monto": cierre.total_bs,
                 "bancos": [],
@@ -1565,6 +1564,7 @@ def cierre_detalle(request, cierre_id):
     if total_distribucion_usd == 0 and cierre.total_usd:
         distribucion_usd.append(
             {
+                "valor": "LEGADO_USD",
                 "metodo": "Total registrado",
                 "monto": cierre.total_usd,
                 "bancos": [],
@@ -1572,25 +1572,203 @@ def cierre_detalle(request, cierre_id):
         )
         total_distribucion_usd = cierre.total_usd
 
-    return render(
-        request,
-        "cuadre_caja/cierre_detalle.html",
-        {
-            "cierre": cierre,
-            "caja": cierre.caja,
-            "distribucion_bs": distribucion_bs,
-            "distribucion_usd": distribucion_usd,
-            "total_distribucion_bs": total_distribucion_bs,
-            "total_distribucion_usd": total_distribucion_usd,
-            "egresos": egresos,
-            "total_vueltos_bs": total_vueltos_bs,
-            "total_vueltos_usd": total_vueltos_usd,
-            "total_devoluciones_bs": total_devoluciones_bs,
-            "total_devoluciones_usd": total_devoluciones_usd,
-            "transacciones": transacciones,
-            "imagenes": imagenes,
-        },
+    return {
+        "cierre": cierre,
+        "caja": cierre.caja,
+        "detalles": detalles,
+        "distribucion_bs": distribucion_bs,
+        "distribucion_usd": distribucion_usd,
+        "total_distribucion_bs": total_distribucion_bs,
+        "total_distribucion_usd": total_distribucion_usd,
+        "egresos": egresos,
+        "vueltos": vueltos,
+        "informativos": informativos,
+        "total_vueltos_bs": total_vueltos_bs,
+        "total_vueltos_usd": total_vueltos_usd,
+        "total_devoluciones_bs": total_devoluciones_bs,
+        "total_devoluciones_usd": total_devoluciones_usd,
+        "transacciones": transacciones,
+        "imagenes": imagenes,
+    }
+
+
+@cuadre_caja_required
+def cierre_detalle(request, cierre_id):
+    """Comprobante de un cierre registrado."""
+    cierre = _obtener_cierre_completo(cierre_id)
+    return render(request, "cuadre_caja/cierre_detalle.html", _datos_cierre(cierre))
+
+
+def _errores_formset_ajuste(formset):
+    """Devuelve errores legibles del formset, indicando la fila y el campo."""
+    detalles = [str(error) for error in formset.non_form_errors()]
+
+    for indice, form in enumerate(formset.forms):
+        if not form.errors:
+            continue
+        if form.instance and form.instance.pk:
+            etiqueta = f"Transacción #{form.instance.pk}"
+        else:
+            etiqueta = f"Nueva transacción {indice + 1}"
+        partes = []
+        for campo, errores in form.errors.items():
+            field = form.fields.get(campo)
+            nombre = field.label if field and field.label else campo
+            mensajes = ", ".join(str(error) for error in errores)
+            partes.append(f"{nombre}: {mensajes}")
+        if partes:
+            detalles.append(f"{etiqueta} → " + "; ".join(partes))
+
+    return detalles
+
+
+def _recalcular_totales_cierre(cierre):
+    """Recalcula los totales Bs/USD a partir de las transacciones vigentes."""
+    total_bs = Decimal("0.00")
+    total_usd = Decimal("0.00")
+    transacciones = CierreTransaccion.objects.filter(cierre=cierre).only(
+        "metodo_pago", "monto"
     )
+    for transaccion in transacciones:
+        monto = transaccion.monto or Decimal("0.00")
+        if MONEDA_POR_METODO.get(transaccion.metodo_pago) == MONEDA_USD:
+            total_usd += monto
+        else:
+            total_bs += monto
+    cierre.total_bs = total_bs
+    cierre.total_usd = total_usd
+    cierre.save(update_fields=["total_bs", "total_usd"])
+
+
+def _tarjetas_transacciones_ajuste(formset):
+    """Agrupa los formularios del formset por método para mostrarlos como en el cuadre."""
+    iniciales = formset.initial_form_count()
+    existentes = list(formset.forms[:iniciales])
+    extras = list(formset.forms[iniciales:])
+    extras_ids = {id(form) for form in extras}
+
+    por_metodo = {valor: [] for valor, _ in MetodoPagoChoices.choices}
+    sobrantes = []
+    extras_usados = set()
+
+    def metodo_de(form):
+        if form.is_bound:
+            return (form.data.get(f"{form.prefix}-metodo_pago") or "").strip()
+        return (form.initial.get("metodo_pago") or "").strip()
+
+    # Todas las filas que se rendericen deben pertenecer al formset; si se
+    # crean formularios sueltos con prefijos fuera de TOTAL_FORMS, Django los
+    # ignora al hacer POST y parece que "no se guarda nada".
+    for form in existentes + extras:
+        metodo = metodo_de(form)
+        if metodo in por_metodo:
+            por_metodo[metodo].append(form)
+            if id(form) in extras_ids:
+                extras_usados.add(id(form))
+        elif metodo or form.has_changed():
+            sobrantes.append(form)
+
+    # Cada método sin transacciones recibe una fila vacía real del formset.
+    for valor, etiqueta in MetodoPagoChoices.choices:
+        if por_metodo[valor]:
+            continue
+        extra = next((f for f in extras if id(f) not in extras_usados), None)
+        if extra is not None:
+            extra.initial["metodo_pago"] = valor
+            por_metodo[valor].append(extra)
+            extras_usados.add(id(extra))
+
+    tarjetas = []
+    for valor, etiqueta in MetodoPagoChoices.choices:
+        tarjetas.append(
+            {
+                "valor": valor,
+                "etiqueta": etiqueta,
+                "moneda": MONEDA_POR_METODO.get(valor, MONEDA_BS),
+                "forms": por_metodo[valor],
+            }
+        )
+
+    if sobrantes:
+        tarjetas.append(
+            {
+                "valor": "SIN_METODO",
+                "etiqueta": "Sin método de pago (corrige)",
+                "moneda": MONEDA_BS,
+                "forms": sobrantes,
+                "corregir": True,
+            }
+        )
+    return tarjetas, formset.total_form_count()
+
+
+@supervisor_required
+@never_cache
+def cierre_ajustar(request, cierre_id):
+    """Ajusta las transacciones de un cierre: agregar, editar o quitar."""
+    cierre = _obtener_cierre_completo(cierre_id)
+    puede_confirmar = _es_admin_o_soporte(request.user)
+    form_kwargs = {"puede_confirmar": puede_confirmar}
+    errores_ajuste = []
+
+    if request.method == "POST":
+        formset = CierreTransaccionAjusteFormSet(
+            request.POST,
+            instance=cierre,
+            prefix="transacciones",
+            form_kwargs=form_kwargs,
+        )
+        if formset.is_valid():
+            try:
+                with transaction.atomic():
+                    formset.save()
+                    _recalcular_totales_cierre(cierre)
+                messages.success(
+                    request,
+                    "Transacciones ajustadas correctamente. Los totales del cierre se recalcularon.",
+                )
+                return redirect("cuadre_caja:cierre_ajustar", cierre_id=cierre.id)
+            except Exception as exc:
+                logger.exception("Falló el ajuste del cierre %s", cierre_id)
+                detalle = str(exc) or exc.__class__.__name__
+                errores_ajuste = [f"Error al guardar: {detalle}"]
+                messages.error(
+                    request,
+                    "No se pudo guardar el ajuste. Detalle: " + detalle,
+                )
+        else:
+            errores_ajuste = _errores_formset_ajuste(formset)
+            detalle = " | ".join(errores_ajuste) if errores_ajuste else "Errores desconocidos en el formulario."
+            messages.error(
+                request,
+                "No se pudo guardar el ajuste. " + detalle,
+            )
+        # Se recarga para mostrar los datos vigentes junto a los errores.
+        cierre = _obtener_cierre_completo(cierre_id)
+    else:
+        formset = CierreTransaccionAjusteFormSet(
+            instance=cierre,
+            prefix="transacciones",
+            form_kwargs=form_kwargs,
+        )
+
+    tarjetas, transacciones_total_forms = _tarjetas_transacciones_ajuste(formset)
+    contexto = _datos_cierre(cierre)
+    contexto.update(
+        {
+            "formset": formset,
+            "puede_confirmar": puede_confirmar,
+            "tarjetas_metodo": tarjetas,
+            "transacciones_total_forms": transacciones_total_forms,
+            "transacciones_initial_forms": formset.initial_form_count(),
+            "filas_bs": contexto["distribucion_bs"],
+            "filas_usd": contexto["distribucion_usd"],
+            "bancos_choices": BANCOS_CHOICES,
+            "puede_eliminar_transacciones": True,
+            "errores_ajuste": errores_ajuste,
+        }
+    )
+    return render(request, "cuadre_caja/cierre_ajustar.html", contexto)
 
 
 @supervisor_required
@@ -1711,6 +1889,7 @@ def historial(request):
             "total_registros": cierres.count(),
             "total_dias": paginator.count,
             "pagos_movil_no_confirmados": pagos_movil_no_confirmados,
+            "cierres_ajuste": cierres_pagina,
         },
     )
 

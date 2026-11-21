@@ -1,0 +1,626 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Ajuste de caja | Cuadre de Caja{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tabla-transacciones-scroll {
+        max-height: 170px;
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+
+    .tabla-transacciones-scroll thead th {
+        position: sticky;
+        top: 0;
+        background: #fff;
+        z-index: 2;
+        box-shadow: inset 0 -1px 0 #dee2e6;
+    }
+
+    .seccion-moneda-bs {
+        background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 100%);
+        border: 3px solid #059669;
+        border-left: 8px solid #047857;
+        box-shadow: 0 10px 30px rgba(5, 150, 105, 0.22);
+    }
+
+    .seccion-moneda-usd {
+        background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+        border: 3px solid #2563eb;
+        border-left: 8px solid #1d4ed8;
+        box-shadow: 0 10px 30px rgba(37, 99, 235, 0.22);
+    }
+
+    .banner-moneda-bs {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(4, 120, 87, 0.28);
+    }
+
+    .banner-moneda-usd {
+        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(29, 78, 216, 0.28);
+    }
+
+    .tarjeta-metodo {
+        background: #ffffff;
+        border: 1.5px solid rgba(15, 23, 42, 0.12) !important;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .resumen-vueltos {
+        background: linear-gradient(180deg, #fef3c7 0%, #fffbeb 100%);
+        border: 1.5px solid #f59e0b;
+        border-left: 5px solid #d97706;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
+        padding: 0.5rem 0.75rem;
+    }
+
+    .resumen-total-bs {
+        background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 100%);
+        border: 1.5px solid #059669;
+        border-left: 5px solid #047857;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.12);
+        padding: 0.5rem 0.75rem;
+    }
+
+    .resumen-total-bs .total-numero {
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .fila-transaccion.fila-eliminada {
+        opacity: 0.45;
+        text-decoration: line-through;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'cuadre_caja:index' %}" class="text-decoration-none">Departamentos</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'cuadre_caja:historial' %}" class="text-decoration-none">Historial</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Ajuste de caja</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <span class="caja-numero">{{ cierre.caja.numero|default:"-" }}</span>
+        <div>
+            <h1 class="cc-title mb-1">
+                <i class="bi bi-sliders me-2 text-warning"></i>Ajuste de caja
+            </h1>
+            <p class="text-muted mb-0">
+                {{ cierre.caja.departamento.nombre }} · {{ cierre.caja.nombre }} ·
+                {{ cierre.fecha|date:"d/m/Y" }} · {{ cierre.get_turno_display }}
+            </p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'cuadre_caja:cierre_detalle' cierre.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-file-earmark-text me-1"></i> Ver comprobante
+        </a>
+        <a href="{% url 'cuadre_caja:historial' %}" class="btn btn-success">
+            <i class="bi bi-arrow-left me-1"></i> Volver al historial
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info border-0 shadow-sm mb-4">
+    <i class="bi bi-info-circle-fill me-2"></i>
+    Ajusta las transacciones de este cierre con el mismo formulario del cuadre normal.
+    Puedes añadir filas, editarlas y quitar las que no correspondan. Los totales se recalculan al guardar.
+</div>
+
+<form method="post" id="form-ajuste-transacciones" novalidate>
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    {% if errores_ajuste %}
+    <div class="alert alert-danger shadow-sm mb-4">
+        <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>No se pudo guardar el ajuste</h6>
+        <ul class="mb-0 small">
+            {% for error in errores_ajuste %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% elif formset.non_form_errors %}
+    <div class="alert alert-danger py-2 mb-3">
+        {% for error in formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card cc-card mb-4">
+        <div class="card-body p-3 p-lg-4">
+            <div class="row g-3">
+                <div class="col-12 col-md-6 col-xl-3">
+                    <label class="form-label fw-semibold">Fecha</label>
+                    <div class="form-control bg-light d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar3 text-secondary"></i>
+                        <span class="fw-semibold">{{ cierre.fecha|date:"d/m/Y" }}</span>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-auto">Registrada</span>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-xl-3">
+                    <label class="form-label fw-semibold">Turno</label>
+                    <div class="form-control bg-light d-flex align-items-center gap-2">
+                        <i class="bi bi-clock text-secondary"></i>
+                        <span class="fw-semibold">{{ cierre.get_turno_display }}</span>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-xl-3">
+                    <label class="form-label fw-semibold">Cajera</label>
+                    <div class="form-control bg-light">{{ cierre.nombre_cajera|default:"-" }}</div>
+                </div>
+                <div class="col-12 col-md-6 col-xl-3">
+                    <label class="form-label fw-semibold">Tasa del día (Bs/USD)</label>
+                    <div class="form-control bg-light">{{ cierre.tasa|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-xl-8">
+            {# ══════ Transacciones en BOLÍVARES ══════ #}
+            <div class="seccion-moneda-bs rounded-4 p-3 p-md-4 mb-4">
+                <div class="banner-moneda-bs d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 mb-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-cash-stack fs-4 text-white"></i>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-white text-uppercase" style="letter-spacing: .03em;">
+                                Transacciones en Bolívares
+                            </h5>
+                            <small class="text-white-50">Moneda Nacional · Registros en Bs</small>
+                        </div>
+                    </div>
+                    <span class="badge bg-white text-success rounded-pill px-3 py-2 fs-6 fw-bold shadow-sm" style="color: #047857 !important;">
+                        <i class="bi bi-check-circle-fill me-1"></i> BS
+                    </span>
+                </div>
+                <div class="d-flex flex-column gap-4">
+                    {% for tarjeta in tarjetas_metodo %}
+                    {% if tarjeta.moneda != "USD" %}
+                        {% include "cuadre_caja/inc/tarjeta_metodo_ajuste.html" %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# ══════ Transacciones en DÓLARES ══════ #}
+            <div class="seccion-moneda-usd rounded-4 p-3 p-md-4 mb-4">
+                <div class="banner-moneda-usd d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 mb-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-currency-dollar fs-4 text-white"></i>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-white text-uppercase" style="letter-spacing: .03em;">
+                                Transacciones en Dólares
+                            </h5>
+                            <small class="text-white-50">Divisas Extranjeras · Registros en USD</small>
+                        </div>
+                    </div>
+                    <span class="badge bg-white text-primary rounded-pill px-3 py-2 fs-6 fw-bold shadow-sm" style="color: #1d4ed8 !important;">
+                        <i class="bi bi-check-circle-fill me-1"></i> USD
+                    </span>
+                </div>
+                <div class="d-flex flex-column gap-4">
+                    {% for tarjeta in tarjetas_metodo %}
+                    {% if tarjeta.moneda == "USD" %}
+                        {% include "cuadre_caja/inc/tarjeta_metodo_ajuste.html" %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# ── Plantilla de nueva fila (usada por el JS) ── #}
+            <template id="plantilla-fila-transaccion">
+                <tr class="fila-transaccion">
+                    <td>
+                        <input type="hidden" name="transacciones-__prefix__-metodo_pago" value="__metodo__">
+                        <input type="hidden" name="transacciones-__prefix__-id" value="">
+                        <select name="transacciones-__prefix__-banco" class="form-select form-select-sm">
+                            {% for val, lbl in bancos_choices %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" name="transacciones-__prefix__-monto" class="form-control form-control-sm text-end"
+                               step="0.01" min="0" placeholder="0.00" value="">
+                    </td>
+                    <td>
+                        <input type="text" name="transacciones-__prefix__-ref" class="form-control form-control-sm"
+                               placeholder="Referencia" maxlength="100" inputmode="numeric"
+                               oninput="this.value=this.value.replace(/\D/g,'')">
+                    </td>
+                    <td>
+                        <input type="text" name="transacciones-__prefix__-notas" class="form-control form-control-sm"
+                               placeholder="Notas" value="">
+                    </td>
+                    {% if puede_confirmar %}
+                    <td>
+                        <select name="transacciones-__prefix__-confirmado_banco" class="form-select form-select-sm">
+                            <option value="">Sin revisar</option>
+                            <option value="SI">Sí</option>
+                            <option value="NO">No</option>
+                        </select>
+                    </td>
+                    {% endif %}
+                    <td class="text-center">
+                        <span style="display:none;">
+                            <input type="checkbox" name="transacciones-__prefix__-DELETE">
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar esta transacción">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+
+            <div class="row g-4">
+                <div class="col-12 col-md-6">
+                    <div class="card cc-card h-100">
+                        <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+                            <h5 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-secondary"></i>Montos en bolívares</h5>
+                            <p class="small text-muted mb-0 mt-1">Se calculan desde las transacciones en bolívares.</p>
+                        </div>
+                        <div class="card-body px-3 px-lg-4 pb-3">
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Método de pago</th>
+                                            <th class="text-end" style="min-width: 120px;">Monto Bs</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for fila in filas_bs %}
+                                        <tr>
+                                            <td class="fw-semibold">{{ fila.metodo }}</td>
+                                            <td class="text-end monto" id="monto-{{ fila.valor }}">{{ fila.monto|floatformat:2 }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="2" class="text-center text-muted py-3">Sin métodos en bolívares.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="fw-bold border-top">
+                                            <td>Total Bs</td>
+                                            <td class="text-end monto" id="total-bs">{{ total_distribucion_bs|floatformat:2 }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card cc-card h-100">
+                        <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+                            <h5 class="mb-0 fw-bold"><i class="bi bi-currency-dollar me-2 text-secondary"></i>Montos en dólares</h5>
+                            <p class="small text-muted mb-0 mt-1">Se calculan desde las transacciones en dólares.</p>
+                        </div>
+                        <div class="card-body px-3 px-lg-4 pb-3">
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Método de pago</th>
+                                            <th class="text-end" style="min-width: 120px;">Monto USD</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for fila in filas_usd %}
+                                        <tr>
+                                            <td class="fw-semibold">{{ fila.metodo }}</td>
+                                            <td class="text-end monto" id="monto-{{ fila.valor }}">{{ fila.monto|floatformat:2 }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="2" class="text-center text-muted py-3">Sin métodos en dólares.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="fw-bold border-top">
+                                            <td>Total USD</td>
+                                            <td class="text-end monto" id="total-usd">{{ total_distribucion_usd|floatformat:2 }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card cc-card mt-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-up-right-circle me-2 text-danger"></i>Egresos y salidas ({{ egresos|length }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Tipo</th>
+                                    <th>Cédula</th>
+                                    <th>Teléfono</th>
+                                    <th>Banco</th>
+                                    <th>Moneda</th>
+                                    <th class="text-end">Monto</th>
+                                    <th>Referencia</th>
+                                    <th>Afecta total</th>
+                                    <th>Imagen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for e in egresos %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ e.get_tipo_display }}</td>
+                                    <td>{{ e.cedula|default:"-" }}</td>
+                                    <td>{{ e.telefono|default:"-" }}</td>
+                                    <td>{{ e.banco|default:"-" }}</td>
+                                    <td>{% if e.moneda == 'USD' %}USD{% else %}Bs{% endif %}</td>
+                                    <td class="text-end monto">{{ e.monto|floatformat:2 }}</td>
+                                    <td>{{ e.referencia|default:"-" }}</td>
+                                    <td>
+                                        {% if e.es_vuelto %}
+                                            <span class="badge bg-danger">Resta</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Informativo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if e.imagen %}
+                                            <a href="{{ e.imagen.url }}" target="_blank" rel="noopener"><i class="bi bi-image"></i> Ver</a>
+                                        {% else %}-{% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="10" class="text-center text-muted py-3">Sin egresos registrados.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card cc-card mt-4">
+                <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="small text-muted">
+                        {% if not puede_confirmar %}
+                        «Confirmado por el banco» se gestiona desde la revisión de pago móvil.
+                        {% else %}
+                        Puedes actualizar «Confirmado por el banco» en las transacciones de pago móvil.
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'cuadre_caja:historial' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-check2-circle me-1"></i> Guardar ajuste
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card cc-card mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-success"></i>Totales del cierre</h5>
+                </div>
+                <div class="card-body p-3 p-lg-4">
+                    <div class="resumen-total-bs mb-3">
+                        <div class="small text-muted">Total Bs registrado</div>
+                        <div class="total-numero">{{ cierre.total_bs|floatformat:2 }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="stat-label">Total USD registrado</div>
+                        <div class="monto fw-bold">{{ cierre.total_usd|floatformat:2 }}</div>
+                    </div>
+                    <div class="resumen-vueltos mb-3">
+                        <div class="small text-muted">Vueltos que restan (Bs)</div>
+                        <div class="vueltos-numero text-danger">{{ cierre.total_vueltos_bs|floatformat:2 }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="stat-label">Salidas informativas (Bs)</div>
+                        <div class="monto fw-bold">{{ total_devoluciones_bs|floatformat:2 }}</div>
+                    </div>
+                    <hr>
+                    <div class="mb-2">
+                        <div class="stat-label">Total equivalente en Bs</div>
+                        <div class="monto fw-bold text-primary fs-5">{{ cierre.total_equivalente_bs|floatformat:2 }}</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total equivalente en USD</div>
+                        <div class="monto fw-bold text-primary fs-5">{{ cierre.total_equivalente_usd|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card cc-card mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-primary"></i>Detalle del cierre</h5>
+                </div>
+                <div class="card-body p-3 p-lg-4 small">
+                    <div class="mb-2"><span class="text-muted">Departamento:</span> <strong>{{ cierre.caja.departamento.nombre }}</strong></div>
+                    <div class="mb-2"><span class="text-muted">Caja:</span> <strong>{{ cierre.caja.nombre }} {% if cierre.caja.numero %}({{ cierre.caja.numero }}){% endif %}</strong></div>
+                    <div class="mb-2"><span class="text-muted">Registrado por:</span>
+                        <strong>{% if cierre.usuario %}{{ cierre.usuario.get_full_name|default:cierre.usuario.username }}{% else %}-{% endif %}</strong>
+                    </div>
+                    <div class="mb-2"><span class="text-muted">Fecha de registro:</span> <strong>{{ cierre.fecha_registro|date:"d/m/Y H:i" }}</strong></div>
+                    {% if cierre.observaciones %}
+                    <div class="mt-3 pt-3 border-top">
+                        <span class="text-muted">Observaciones</span>
+                        <div style="white-space: pre-line;">{{ cierre.observaciones }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</form>
+
+{% if detalles %}
+<div class="card cc-card mb-4">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-archive me-2 text-secondary"></i>Detalles registrados (registros antiguos)</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th>Método</th><th class="text-end">Monto Bs</th><th class="text-end">Monto USD</th></tr>
+                </thead>
+                <tbody>
+                    {% for d in detalles %}
+                    <tr>
+                        <td>{{ d.get_metodo_pago_display }}</td>
+                        <td class="text-end monto">{{ d.monto_bs|floatformat:2 }}</td>
+                        <td class="text-end monto">{{ d.monto_usd|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card cc-card mb-4">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-images me-2 text-info"></i>Imágenes del cierre ({{ imagenes|length }})</h5>
+    </div>
+    <div class="card-body p-3 p-lg-4">
+        {% if imagenes %}
+        <div class="row g-3">
+            {% for imagen in imagenes %}
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="border rounded-3 p-2 h-100">
+                    <a href="{{ imagen.imagen.url }}" target="_blank" rel="noopener">
+                        <img src="{{ imagen.imagen.url }}" alt="{{ imagen.titulo }}" class="img-fluid rounded mb-2 w-100" style="height: 120px; object-fit: cover;">
+                    </a>
+                    <div class="small fw-bold">{{ imagen.titulo }}</div>
+                    <div class="small text-muted">{{ imagen.fecha_subida|date:"d/m/Y H:i" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Sin imágenes adjuntas.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('form-ajuste-transacciones');
+        const plantilla = document.getElementById('plantilla-fila-transaccion');
+        const totalForms = document.querySelector('input[name="transacciones-TOTAL_FORMS"]');
+        if (!form || !plantilla || !totalForms) return;
+
+        function numero(valor) {
+            const n = parseFloat(String(valor || '0').replace(',', '.'));
+            return isNaN(n) ? 0 : n;
+        }
+
+        function formato(valor) {
+            return valor.toFixed(2).replace('.', ',');
+        }
+
+        function recalcular() {
+            const porMetodo = {};
+            let totalBs = 0;
+            let totalUsd = 0;
+
+            form.querySelectorAll('tr.fila-transaccion').forEach(function (fila) {
+                const eliminar = fila.querySelector('input[name$="-DELETE"]');
+                if (eliminar && eliminar.checked) return;
+
+                const montoInput = fila.querySelector('input[name$="-monto"]');
+                const metodoInput = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
+                if (!montoInput || !metodoInput) return;
+
+                const monto = numero(montoInput.value);
+                const metodo = metodoInput.value;
+                porMetodo[metodo] = (porMetodo[metodo] || 0) + monto;
+
+                if (fila.closest('.seccion-moneda-usd')) totalUsd += monto;
+                else totalBs += monto;
+            });
+
+            Object.keys(porMetodo).forEach(function (metodo) {
+                const celda = document.getElementById('monto-' + metodo);
+                if (celda) celda.textContent = formato(porMetodo[metodo]);
+            });
+
+            const celdaBs = document.getElementById('total-bs');
+            const celdaUsd = document.getElementById('total-usd');
+            if (celdaBs) celdaBs.textContent = formato(totalBs);
+            if (celdaUsd) celdaUsd.textContent = formato(totalUsd);
+        }
+
+        function alternarEliminacion(boton) {
+            const fila = boton.closest('tr.fila-transaccion');
+            if (!fila) return;
+            const eliminar = fila.querySelector('input[name$="-DELETE"]');
+            if (!eliminar) return;
+
+            eliminar.checked = !eliminar.checked;
+            fila.classList.toggle('fila-eliminada', eliminar.checked);
+            boton.title = eliminar.checked ? 'Restaurar esta transacción' : 'Quitar esta transacción';
+            boton.classList.toggle('btn-outline-secondary', eliminar.checked);
+            boton.classList.toggle('btn-outline-danger', !eliminar.checked);
+            recalcular();
+        }
+
+        document.querySelectorAll('.btn-agregar-fila').forEach(function (boton) {
+            boton.addEventListener('click', function () {
+                const metodo = boton.dataset.metodo;
+                const cuerpo = document.getElementById('cuerpo-' + metodo);
+                if (!cuerpo) return;
+
+                const indice = parseInt(totalForms.value, 10) || 0;
+                const fila = plantilla.innerHTML
+                    .replace(/__prefix__/g, indice)
+                    .replace(/__metodo__/g, metodo);
+                cuerpo.insertAdjacentHTML('beforeend', fila);
+                totalForms.value = indice + 1;
+                recalcular();
+            });
+        });
+
+        form.addEventListener('click', function (e) {
+            const boton = e.target.closest('.btn-quitar-fila');
+            if (boton) alternarEliminacion(boton);
+        });
+
+        form.addEventListener('input', recalcular);
+        form.addEventListener('change', recalcular);
+
+        form.addEventListener('submit', function (e) {
+            const marcadas = form.querySelectorAll('input[name$="-DELETE"]:checked').length;
+            if (marcadas && !window.confirm(
+                'Se quitarán ' + marcadas + ' transacción(es) del cierre. ¿Continuar?'
+            )) {
+                e.preventDefault();
+            }
+        });
+
+        recalcular();
+    });
+</script>
+{% endblock %}

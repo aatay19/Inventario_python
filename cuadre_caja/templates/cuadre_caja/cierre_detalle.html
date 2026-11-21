@@ -130,6 +130,11 @@
         <p class="text-muted mb-0">{{ caja.departamento.nombre }} · {{ caja.nombre }}</p>
     </div>
     <div class="d-flex gap-2 no-print">
+        {% if cuadre_es_supervisor %}
+        <a href="{% url 'cuadre_caja:cierre_ajustar' cierre.id %}" class="btn btn-outline-warning">
+            <i class="bi bi-sliders me-1"></i> Ajustar cierre
+        </a>
+        {% endif %}
         <button type="button" class="btn btn-outline-danger" onclick="window.print()">
             <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir / PDF
         </button>

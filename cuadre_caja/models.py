@@ -488,13 +488,6 @@ class CierreTransaccion(models.Model):
         default="",
         verbose_name="Confirmado por el banco",
     )
-    formato_billetes_bs = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name="Formato de billetes Bs",
-        help_text="Denominaciones de billetes (ej: 10, 20, 50, 100, 200, 500)",
-    )
-
     class Meta:
         ordering = ["id"]
         verbose_name = "Transacción de cierre"

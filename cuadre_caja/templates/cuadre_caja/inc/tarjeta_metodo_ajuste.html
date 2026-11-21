@@ -1,0 +1,82 @@
+<div class="card cc-card tarjeta-metodo">
+    <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-credit-card text-secondary"></i>
+            <span class="fw-semibold text-dark">{{ tarjeta.etiqueta }}</span>
+            <span class="badge bg-secondary-subtle text-secondary-emphasis small">{% if tarjeta.moneda == 'USD' %}USD{% else %}Bs{% endif %}</span>
+        </div>
+        {% if not tarjeta.corregir %}
+        <button type="button"
+            class="btn btn-sm btn-outline-teal btn-agregar-fila"
+            data-metodo="{{ tarjeta.valor }}"
+            style="border-color:#0f766e;color:#0f766e;">
+            <i class="bi bi-plus-lg me-1"></i>Añadir transacción
+        </button>
+        {% endif %}
+    </div>
+    {% if tarjeta.corregir %}
+    <div class="alert alert-warning border-0 rounded-0 py-2 px-3 small mb-0">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Estas filas tienen datos pero no un método de pago válido. Elige el método y vuelve a guardar: no se ha borrado nada.
+    </div>
+    {% endif %}
+    <div class="card-body p-0">
+        <div class="table-responsive tabla-transacciones-scroll">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:160px;">Banco / Entidad</th>
+                        <th style="min-width:110px;">Monto {% if tarjeta.moneda == 'USD' %}(USD){% else %}(Bs){% endif %}</th>
+                        <th style="min-width:140px;">Referencia</th>
+                        <th style="min-width:140px;">Notas</th>
+                        {% if puede_confirmar %}<th style="min-width:140px;">Confirmado banco</th>{% endif %}
+                        <th style="width:44px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpo-{{ tarjeta.valor }}" class="cuerpo-metodo" data-metodo="{{ tarjeta.valor }}"{% if tarjeta.corregir %} data-corregir="1"{% endif %}>
+                    {% for f in tarjeta.forms %}
+                    <tr class="fila-transaccion">
+                        <td>
+                            {% if tarjeta.corregir %}
+                            <div class="mb-1">
+                                {{ f.metodo_pago }}
+                                {% for e in f.metodo_pago.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                            </div>
+                            {% else %}
+                            {{ f.metodo_pago.as_hidden }}
+                            {% endif %}
+                            {{ f.id }}
+                            {{ f.banco }}
+                            {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </td>
+                        <td>
+                            {{ f.monto }}
+                            {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </td>
+                        <td>
+                            {{ f.ref }}
+                            {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </td>
+                        <td>
+                            {{ f.notas }}
+                            {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </td>
+                        {% if puede_confirmar %}
+                        <td>
+                            {{ f.confirmado_banco }}
+                            {% for e in f.confirmado_banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </td>
+                        {% endif %}
+                        <td class="text-center">
+                            <span style="display:none;">{{ f.DELETE }}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-fila" title="Quitar esta transacción">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

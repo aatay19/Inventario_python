@@ -9,6 +9,9 @@
         <p class="text-muted mb-0">Consulta los cierres registrados por departamento, turno, cajera y fecha.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modal-seleccionar-ajuste">
+            <i class="bi bi-sliders me-1"></i> Ajuste caja
+        </button>
         <a href="{% url 'cuadre_caja:reportes' %}" class="btn btn-success">
             <i class="bi bi-bar-chart-line me-1"></i> Reportes
         </a>
@@ -178,6 +181,10 @@
                                             class="btn btn-sm btn-outline-success" title="Ver cierre">
                                             <i class="bi bi-eye"></i>
                                         </a>
+                                        <a href="{% url 'cuadre_caja:cierre_ajustar' cierre.id %}"
+                                            class="btn btn-sm btn-outline-warning" title="Ajustar cierre">
+                                            <i class="bi bi-sliders"></i>
+                                        </a>
                                         <form method="post" action="{% url 'cuadre_caja:cierre_eliminar' cierre.id %}"
                                             class="d-inline form-eliminar-cierre"
                                             data-cierre-info="{{ cierre.caja.nombre }} ({{ cierre.get_turno_display }}) del {{ cierre.fecha|date:'d/m/Y' }}">
@@ -258,6 +265,48 @@
 </div>
 {% endif %}
 
+<!-- Modal: seleccionar cierre a ajustar -->
+<div class="modal fade" id="modal-seleccionar-ajuste" tabindex="-1"
+    aria-labelledby="titulo-seleccionar-ajuste" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="titulo-seleccionar-ajuste">
+                    <i class="bi bi-sliders me-2 text-warning"></i>Ajuste de caja
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">
+                    Selecciona el cierre que deseas ajustar. Se muestran los cierres de la página actual del historial.
+                </p>
+                <input type="search" id="buscar-cierre-ajuste" class="form-control form-control-sm mb-3"
+                    placeholder="Buscar por caja, cajera, turno o fecha...">
+                <div class="list-group" id="lista-cierres-ajuste">
+                    {% for cierre in cierres_ajuste %}
+                    <a href="{% url 'cuadre_caja:cierre_ajustar' cierre.id %}"
+                        class="list-group-item list-group-item-action d-flex flex-wrap justify-content-between align-items-center gap-2 item-cierre-ajuste"
+                        data-texto="{{ cierre.caja.nombre }} {{ cierre.caja.numero }} {{ cierre.get_turno_display }} {{ cierre.nombre_cajera }} {{ cierre.fecha|date:'d/m/Y' }}">
+                        <span>
+                            <strong>{{ cierre.caja.nombre }}</strong>
+                            <span class="badge bg-secondary ms-1">{{ cierre.get_turno_display }}</span>
+                        </span>
+                        <span class="small text-muted">
+                            {{ cierre.fecha|date:"d/m/Y" }} · {{ cierre.nombre_cajera|default:"-" }}
+                        </span>
+                    </a>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">No hay cierres en esta página.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: revisión de pagos móvil del cierre -->
 <div class="modal fade" id="modal-revision-pago-movil" tabindex="-1"
     aria-labelledby="titulo-revision-pago-movil" aria-hidden="true">
@@ -282,6 +331,17 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const buscadorAjuste = document.getElementById('buscar-cierre-ajuste');
+        if (buscadorAjuste) {
+            buscadorAjuste.addEventListener('input', function () {
+                const texto = this.value.trim().toLowerCase();
+                document.querySelectorAll('.item-cierre-ajuste').forEach(function (item) {
+                    const contenido = (item.dataset.texto || '').toLowerCase();
+                    item.classList.toggle('d-none', texto !== '' && !contenido.includes(texto));
+                });
+            });
+        }
+
         document.querySelectorAll('.btn-eliminar-cierre').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();

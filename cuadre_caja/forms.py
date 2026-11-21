@@ -762,6 +762,81 @@ CierreTransaccionFormSet = forms.inlineformset_factory(
 )
 
 
+class CierreTransaccionAjusteForm(CierreTransaccionForm):
+    """Transacción editable desde el ajuste de un cierre ya registrado."""
+
+    confirmado_banco = forms.ChoiceField(
+        label="Confirmado por el banco",
+        required=False,
+        choices=[("", "Sin revisar"), ("SI", "Sí"), ("NO", "No")],
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+
+    class Meta(CierreTransaccionForm.Meta):
+        fields = [
+            "metodo_pago",
+            "banco",
+            "monto",
+            "ref",
+            "notas",
+            "confirmado_banco",
+        ]
+
+    def __init__(self, *args, puede_confirmar=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        # La confirmación del banco sigue siendo competencia exclusiva de
+        # admin/soporte, también desde el ajuste.
+        if not puede_confirmar:
+            self.fields.pop("confirmado_banco", None)
+
+    def has_changed(self):
+        # Las filas existentes se guardan siempre para no perder cambios en
+        # campos que la validación original no considera (confirmación banco).
+        if self.instance and self.instance.pk:
+            return True
+        if super().has_changed():
+            return True
+        if not self.is_bound:
+            return False
+        if "confirmado_banco" not in self.fields:
+            return False
+        return bool((self.data.get(self.add_prefix("confirmado_banco")) or "").strip())
+
+    def clean(self):
+        # Las filas ya guardadas pueden venir incompletas del cierre original
+        # (monto 0, banco/ref/notas vacíos). Se omite la validación estricta de
+        # CierreTransaccionForm para poder editar un solo campo sin que el
+        # formulario exija monto > 0 y descarte todo el ajuste.
+        cleaned_data = super(CierreTransaccionForm, self).clean()
+        if self.instance and self.instance.pk:
+            return cleaned_data
+
+        banco = (cleaned_data.get("banco") or "").strip()
+        ref = (cleaned_data.get("ref") or "").strip()
+        notas = (cleaned_data.get("notas") or "").strip()
+        monto = cleaned_data.get("monto")
+        confirmado = cleaned_data.get("confirmado_banco")
+        if not any([banco, ref, notas, monto, confirmado]):
+            return cleaned_data
+        if not cleaned_data.get("metodo_pago") and not self.has_error("metodo_pago"):
+            self.add_error("metodo_pago", "Selecciona un método de pago.")
+        if monto is None or monto <= 0:
+            self.add_error("monto", "El monto debe ser mayor a cero.")
+        return cleaned_data
+
+
+CierreTransaccionAjusteFormSet = forms.inlineformset_factory(
+    CierreCaja,
+    CierreTransaccion,
+    form=CierreTransaccionAjusteForm,
+    extra=len(MetodoPagoChoices.choices),
+    max_num=5000,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+
 class ImagenCierreForm(forms.ModelForm):
     """Imagen adjunta a un cierre, con un título descriptivo."""
 

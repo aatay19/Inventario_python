@@ -45,6 +45,11 @@ urlpatterns = [
     path("egresos/", views.egresos, name="egresos"),
     path("cierre/<int:cierre_id>/", views.cierre_detalle, name="cierre_detalle"),
     path(
+        "cierre/<int:cierre_id>/ajustar/",
+        views.cierre_ajustar,
+        name="cierre_ajustar",
+    ),
+    path(
         "cierre/<int:cierre_id>/eliminar/",
         views.cierre_eliminar,
         name="cierre_eliminar",
