@@ -49,6 +49,16 @@ urlpatterns = [
         views.cierre_eliminar,
         name="cierre_eliminar",
     ),
+    path(
+        "cierre/<int:cierre_id>/pago-movil/",
+        views.revision_pago_movil,
+        name="revision_pago_movil",
+    ),
+    path(
+        "pago-movil/<int:transaccion_id>/confirmar/",
+        views.pago_movil_confirmar,
+        name="pago_movil_confirmar",
+    ),
     path("historial/", views.historial, name="historial"),
     path("reportes/", views.reportes, name="reportes"),
     path(

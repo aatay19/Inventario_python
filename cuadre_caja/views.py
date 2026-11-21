@@ -1638,6 +1638,14 @@ def historial(request):
     for cierre in cierres_pagina:
         cierres_por_fecha.setdefault(cierre.fecha, []).append(cierre)
 
+    pagos_movil_no_confirmados = set(
+        CierreTransaccion.objects.filter(
+            cierre_id__in=[cierre.id for cierre in cierres_pagina],
+            metodo_pago=MetodoPagoChoices.PAGO_MOVIL,
+            confirmado_banco="NO",
+        ).values_list("cierre_id", flat=True)
+    )
+
     dias = []
     for fecha in fechas_pagina:
         cierres_dia = cierres_por_fecha.get(fecha, [])
@@ -1690,6 +1698,7 @@ def historial(request):
             "totales": totales,
             "total_registros": cierres.count(),
             "total_dias": paginator.count,
+            "pagos_movil_no_confirmados": pagos_movil_no_confirmados,
         },
     )
 
@@ -1710,6 +1719,80 @@ def cierre_eliminar(request, cierre_id):
     if next_url:
         return redirect(next_url)
     return redirect("cuadre_caja:historial")
+
+
+@supervisor_required
+def revision_pago_movil(request, cierre_id):
+    """Devuelve solo las transacciones de pago móvil de un cierre."""
+    cierre = get_object_or_404(
+        CierreCaja.objects.select_related("caja__departamento"),
+        pk=cierre_id,
+    )
+    transacciones = (
+        cierre.transacciones.filter(metodo_pago=MetodoPagoChoices.PAGO_MOVIL)
+        .order_by("id")
+        .values("id", "banco", "monto", "ref", "notas", "confirmado_banco")
+    )
+    items = [
+        {
+            "id": t["id"],
+            "banco": t["banco"] or "-",
+            "monto": float(t["monto"] or 0),
+            "ref": t["ref"] or "-",
+            "notas": t["notas"] or "",
+            "confirmado_banco": t["confirmado_banco"],
+        }
+        for t in transacciones
+    ]
+
+    return JsonResponse(
+        {
+            "cierre": {
+                "id": cierre.id,
+                "caja": cierre.caja.nombre,
+                "fecha": cierre.fecha.strftime("%d/%m/%Y"),
+                "turno": cierre.get_turno_display(),
+                "cajera": cierre.nombre_cajera,
+            },
+            "transacciones": items,
+            "cantidad": len(items),
+            "total": round(sum(item["monto"] for item in items), 2),
+            "puede_confirmar": _es_admin_o_soporte(request.user),
+            "tiene_no": any(item["confirmado_banco"] == "NO" for item in items),
+        }
+    )
+
+
+def _es_admin_o_soporte(user):
+    """Solo administradores y soporte pueden confirmar pagos con el banco."""
+    rol = getattr(getattr(user, "perfilusuario", None), "rol", "") or ""
+    return bool(user.is_superuser) or rol.lower() in {"admin", "soporte"}
+
+
+@supervisor_required
+@require_POST
+def pago_movil_confirmar(request, transaccion_id):
+    """Marca una transacción de pago móvil como confirmada o no por el banco."""
+    if not _es_admin_o_soporte(request.user):
+        return JsonResponse(
+            {"ok": False, "error": "No tienes permiso para confirmar pagos."},
+            status=403,
+        )
+
+    transaccion = get_object_or_404(
+        CierreTransaccion,
+        pk=transaccion_id,
+        metodo_pago=MetodoPagoChoices.PAGO_MOVIL,
+    )
+    valor = (request.POST.get("confirmado") or "").strip().upper()
+    if valor not in {"SI", "NO"}:
+        return JsonResponse({"ok": False, "error": "Valor inválido."}, status=400)
+
+    transaccion.confirmado_banco = valor
+    transaccion.save(update_fields=["confirmado_banco"])
+    return JsonResponse(
+        {"ok": True, "id": transaccion.id, "confirmado": valor}
+    )
 
 
 @supervisor_required

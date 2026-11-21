@@ -465,6 +465,13 @@ class CierreTransaccion(models.Model):
     notas = models.TextField(
         blank=True, verbose_name="Notas adicionales"
     )
+    confirmado_banco = models.CharField(
+        max_length=2,
+        choices=[("SI", "Sí"), ("NO", "No")],
+        blank=True,
+        default="",
+        verbose_name="Confirmado por el banco",
+    )
     formato_billetes_bs = models.CharField(
         max_length=50,
         blank=True,

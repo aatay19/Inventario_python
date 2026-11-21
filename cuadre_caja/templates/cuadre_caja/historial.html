@@ -145,7 +145,14 @@
                         <tbody>
                             {% for cierre in grupo.cierres %}
                             <tr>
-                                <td class="ps-3 fw-semibold">{{ cierre.caja.nombre }}</td>
+                                <td class="ps-3 fw-semibold">
+                                    {{ cierre.caja.nombre }}
+                                    {% if cierre.id in pagos_movil_no_confirmados %}
+                                    <div class="small fw-normal text-danger mt-1 nota-pago-movil-no">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Este pago móvil no se procesó
+                                    </div>
+                                    {% endif %}
+                                </td>
                                 <td><span class="badge bg-light text-secondary border">{{ cierre.get_turno_display }}</span></td>
                                 <td>{{ cierre.nombre_cajera }}</td>
                                 <td class="text-end monto">{{ cierre.total_bs|floatformat:2 }}</td>
@@ -153,6 +160,14 @@
                                 <td class="text-end monto">{{ cierre.total_equivalente_bs|floatformat:2 }}</td>
                                 <td class="text-end pe-3">
                                     <div class="d-inline-flex gap-1">
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-primary btn-revision-pago-movil text-nowrap"
+                                            data-cierre-id="{{ cierre.id }}"
+                                            data-caja="{{ cierre.caja.nombre }}"
+                                            data-url="{% url 'cuadre_caja:revision_pago_movil' cierre.id %}"
+                                            title="Revisión de pago móvil">
+                                            <i class="bi bi-cash-check me-1"></i> Revisión de pago móvil
+                                        </button>
                                         <a href="{% url 'cuadre_caja:cierre_detalle' cierre.id %}"
                                             class="btn btn-sm btn-outline-success" title="Ver cierre">
                                             <i class="bi bi-eye"></i>
@@ -234,6 +249,26 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Modal: revisión de pagos móvil del cierre -->
+<div class="modal fade" id="modal-revision-pago-movil" tabindex="-1"
+    aria-labelledby="titulo-revision-pago-movil" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="titulo-revision-pago-movil">
+                    <i class="bi bi-cash-check me-2 text-primary"></i>Revisión de pago móvil
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="cuerpo-revision-pago-movil"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -267,6 +302,164 @@
                 });
             });
         });
+
+        const modalPagoMovil = document.getElementById('modal-revision-pago-movil');
+        const cuerpoPagoMovil = document.getElementById('cuerpo-revision-pago-movil');
+
+        function escaparPagoMovil(valor) {
+            return String(valor == null ? '' : valor).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function montoPagoMovil(valor) {
+            return Number(valor || 0).toLocaleString('es-VE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        let filaCierreActual = null;
+
+        function estadoConfirmacionPagoMovil(valor) {
+            if (valor === 'SI') return '<span class="badge bg-success">Sí</span>';
+            if (valor === 'NO') return '<span class="badge bg-danger">No</span>';
+            return '<span class="badge bg-secondary">Pendiente</span>';
+        }
+
+        function columnaConfirmacionPagoMovil(t, puedeConfirmar) {
+            if (!puedeConfirmar) {
+                return estadoConfirmacionPagoMovil(t.confirmado_banco);
+            }
+            const url = '{% url "cuadre_caja:pago_movil_confirmar" 0 %}'.replace('0', String(t.id));
+            return '<div class="btn-group btn-group-sm" role="group" aria-label="Confirmado por el banco">' +
+                '<button type="button" class="btn btn-outline-success btn-confirmar-banco' +
+                (t.confirmado_banco === 'SI' ? ' active' : '') + '" data-valor="SI" data-url="' + url + '">Sí</button>' +
+                '<button type="button" class="btn btn-outline-danger btn-confirmar-banco' +
+                (t.confirmado_banco === 'NO' ? ' active' : '') + '" data-valor="NO" data-url="' + url + '">No</button>' +
+                '</div>';
+        }
+
+        function actualizarNotaHistorial(tieneNo) {
+            if (!filaCierreActual) return;
+            const celda = filaCierreActual.querySelector('td');
+            if (!celda) return;
+            let nota = filaCierreActual.querySelector('.nota-pago-movil-no');
+            if (tieneNo && !nota) {
+                nota = document.createElement('div');
+                nota.className = 'small fw-normal text-danger mt-1 nota-pago-movil-no';
+                nota.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Este pago móvil no se procesó';
+                celda.appendChild(nota);
+            } else if (!tieneNo && nota) {
+                nota.remove();
+            }
+        }
+
+        function renderizarPagoMovil(datos) {
+            const cierre = datos.cierre || {};
+            let html = '<div class="small text-muted mb-3">' +
+                '<div><strong>Caja:</strong> ' + escaparPagoMovil(cierre.caja) + '</div>' +
+                '<div><strong>Fecha:</strong> ' + escaparPagoMovil(cierre.fecha) +
+                ' &middot; <strong>Turno:</strong> ' + escaparPagoMovil(cierre.turno) +
+                ' &middot; <strong>Cajera:</strong> ' + escaparPagoMovil(cierre.cajera) + '</div>' +
+                '</div>';
+
+            html += '<div class="alert alert-info py-2 px-3 small d-flex flex-wrap justify-content-between align-items-center gap-2">' +
+                '<span><strong>' + Number(datos.cantidad) + '</strong> transacción(es) de pago móvil</span>' +
+                '<strong class="fs-6">Bs ' + montoPagoMovil(datos.total) + '</strong>' +
+                '</div>';
+
+            html += '<div id="alerta-no-pago-movil" class="alert alert-danger py-2 px-3 small' +
+                (datos.tiene_no ? '' : ' d-none') + '">' +
+                '<i class="bi bi-exclamation-triangle-fill me-1"></i>Este pago móvil no se procesó</div>';
+
+            if (!datos.transacciones || !datos.transacciones.length) {
+                html += '<p class="text-center text-muted py-4 mb-0">Este cuadre no registra transacciones de pago móvil.</p>';
+            } else {
+                html += '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">' +
+                    '<thead class="table-light"><tr>' +
+                    '<th>Banco</th><th>Referencia</th><th class="text-end">Monto (Bs)</th>' +
+                    '<th>Confirmado por el banco</th><th>Notas</th>' +
+                    '</tr></thead><tbody>';
+                datos.transacciones.forEach(function (t) {
+                    html += '<tr>' +
+                        '<td>' + escaparPagoMovil(t.banco) + '</td>' +
+                        '<td class="font-monospace small">' + escaparPagoMovil(t.ref) + '</td>' +
+                        '<td class="text-end monto fw-semibold">' + montoPagoMovil(t.monto) + '</td>' +
+                        '<td>' + columnaConfirmacionPagoMovil(t, datos.puede_confirmar) + '</td>' +
+                        '<td class="small text-muted">' + escaparPagoMovil(t.notas || '-') + '</td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+            cuerpoPagoMovil.innerHTML = html;
+        }
+
+        if (modalPagoMovil && cuerpoPagoMovil) {
+            document.querySelectorAll('.btn-revision-pago-movil').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const url = this.dataset.url;
+                    if (!url) return;
+                    filaCierreActual = this.closest('tr');
+                    cuerpoPagoMovil.innerHTML = '<div class="text-center text-muted py-4">' +
+                        '<div class="spinner-border spinner-border-sm" role="status"></div> Cargando…</div>';
+                    bootstrap.Modal.getOrCreateInstance(modalPagoMovil).show();
+                    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (respuesta) {
+                            if (!respuesta.ok) throw new Error('respuesta ' + respuesta.status);
+                            return respuesta.json();
+                        })
+                        .then(renderizarPagoMovil)
+                        .catch(function () {
+                            cuerpoPagoMovil.innerHTML = '<div class="alert alert-danger mb-0">No se pudo cargar la información de pago móvil.</div>';
+                        });
+                });
+            });
+
+            cuerpoPagoMovil.addEventListener('click', function (e) {
+                const btn = e.target.closest('.btn-confirmar-banco');
+                if (!btn) return;
+                e.preventDefault();
+                const csrfInput = modalPagoMovil.querySelector('[name="csrfmiddlewaretoken"]');
+                const datosEnvio = new URLSearchParams({ confirmado: btn.dataset.valor });
+                btn.disabled = true;
+                fetch(btn.dataset.url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfInput ? csrfInput.value : '',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: datosEnvio.toString()
+                })
+                    .then(function (respuesta) {
+                        if (!respuesta.ok) throw new Error('respuesta ' + respuesta.status);
+                        return respuesta.json();
+                    })
+                    .then(function (respuesta) {
+                        if (!respuesta.ok) throw new Error(respuesta.error || 'No se pudo guardar');
+                        const grupo = btn.closest('.btn-group');
+                        grupo.querySelectorAll('.btn-confirmar-banco').forEach(function (b) {
+                            b.classList.toggle('active', b.dataset.valor === respuesta.confirmado);
+                        });
+                        const quedaNo = Array.prototype.some.call(
+                            cuerpoPagoMovil.querySelectorAll('.btn-confirmar-banco[data-valor="NO"]'),
+                            function (b) { return b.classList.contains('active'); }
+                        );
+                        const alerta = document.getElementById('alerta-no-pago-movil');
+                        if (alerta) alerta.classList.toggle('d-none', !quedaNo);
+                        actualizarNotaHistorial(quedaNo);
+                    })
+                    .catch(function () {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se pudo guardar',
+                            text: 'Inténtalo nuevamente.'
+                        });
+                    })
+                    .finally(function () { btn.disabled = false; });
+            });
+        }
     });
 </script>
 {% endblock %}
