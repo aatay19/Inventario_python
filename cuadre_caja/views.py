@@ -1178,7 +1178,30 @@ def egresos(request):
             "egresos": pagina,
             "totales": totales,
             "total_registros": paginator.count,
+            "puede_confirmar_banco": _es_admin_o_soporte(request.user),
         },
+    )
+
+
+@cuadre_caja_required
+@require_POST
+def egreso_confirmar_banco(request, egreso_id):
+    """Marca un egreso independiente como confirmado o no por el banco."""
+    if not _es_admin_o_soporte(request.user):
+        return JsonResponse(
+            {"ok": False, "error": "No tienes permiso para confirmar egresos."},
+            status=403,
+        )
+
+    egreso = get_object_or_404(EgresoGeneral, pk=egreso_id)
+    valor = (request.POST.get("confirmado") or "").strip().upper()
+    if valor not in {"SI", "NO", ""}:
+        return JsonResponse({"ok": False, "error": "Valor inválido."}, status=400)
+
+    egreso.confirmado_banco = valor
+    egreso.save(update_fields=["confirmado_banco"])
+    return JsonResponse(
+        {"ok": True, "id": egreso.id, "confirmado": egreso.confirmado_banco}
     )
 
 
@@ -1622,6 +1645,55 @@ def _errores_formset_ajuste(formset):
     return detalles
 
 
+def _registrar_nota_ajuste(cierre, user, formset):
+    """Anexa a las observaciones un resumen del ajuste realizado."""
+    agregadas = len(formset.new_objects)
+    quitadas = len(formset.deleted_objects)
+    editadas = 0
+
+    for form in formset.initial_forms:
+        if form in formset.deleted_forms:
+            continue
+        hubo_cambio = False
+        for nombre in (
+            "metodo_pago",
+            "banco",
+            "monto",
+            "ref",
+            "notas",
+            "confirmado_banco",
+        ):
+            if nombre not in form.fields:
+                continue
+            inicial = form.initial.get(nombre)
+            actual = form.cleaned_data.get(nombre)
+            if str(inicial or "").strip() != str(actual or "").strip():
+                hubo_cambio = True
+                break
+        if hubo_cambio:
+            editadas += 1
+
+    if not (agregadas or editadas or quitadas):
+        return
+
+    ahora = timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M")
+    usuario = user.get_full_name() or user.get_username()
+    partes = []
+    if agregadas:
+        partes.append(f"{agregadas} agregada(s)")
+    if editadas:
+        partes.append(f"{editadas} editada(s)")
+    if quitadas:
+        partes.append(f"{quitadas} quitada(s)")
+
+    nota = f"[AJUSTE {ahora}] {usuario}: " + ", ".join(partes) + "."
+    observaciones = (cierre.observaciones or "").strip()
+    cierre.observaciones = (
+        f"{observaciones}\n{nota}" if observaciones else nota
+    )
+    cierre.save(update_fields=["observaciones"])
+
+
 def _recalcular_totales_cierre(cierre):
     """Recalcula los totales Bs/USD a partir de las transacciones vigentes."""
     total_bs = Decimal("0.00")
@@ -1723,6 +1795,7 @@ def cierre_ajustar(request, cierre_id):
                 with transaction.atomic():
                     formset.save()
                     _recalcular_totales_cierre(cierre)
+                    _registrar_nota_ajuste(cierre, request.user, formset)
                 messages.success(
                     request,
                     "Transacciones ajustadas correctamente. Los totales del cierre se recalcularon.",

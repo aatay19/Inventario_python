@@ -394,6 +394,13 @@ class EgresoGeneral(models.Model):
         default="",
         verbose_name="Referencia",
     )
+    confirmado_banco = models.CharField(
+        max_length=2,
+        choices=[("SI", "Sí"), ("NO", "No")],
+        blank=True,
+        default="",
+        verbose_name="Confirmado por el banco",
+    )
     imagen = models.ImageField(
         upload_to="cuadre_caja/egresos_generales/%Y/%m/",
         blank=True,

@@ -43,6 +43,11 @@ urlpatterns = [
         name="departamento_estado",
     ),
     path("egresos/", views.egresos, name="egresos"),
+    path(
+        "egreso/<int:egreso_id>/confirmar-banco/",
+        views.egreso_confirmar_banco,
+        name="egreso_confirmar_banco",
+    ),
     path("cierre/<int:cierre_id>/", views.cierre_detalle, name="cierre_detalle"),
     path(
         "cierre/<int:cierre_id>/ajustar/",

@@ -170,6 +170,7 @@
                         <th>Cédula</th>
                         <th>Teléfono</th>
                         <th>Banco</th>
+                        <th class="text-center">Confirmado banco</th>
                         <th>Moneda</th>
                         <th class="text-end">Monto</th>
                         <th class="text-end">Tasa del día</th>
@@ -196,6 +197,31 @@
                         <td>{{ egreso.cedula|default:"—" }}</td>
                         <td>{{ egreso.telefono|default:"—" }}</td>
                         <td>{{ egreso.banco|default:"—" }}</td>
+                        <td class="text-center">
+                            {% if puede_confirmar_banco %}
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Confirmado por el banco">
+                                <button type="button"
+                                        class="btn btn-outline-success btn-confirmar-egreso{% if egreso.confirmado_banco == 'SI' %} active{% endif %}"
+                                        data-valor="SI"
+                                        data-url="{% url 'cuadre_caja:egreso_confirmar_banco' egreso.id %}"
+                                        title="Confirmado por el banco">Sí</button>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-confirmar-egreso{% if egreso.confirmado_banco == 'NO' %} active{% endif %}"
+                                        data-valor="NO"
+                                        data-url="{% url 'cuadre_caja:egreso_confirmar_banco' egreso.id %}"
+                                        title="Este egreso no se procesó">No</button>
+                            </div>
+                            {% elif egreso.confirmado_banco == 'SI' %}
+                            <span class="badge bg-success">Sí</span>
+                            {% elif egreso.confirmado_banco == 'NO' %}
+                            <span class="badge bg-danger">No</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Pendiente</span>
+                            {% endif %}
+                            {% if egreso.confirmado_banco == 'NO' %}
+                            <div class="small text-danger mt-1 nota-egreso-no">Este egreso no se procesó</div>
+                            {% endif %}
+                        </td>
                         <td>{{ egreso.get_moneda_display }}</td>
                         <td class="text-end monto fw-semibold">{{ egreso.monto|floatformat:2 }}</td>
                         <td class="text-end small text-muted">
@@ -220,7 +246,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="13" class="text-center text-muted py-5">
+                        <td colspan="14" class="text-center text-muted py-5">
                             <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                             No hay egresos, devoluciones ni abonos registrados.
                         </td>
@@ -272,6 +298,54 @@
 
         tipo.addEventListener('change', actualizarNotaAbono);
         actualizarNotaAbono();
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-confirmar-egreso');
+            if (!btn) return;
+            e.preventDefault();
+
+            const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
+            const datos = new URLSearchParams({ confirmado: btn.dataset.valor });
+            btn.disabled = true;
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfInput ? csrfInput.value : '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: datos.toString()
+            })
+                .then(function (respuesta) {
+                    if (!respuesta.ok) throw new Error('respuesta ' + respuesta.status);
+                    return respuesta.json();
+                })
+                .then(function (respuesta) {
+                    if (!respuesta.ok) throw new Error(respuesta.error || 'No se pudo guardar');
+                    const grupo = btn.closest('.btn-group');
+                    grupo.querySelectorAll('.btn-confirmar-egreso').forEach(function (b) {
+                        b.classList.toggle('active', b.dataset.valor === respuesta.confirmado);
+                    });
+                    const celda = grupo.closest('td');
+                    let nota = celda.querySelector('.nota-egreso-no');
+                    if (respuesta.confirmado === 'NO' && !nota) {
+                        nota = document.createElement('div');
+                        nota.className = 'small text-danger mt-1 nota-egreso-no';
+                        nota.textContent = 'Este egreso no se procesó';
+                        celda.appendChild(nota);
+                    } else if (respuesta.confirmado !== 'NO' && nota) {
+                        nota.remove();
+                    }
+                })
+                .catch(function (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'No se pudo guardar la confirmación',
+                        text: error.message || 'Inténtalo nuevamente.'
+                    });
+                })
+                .finally(function () { btn.disabled = false; });
+        });
     });
 </script>
 {% endblock %}
