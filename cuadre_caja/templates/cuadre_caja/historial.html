@@ -113,6 +113,7 @@
                     <span class="text-muted">Bs {{ dia.total_bs|floatformat:2 }}</span>
                     <span class="text-muted">USD {{ dia.total_usd|floatformat:2 }}</span>
                     <span class="fw-semibold">Total Bs {{ dia.total_equivalente_bs|floatformat:2 }}</span>
+                    <span class="fw-semibold text-primary">Total USD {{ dia.total_equivalente_usd|floatformat:2 }}</span>
                 </span>
             </button>
         </h2>
@@ -126,7 +127,8 @@
                     </h6>
                     <span class="small text-muted">
                         {{ grupo.cantidad }} cierre{{ grupo.cantidad|pluralize }} ·
-                        Total Bs {{ grupo.total_equivalente_bs|floatformat:2 }}
+                        Total Bs {{ grupo.total_equivalente_bs|floatformat:2 }} ·
+                        Total USD {{ grupo.total_equivalente_usd|floatformat:2 }}
                     </span>
                 </div>
                 <div class="table-responsive">
@@ -139,6 +141,7 @@
                                 <th class="text-end">Total Bs</th>
                                 <th class="text-end">Total USD</th>
                                 <th class="text-end">Total en Bs</th>
+                                <th class="text-end">Total en USD</th>
                                 <th class="text-end pe-3"></th>
                             </tr>
                         </thead>
@@ -158,6 +161,9 @@
                                 <td class="text-end monto">{{ cierre.total_bs|floatformat:2 }}</td>
                                 <td class="text-end monto">{{ cierre.total_usd|floatformat:2 }}</td>
                                 <td class="text-end monto">{{ cierre.total_equivalente_bs|floatformat:2 }}</td>
+                                <td class="text-end monto fw-semibold text-primary" title="Total en Bs entre la tasa del día">
+                                    {{ cierre.total_equivalente_usd|floatformat:2 }}
+                                </td>
                                 <td class="text-end pe-3">
                                     <div class="d-inline-flex gap-1">
                                         <button type="button"
@@ -193,6 +199,7 @@
                     <span>Bs <strong>{{ grupo.total_bs|floatformat:2 }}</strong></span>
                     <span>USD <strong>{{ grupo.total_usd|floatformat:2 }}</strong></span>
                     <span>Total en Bs <strong>{{ grupo.total_equivalente_bs|floatformat:2 }}</strong></span>
+                    <span>Total en USD <strong>{{ grupo.total_equivalente_usd|floatformat:2 }}</strong></span>
                 </div>
                 {% endfor %}
 
@@ -202,6 +209,7 @@
                     <span>Bs {{ dia.total_bs|floatformat:2 }}</span>
                     <span>USD {{ dia.total_usd|floatformat:2 }}</span>
                     <span>Total en Bs {{ dia.total_equivalente_bs|floatformat:2 }}</span>
+                    <span>Total en USD {{ dia.total_equivalente_usd|floatformat:2 }}</span>
                 </div>
             </div>
         </div>

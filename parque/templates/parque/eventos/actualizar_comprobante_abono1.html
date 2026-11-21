@@ -1,0 +1,108 @@
+{% extends 'parque/layout/base_parque.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6">
+
+            <div class="d-flex align-items-center mb-4 gap-3">
+                <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-outline-secondary btn-sm rounded-pill">
+                    <i class="bi bi-arrow-left me-1"></i> Volver
+                </a>
+                <div>
+                    <h1 class="h4 mb-0 fw-bold text-dark">Actualizar comprobantes del Abono 1</h1>
+                    <p class="text-muted small mb-0">{{ evento.titulo }}</p>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary bg-opacity-10 border-bottom py-3">
+                    <h6 class="mb-0 fw-bold text-primary-emphasis">
+                        <i class="bi bi-cash-coin me-2"></i>Comprobantes del Primer Abono
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2">
+                        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                    <form method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <label for="{{ form.foto_abono1.id_for_label }}" class="form-label fw-bold small">
+                                    <i class="bi bi-image me-1"></i>{{ form.foto_abono1.label }}
+                                </label>
+                                {{ form.foto_abono1 }}
+                                {% if form.foto_abono1.errors %}
+                                <div class="text-danger small mt-1">{{ form.foto_abono1.errors|join:", " }}</div>
+                                {% endif %}
+                                {% if evento.foto_abono1 %}
+                                <div class="mt-3 text-center">
+                                    {% include 'parque/eventos/imagen_ampliable.html' with imagen_url=evento.foto_abono1.url imagen_titulo="Comprobante · Abono 1" imagen_alt="Comprobante Abono 1" imagen_badge="Comprobante" imagen_badge_clase="bg-dark" %}
+                                    <p class="text-muted small mb-0 mt-1">Imagen actual. Selecciona otra arriba para reemplazarla.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-12">
+                                <label for="{{ form.foto_factura_abono1.id_for_label }}" class="form-label fw-bold small">
+                                    <i class="bi bi-receipt me-1"></i>{{ form.foto_factura_abono1.label }}
+                                </label>
+                                {{ form.foto_factura_abono1 }}
+                                {% if form.foto_factura_abono1.errors %}
+                                <div class="text-danger small mt-1">{{ form.foto_factura_abono1.errors|join:", " }}</div>
+                                {% endif %}
+                                {% if evento.foto_factura_abono1 %}
+                                <div class="mt-3 text-center">
+                                    {% include 'parque/eventos/imagen_ampliable.html' with imagen_url=evento.foto_factura_abono1.url imagen_titulo="Factura · Abono 1" imagen_alt="Factura Abono 1" imagen_badge="Factura" imagen_badge_clase="bg-warning text-dark" %}
+                                    <p class="text-muted small mb-0 mt-1">Imagen actual. Selecciona otra arriba para reemplazarla.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <a href="{% url 'parque:detalle_evento' evento.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary fw-bold px-4">
+                                <i class="bi bi-check-circle me-1"></i> Guardar comprobantes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if evento.foto_abono1 or evento.foto_factura_abono1 %}
+            {% if request.user.perfilusuario.rol|lower != 'admin' %}
+            <div class="card border-0 shadow-sm mb-4 border-danger">
+                <div class="card-header bg-danger bg-opacity-10 border-bottom py-3">
+                    <h6 class="mb-0 fw-bold text-danger-emphasis">
+                        <i class="bi bi-trash me-2"></i>Eliminar comprobantes
+                    </h6>
+                </div>
+                <div class="card-body p-4 d-flex flex-wrap gap-2">
+                    {% if evento.foto_abono1 %}
+                    <form method="post" action="{% url 'parque:borrar_foto_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto del Abono 1?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i>Borrar comprobante
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% if evento.foto_factura_abono1 %}
+                    <form method="post" action="{% url 'parque:borrar_foto_factura_abono1' evento.pk %}" onsubmit="return confirm('¿Eliminar la foto de factura del Abono 1?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-warning">
+                            <i class="bi bi-trash me-1"></i>Borrar factura
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

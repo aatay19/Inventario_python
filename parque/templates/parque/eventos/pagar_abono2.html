@@ -165,10 +165,10 @@
                                         <img src="{{ evento.foto_abono2.url }}" alt="Comprobante" class="img-thumbnail" style="max-height:100px;">
                                     </div>
                                     {% if request.user.perfilusuario.rol|lower != 'admin' %}
-                                    <form method="post" action="{% url 'parque:borrar_foto_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Borrar el comprobante? Los datos del abono no se modificarán.')">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Borrar comprobante</button>
-                                    </form>
+                                    <button type="submit" formmethod="post" formaction="{% url 'parque:borrar_foto_abono2' evento.pk %}" onclick="return confirm('¿Borrar el comprobante? Los datos del abono no se modificarán.')"
+                                        class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i>Borrar comprobante
+                                    </button>
                                     {% endif %}
                                 </div>
                                 {% endif %}
@@ -184,10 +184,10 @@
                                         <img src="{{ evento.foto_factura_abono2.url }}" alt="Factura Abono 2" class="img-thumbnail" style="max-height:100px;">
                                     </div>
                                     {% if request.user.perfilusuario.rol|lower != 'admin' %}
-                                    <form method="post" action="{% url 'parque:borrar_foto_factura_abono2' evento.pk %}" class="d-inline" onsubmit="return confirm('¿Borrar la foto de factura? Los datos del abono no se modificarán.')">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-warning"><i class="bi bi-trash me-1"></i>Borrar factura</button>
-                                    </form>
+                                    <button type="submit" formmethod="post" formaction="{% url 'parque:borrar_foto_factura_abono2' evento.pk %}" onclick="return confirm('¿Borrar la foto de factura? Los datos del abono no se modificarán.')"
+                                        class="btn btn-sm btn-outline-warning">
+                                        <i class="bi bi-trash me-1"></i>Borrar factura
+                                    </button>
                                     {% endif %}
                                 </div>
                                 {% endif %}

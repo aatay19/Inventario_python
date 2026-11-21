@@ -223,6 +223,9 @@
                                 <span class="text-muted small d-block">Método: <strong>{{ evento.get_metodo_pago_display|default:"No especificado" }}</strong></span>
                                 <span class="text-muted small d-block">Nota: <strong>{{ evento.nota_forma_pago|default:"-" }}</strong></span>
                                 <span class="text-muted small d-block">Confirmado por: <strong>{{ evento.confirmado_por|default:"-" }}</strong></span>
+                                <a href="{% url 'parque:actualizar_comprobante_abono1' evento.pk %}" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="bi bi-image me-1"></i>Actualizar comprobantes
+                                </a>
                                 <div class="text-muted small mt-1 border-top pt-1 d-flex align-items-center flex-wrap gap-2">
                                     <span>Tasa: <strong>{% if evento.tasa_dia %}{{ evento.tasa_dia }}{% else %}-{% endif %}</strong> |</span>
                                     <span>Monto Bs: <strong>{% if evento.monto_abono1_bs %}Bs {{ evento.monto_abono1_bs|floatformat:"2g" }}{% else %}-{% endif %}</strong> |</span>

@@ -29,6 +29,22 @@ class Abono2Form(forms.ModelForm):
             'foto_factura_abono2': 'Foto de la Factura',
         }
 
+class ComprobanteAbono1Form(forms.ModelForm):
+    """Actualiza únicamente los comprobantes del abono 1, sin tocar el evento."""
+
+    class Meta:
+        model = Evento
+        fields = ['foto_abono1', 'foto_factura_abono1']
+        labels = {
+            'foto_abono1': 'Foto Comprobante Abono 1',
+            'foto_factura_abono1': 'Foto de la Factura Abono 1',
+        }
+        widgets = {
+            'foto_abono1': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'foto_factura_abono1': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+        }
+
+
 class EventoForm(forms.ModelForm):
     total_pagar = forms.DecimalField(required=False, initial=0.00, widget=forms.NumberInput(attrs={'class': 'form-control bg-light fw-bold text-success', 'readonly': 'readonly'}))
 

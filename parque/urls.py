@@ -22,6 +22,7 @@ urlpatterns = [
     path('eventos/pdf_abono1/<int:pk>/', views.generar_pdf_abono1, name='generar_pdf_abono1'),
     path('eventos/pdf_abono2/<int:pk>/', views.generar_pdf_abono2, name='generar_pdf_abono2'),
     path('eventos/pagar_abono2/<int:pk>/', views.pagar_abono2, name='pagar_abono2'),
+    path('eventos/comprobante_abono1/<int:pk>/', views.actualizar_comprobante_abono1, name='actualizar_comprobante_abono1'),
     path('eventos/borrar_foto_abono1/<int:pk>/', views.borrar_foto_abono1, name='borrar_foto_abono1'),
     path('eventos/borrar_foto_abono2/<int:pk>/', views.borrar_foto_abono2, name='borrar_foto_abono2'),
     path('eventos/borrar_foto_factura_abono1/<int:pk>/', views.borrar_foto_factura_abono1, name='borrar_foto_factura_abono1'),

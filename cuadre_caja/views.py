@@ -1660,6 +1660,7 @@ def historial(request):
         total_bs = Decimal("0.00")
         total_usd = Decimal("0.00")
         total_equivalente_bs = Decimal("0.00")
+        total_equivalente_usd = Decimal("0.00")
 
         for cierre in cierres_dia:
             grupo = departamentos.setdefault(
@@ -1671,6 +1672,7 @@ def historial(request):
                     "total_bs": Decimal("0.00"),
                     "total_usd": Decimal("0.00"),
                     "total_equivalente_bs": Decimal("0.00"),
+                    "total_equivalente_usd": Decimal("0.00"),
                 },
             )
             grupo["cierres"].append(cierre)
@@ -1678,10 +1680,12 @@ def historial(request):
             grupo["total_bs"] += cierre.total_bs or Decimal("0.00")
             grupo["total_usd"] += cierre.total_usd or Decimal("0.00")
             grupo["total_equivalente_bs"] += cierre.total_equivalente_bs
+            grupo["total_equivalente_usd"] += cierre.total_equivalente_usd
 
             total_bs += cierre.total_bs or Decimal("0.00")
             total_usd += cierre.total_usd or Decimal("0.00")
             total_equivalente_bs += cierre.total_equivalente_bs
+            total_equivalente_usd += cierre.total_equivalente_usd
 
         dias.append(
             {
@@ -1692,6 +1696,7 @@ def historial(request):
                 "total_bs": total_bs,
                 "total_usd": total_usd,
                 "total_equivalente_bs": total_equivalente_bs,
+                "total_equivalente_usd": total_equivalente_usd,
             }
         )
 

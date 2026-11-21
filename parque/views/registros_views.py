@@ -7,10 +7,37 @@ from django.db import transaction
 from django.utils import timezone
 from django.http import HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.core.files.storage import default_storage
 from fpdf import FPDF
 from libreria.views.auth import eliminar_permitido
 from ..models import Evento, ProductoParque, ComboParque, Brazalete, DetalleEvento, ProductoEnCombo
-from ..forms import EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm, Abono2Form
+from ..forms import (
+    EventoForm, ProductoParqueForm, ComboParqueForm, BrazaleteForm,
+    Abono2Form, ComprobanteAbono1Form,
+)
+
+CAMPOS_IMAGENES = (
+    'foto_abono1', 'foto_factura_abono1', 'foto_abono2', 'foto_factura_abono2',
+)
+
+
+def _nombres_imagenes(evento, campos=CAMPOS_IMAGENES):
+    """Captura los nombres de archivo antes de que el formulario sobrescriba los campos."""
+    return {
+        campo: getattr(evento, campo).name
+        for campo in campos
+        if getattr(evento, campo, None)
+    }
+
+
+def _limpiar_imagenes_reemplazadas(evento, nombres_anteriores):
+    """Elimina del almacenamiento las imágenes reemplazadas o borradas."""
+    for campo, nombre in nombres_anteriores.items():
+        archivo = getattr(evento, campo, None)
+        if not archivo or archivo.name != nombre:
+            if default_storage.exists(nombre):
+                default_storage.delete(nombre)
+
 
 def actualizar_estados_eventos():
     """LÃƒÂ³gica para mover eventos a 'En Curso' o 'Finalizado' segÃƒÂºn la hora exacta"""
@@ -145,6 +172,7 @@ def crear_evento(request):
 def editar_evento(request, pk):
     evento = get_object_or_404(Evento, pk=pk)
     if request.method == 'POST':
+        nombres_anteriores = _nombres_imagenes(evento)
         form = EventoForm(request.POST, request.FILES, instance=evento)
         items_json = request.POST.get('items_data')
         
@@ -176,11 +204,12 @@ def editar_evento(request, pk):
 
                     evento.total_pagar = total_calculado
                     evento.save()
-                    
-                    messages.success(request, "Evento actualizado correctamente.")
-                    return redirect('parque:lista_eventos')
             except Exception as e:
                 messages.error(request, f"Error al actualizar: {str(e)}")
+            else:
+                _limpiar_imagenes_reemplazadas(evento, nombres_anteriores)
+                messages.success(request, "Evento actualizado correctamente.")
+                return redirect('parque:lista_eventos')
     else:
         form = EventoForm(instance=evento)
     
@@ -192,7 +221,7 @@ def editar_evento(request, pk):
         })
 
     return render(request, 'parque/eventos/form.html', {
-        'form': form, 'titulo': 'Editar Evento',
+        'form': form, 'titulo': 'Editar Evento', 'evento': evento,
         'brazaletes': Brazalete.objects.all(),
         'productos': ProductoParque.objects.all(),
         'combos': ComboParque.objects.all(),
@@ -467,9 +496,11 @@ def pagar_abono2(request, pk):
         restante = 0
 
     if request.method == 'POST':
+        nombres_anteriores = _nombres_imagenes(evento)
         form = Abono2Form(request.POST, request.FILES, instance=evento)
         if form.is_valid():
             form.save()
+            _limpiar_imagenes_reemplazadas(evento, nombres_anteriores)
             messages.success(request, f'Abono 2 registrado correctamente para "{evento.titulo}".')
             return redirect('parque:detalle_evento', pk=evento.pk)
     else:
@@ -481,6 +512,27 @@ def pagar_abono2(request, pk):
         'form': form, 
         'evento': evento,
         'restante': restante
+    })
+
+
+@login_required
+def actualizar_comprobante_abono1(request, pk):
+    """Actualiza solo las fotos del abono 1, sin alterar detalles ni totales."""
+    evento = get_object_or_404(Evento, pk=pk)
+    if request.method == 'POST':
+        nombres_anteriores = _nombres_imagenes(evento)
+        form = ComprobanteAbono1Form(request.POST, request.FILES, instance=evento)
+        if form.is_valid():
+            form.save()
+            _limpiar_imagenes_reemplazadas(evento, nombres_anteriores)
+            messages.success(request, 'Comprobantes del Abono 1 actualizados correctamente.')
+            return redirect('parque:detalle_evento', pk=evento.pk)
+    else:
+        form = ComprobanteAbono1Form(instance=evento)
+
+    return render(request, 'parque/eventos/actualizar_comprobante_abono1.html', {
+        'form': form,
+        'evento': evento,
     })
 
 

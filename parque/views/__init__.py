@@ -2,6 +2,7 @@ from .dashboard_views import dashboard, calendario, proximo_eventos
 from .registros_views import (
     lista_eventos, crear_evento, editar_evento, eliminar_evento, detalle_evento,
     finalizar_evento, generar_pdf_evento, generar_pdf_abono1, generar_pdf_abono2, pagar_abono2,
+    actualizar_comprobante_abono1,
     borrar_foto_abono1, borrar_foto_abono2, toggle_confirmado,
     borrar_foto_factura_abono1, borrar_foto_factura_abono2,
     lista_productos, crear_producto, editar_producto, eliminar_producto,
