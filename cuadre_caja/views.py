@@ -1550,7 +1550,12 @@ def _datos_cierre(cierre):
 
     egresos = list(cierre.egresos.all())
     vueltos = [egreso for egreso in egresos if egreso.es_vuelto]
-    informativos = [egreso for egreso in egresos if not egreso.es_vuelto]
+    adicionales = [egreso for egreso in egresos if egreso.es_ingreso_adicional]
+    informativos = [
+        egreso
+        for egreso in egresos
+        if not egreso.es_vuelto and not egreso.es_ingreso_adicional
+    ]
 
     def total_egresos(grupo, moneda):
         return sum(
@@ -1560,6 +1565,8 @@ def _datos_cierre(cierre):
 
     total_vueltos_bs = total_egresos(vueltos, MONEDA_BS)
     total_vueltos_usd = total_egresos(vueltos, MONEDA_USD)
+    total_adicionales_bs = total_egresos(adicionales, MONEDA_BS)
+    total_adicionales_usd = total_egresos(adicionales, MONEDA_USD)
     total_devoluciones_bs = total_egresos(informativos, MONEDA_BS)
     total_devoluciones_usd = total_egresos(informativos, MONEDA_USD)
 
@@ -1605,9 +1612,12 @@ def _datos_cierre(cierre):
         "total_distribucion_usd": total_distribucion_usd,
         "egresos": egresos,
         "vueltos": vueltos,
+        "adicionales": adicionales,
         "informativos": informativos,
         "total_vueltos_bs": total_vueltos_bs,
         "total_vueltos_usd": total_vueltos_usd,
+        "total_adicionales_bs": total_adicionales_bs,
+        "total_adicionales_usd": total_adicionales_usd,
         "total_devoluciones_bs": total_devoluciones_bs,
         "total_devoluciones_usd": total_devoluciones_usd,
         "transacciones": transacciones,
@@ -2168,6 +2178,47 @@ def reportes(request):
     totales_vueltos["total_bs"] = totales_vueltos["total_bs"] or Decimal("0.00")
     totales_vueltos["total_usd"] = totales_vueltos["total_usd"] or Decimal("0.00")
 
+    # Créditos e insumos registrados dentro de los cuadres filtrados: suman al total.
+    movimientos_adicionales = EgresoCierre.objects.filter(
+        cierre__in=cierres,
+        tipo__in=[TipoSalidaChoices.CREDITO, TipoSalidaChoices.INSUMOS],
+    ).select_related("cierre__caja")
+    totales_adicionales = movimientos_adicionales.aggregate(
+        cantidad=Count("id"),
+        total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
+        total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
+    )
+    totales_adicionales["total_bs"] = (
+        totales_adicionales["total_bs"] or Decimal("0.00")
+    )
+    totales_adicionales["total_usd"] = (
+        totales_adicionales["total_usd"] or Decimal("0.00")
+    )
+
+    desglose_adicionales = []
+    for valor, etiqueta in (
+        (TipoSalidaChoices.CREDITO, "Crédito"),
+        (TipoSalidaChoices.INSUMOS, "Insumos"),
+    ):
+        filtro = movimientos_adicionales.filter(tipo=valor)
+        totales_tipo = filtro.aggregate(
+            cantidad=Count("id"),
+            total_bs=Sum("monto", filter=Q(moneda=MONEDA_BS)),
+            total_usd=Sum("monto", filter=Q(moneda=MONEDA_USD)),
+        )
+        desglose_adicionales.append(
+            {
+                "tipo": etiqueta,
+                "cantidad": totales_tipo["cantidad"] or 0,
+                "total_bs": totales_tipo["total_bs"] or Decimal("0.00"),
+                "total_usd": totales_tipo["total_usd"] or Decimal("0.00"),
+            }
+        )
+
+    adicionales_recientes = movimientos_adicionales.order_by(
+        "-cierre__fecha", "-id"
+    )[:10]
+
     # Egresos y devoluciones independientes (no pertenecen a ningún cuadre).
     inicio_dt = timezone.make_aware(datetime.combine(fecha_inicio, time.min))
     fin_dt = timezone.make_aware(
@@ -2304,6 +2355,9 @@ def reportes(request):
             "total_general": total_general,
             "resumen_turnos": resumen_turnos,
             "totales_vueltos": totales_vueltos,
+            "totales_adicionales": totales_adicionales,
+            "desglose_adicionales": desglose_adicionales,
+            "adicionales_recientes": adicionales_recientes,
             "totales_independientes": totales_independientes,
             "totales_abonos": totales_abonos,
             "egresos_independientes": egresos_independientes,

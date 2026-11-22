@@ -140,22 +140,11 @@ class CierreCaja(models.Model):
     def __str__(self):
         return f"{self.caja} - {self.fecha:%d/%m/%Y} - {self.turno} - {self.nombre_cajera}"
 
-    @property
-    def total_vueltos_bs(self):
-        """Salidas del cierre que restan del total, expresadas en Bs.
-
-        Se incluyen los tipos Egreso (vuelto de caja), Crédito e Insumos.
-        Los vueltos en USD se convierten con la tasa del día.
-        Salida y Abono son informativos y no se cuentan aquí.
-        """
-        TIPOS_QUE_RESTAN = {
-            TipoSalidaChoices.EGRESO,
-            TipoSalidaChoices.CREDITO,
-            TipoSalidaChoices.INSUMOS,
-        }
+    def _total_egresos_por_tipo(self, tipos):
+        """Suma en Bs los egresos de los tipos indicados, convirtiendo USD."""
         total = Decimal("0.00")
         for egreso in self.egresos.all():
-            if egreso.tipo not in TIPOS_QUE_RESTAN:
+            if egreso.tipo not in tipos:
                 continue
             monto = egreso.monto or Decimal("0.00")
             if egreso.moneda == MONEDA_BS:
@@ -165,20 +154,34 @@ class CierreCaja(models.Model):
         return _redondear(total)
 
     @property
+    def total_vueltos_bs(self):
+        """Vueltos de caja (EGRESO) que restan del total, expresados en Bs."""
+        return self._total_egresos_por_tipo(TIPOS_QUE_RESTAN)
+
+    @property
+    def total_ingresos_adicionales_bs(self):
+        """Créditos e insumos del cierre que suman al total, expresados en Bs."""
+        return self._total_egresos_por_tipo(TIPOS_QUE_SUMAN)
+
+    @property
     def total_equivalente_bs(self):
-        """Total general en Bs: transacciones convertidas menos vueltos de caja."""
+        """Transacciones + créditos e insumos − vueltos de caja, en Bs."""
         if self.tasa:
             bruto = self.total_bs + (self.total_usd * self.tasa)
         else:
             bruto = self.total_bs
-        return _redondear(bruto - self.total_vueltos_bs)
+        return _redondear(
+            bruto - self.total_vueltos_bs + self.total_ingresos_adicionales_bs
+        )
 
     @property
     def total_equivalente_usd(self):
         if self.tasa:
             return _redondear(
-                self.total_usd + (self.total_bs / self.tasa)
+                self.total_usd
+                + (self.total_bs / self.tasa)
                 - (self.total_vueltos_bs / self.tasa)
+                + (self.total_ingresos_adicionales_bs / self.tasa)
             )
         return _redondear(self.total_usd)
 
@@ -239,11 +242,18 @@ class TipoSalidaChoices(models.TextChoices):
     ABONO = "ABONO", "Abono"
 
 
+# Efecto de cada tipo de egreso del cuadre sobre el total equivalente.
+TIPOS_QUE_RESTAN = frozenset({TipoSalidaChoices.EGRESO})
+TIPOS_QUE_SUMAN = frozenset(
+    {TipoSalidaChoices.CREDITO, TipoSalidaChoices.INSUMOS}
+)
+
+
 class EgresoCierre(models.Model):
     """Salida registrada durante el día (vuelto de caja, salida, crédito, insumos o abono).
 
-    Los tipos Egreso, Crédito e Insumos restan del total general en Bs del
-    cierre. Salida y Abono son informativos y no afectan el total.
+    El vuelto de caja (Egreso) resta del total general en Bs; Crédito e Insumos
+    suman. Salida y Abono son informativos y no afectan el total.
     """
 
     cierre = models.ForeignKey(
@@ -318,12 +328,13 @@ class EgresoCierre(models.Model):
 
     @property
     def es_vuelto(self):
-        """Indica si el registro resta del total en Bs (Egreso, Crédito o Insumos)."""
-        return self.tipo in {
-            TipoSalidaChoices.EGRESO,
-            TipoSalidaChoices.CREDITO,
-            TipoSalidaChoices.INSUMOS,
-        }
+        """Indica si el registro resta del total en Bs (solo vuelto de caja)."""
+        return self.tipo in TIPOS_QUE_RESTAN
+
+    @property
+    def es_ingreso_adicional(self):
+        """Indica si el registro suma al total en Bs (Crédito o Insumos)."""
+        return self.tipo in TIPOS_QUE_SUMAN
 
     @property
     def monto_bs(self):

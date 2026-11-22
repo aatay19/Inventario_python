@@ -63,6 +63,21 @@
         padding: 0.5rem 0.75rem;
     }
 
+    .resumen-adicionales {
+        background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+        border: 1.5px solid #3b82f6;
+        border-left: 5px solid #1d4ed8;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+        padding: 0.5rem 0.75rem;
+    }
+
+    .adicionales-numero {
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
     .resumen-total-bs {
         background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 100%);
         border: 1.5px solid #059669;
@@ -376,6 +391,8 @@
                                     <td>
                                         {% if e.es_vuelto %}
                                             <span class="badge bg-danger">Resta</span>
+                                        {% elif e.es_ingreso_adicional %}
+                                            <span class="badge bg-primary">Suma</span>
                                         {% else %}
                                             <span class="badge bg-secondary">Informativo</span>
                                         {% endif %}
@@ -431,6 +448,11 @@
                     <div class="resumen-vueltos mb-3">
                         <div class="small text-muted">Vueltos que restan (Bs)</div>
                         <div class="vueltos-numero text-danger">{{ cierre.total_vueltos_bs|floatformat:2 }}</div>
+                    </div>
+                    <div class="resumen-adicionales mb-3">
+                        <div class="small text-muted">Crédito e Insumos que suman (Bs)</div>
+                        <div class="adicionales-numero text-primary">+ {{ total_adicionales_bs|floatformat:2 }}</div>
+                        <div class="small text-muted">USD {{ total_adicionales_usd|floatformat:2 }}</div>
                     </div>
                     <div class="mb-3">
                         <div class="stat-label">Salidas informativas (Bs)</div>

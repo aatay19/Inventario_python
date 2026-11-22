@@ -137,7 +137,7 @@
             <div class="card-body">
                 <div class="stat-label mb-1">Total en Bs</div>
                 <div class="stat-valor">Bs {{ total_general.total_equivalente_bs|floatformat:2 }}</div>
-                <div class="small text-muted">Ya descontados los vueltos de caja</div>
+                <div class="small text-muted">Vueltos restados y créditos/insumos sumados</div>
             </div>
         </div>
     </div>
@@ -149,8 +149,8 @@
             <div class="col-12 col-lg-5">
                 <div class="stat-label mb-1">Total de vueltos de caja de los cuadres</div>
                 <p class="small text-muted mb-0">
-                    Registrados en la sección “Vueltos de caja y devoluciones” de cada cuadre del
-                    periodo. Se restan del total en Bs de cada cuadre.
+                    Registrados en la sección “Salidas” de cada cuadre del periodo.
+                    El vuelto de caja se resta del total en Bs de cada cuadre.
                 </p>
             </div>
             <div class="col-6 col-lg-3">
@@ -167,6 +167,90 @@
                 </span>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="card cc-card mb-4 border-start border-4 border-primary">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-plus-circle me-2 text-primary"></i>Créditos e insumos de los cuadres
+            </h5>
+            <p class="small text-muted mb-0">
+                Registrados en la sección “Salidas” de cada cuadre del periodo. Suman al total en Bs de cada cuadre.
+            </p>
+        </div>
+        <span class="badge bg-primary-subtle text-primary-emphasis">
+            {{ totales_adicionales.cantidad }} registro{{ totales_adicionales.cantidad|pluralize }}
+        </span>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-4">
+                <div class="stat-label mb-1">Total en bolívares</div>
+                <div class="stat-valor text-primary">Bs {{ totales_adicionales.total_bs|floatformat:2 }}</div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="stat-label mb-1">Total en dólares</div>
+                <div class="stat-valor text-primary">USD {{ totales_adicionales.total_usd|floatformat:2 }}</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="stat-label mb-1">Registros</div>
+                <div class="stat-valor">{{ totales_adicionales.cantidad }}</div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            {% for item in desglose_adicionales %}
+            <div class="col-12 col-md-6">
+                <div class="border rounded p-2 h-100">
+                    <div class="small fw-semibold">{{ item.tipo }}</div>
+                    <div class="small text-muted">
+                        Bs {{ item.total_bs|floatformat:2 }} · USD {{ item.total_usd|floatformat:2 }}
+                        · {{ item.cantidad }} registro{{ item.cantidad|pluralize }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if adicionales_recientes %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Caja</th>
+                        <th>Turno</th>
+                        <th>Tipo</th>
+                        <th>Moneda</th>
+                        <th class="text-end">Monto</th>
+                        <th>Referencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movimiento in adicionales_recientes %}
+                    <tr>
+                        <td class="text-nowrap">{{ movimiento.cierre.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ movimiento.cierre.caja.numero }}</td>
+                        <td>{{ movimiento.cierre.get_turno_display }}</td>
+                        <td><span class="badge bg-primary-subtle text-primary-emphasis">{{ movimiento.get_tipo_display }}</span></td>
+                        <td>{{ movimiento.get_moneda_display }}</td>
+                        <td class="text-end monto">{{ movimiento.monto|floatformat:2 }}</td>
+                        <td>{{ movimiento.referencia|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if totales_adicionales.cantidad > 10 %}
+        <p class="small text-muted mt-2 mb-0">
+            Mostrando los últimos 10 registros de {{ totales_adicionales.cantidad }}.
+        </p>
+        {% endif %}
+        {% else %}
+        <p class="text-muted small mb-0">No hay créditos ni insumos en los cuadres del periodo.</p>
+        {% endif %}
     </div>
 </div>
 

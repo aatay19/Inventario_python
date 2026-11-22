@@ -321,7 +321,12 @@
                 <div class="stat-valor">Bs {{ cierre.total_equivalente_bs|floatformat:2 }}</div>
                 {% if cierre.total_vueltos_bs %}
                 <div class="small text-danger">
-                    Incluye salidas que restan: − Bs {{ cierre.total_vueltos_bs|floatformat:2 }}
+                    Incluye vuelto que resta: − Bs {{ cierre.total_vueltos_bs|floatformat:2 }}
+                </div>
+                {% endif %}
+                {% if total_adicionales_bs %}
+                <div class="small text-primary">
+                    Incluye Crédito e Insumos que suman: + Bs {{ total_adicionales_bs|floatformat:2 }}
                 </div>
                 {% endif %}
                 <div class="small text-muted">USD {{ cierre.total_equivalente_usd|floatformat:2 }}</div>
@@ -344,7 +349,7 @@
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
         <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-warning"></i>Salidas</h5>
         <p class="small text-muted mb-0">
-            Vuelto de caja, Crédito e Insumos restan del total en Bs; Salida y Abono son informativos.
+            El vuelto de caja resta del total en Bs; Crédito e Insumos suman. Salida y Abono son informativos.
         </p>
     </div>
     <div class="card-body px-3 px-lg-4 pb-3">
@@ -368,6 +373,8 @@
                         <td>
                             {% if egreso.es_vuelto %}
                             <span class="badge bg-warning-subtle text-warning-emphasis">{{ egreso.get_tipo_display }}</span>
+                            {% elif egreso.es_ingreso_adicional %}
+                            <span class="badge bg-primary-subtle text-primary-emphasis">{{ egreso.get_tipo_display }}</span>
                             {% else %}
                             <span class="badge bg-light text-secondary border">{{ egreso.get_tipo_display }}</span>
                             {% endif %}
@@ -393,9 +400,19 @@
                 <tfoot>
                     {% if total_vueltos_bs or total_vueltos_usd %}
                     <tr class="fw-bold border-top">
-                        <td colspan="5">Total salidas que restan (se descuentan del total en Bs)</td>
+                        <td colspan="5">Total vuelto de caja (se resta del total en Bs)</td>
                         <td class="text-end monto">
                             Bs {{ total_vueltos_bs|floatformat:2 }} · USD {{ total_vueltos_usd|floatformat:2 }}
+                        </td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    {% if total_adicionales_bs or total_adicionales_usd %}
+                    <tr class="fw-bold border-top">
+                        <td colspan="5">Total Crédito e Insumos (se suman al total en Bs)</td>
+                        <td class="text-end monto">
+                            Bs {{ total_adicionales_bs|floatformat:2 }} · USD {{ total_adicionales_usd|floatformat:2 }}
                         </td>
                         <td></td>
                         <td></td>
