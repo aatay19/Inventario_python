@@ -160,12 +160,12 @@
                         <th class="text-end">Monto ($)</th>
                         <th>Método</th>
                         <th>Banco / Referencia</th>
+                        <th class="text-center">Vista Banco</th>
                         <th class="text-end">Tasa (Bs/$)</th>
                         <th class="text-end">Monto (Bs)</th>
                         <th>Nota / Detalle</th>
                         <th class="text-center">Confirmado</th>
                         <th>Confirmado Por</th>
-                        <th class="text-center">Evidencias</th>
                         <th class="text-end pe-3">Acciones</th>
                     </tr>
                 </thead>
@@ -219,6 +219,32 @@
                             </div>
                         </td>
 
+                        <!-- Vista Banco: solo admin y soporte pueden cambiarlo -->
+                        <td class="text-center text-nowrap">
+                            {% if request.user.perfilusuario.rol == 'admin' or request.user.perfilusuario.rol == 'soporte' %}
+                                <form method="post" action="{% url 'parque:toggle_vista_banco' abono.evento.pk abono.tipo_numero %}" class="d-inline m-0 p-0 form-toggle-vista-banco"
+                                      data-label="Vista Banco · {{ abono.tipo_label }} · Evento #{{ abono.evento.id }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="btn btn-sm rounded-pill px-2 py-0
+                                        {% if abono.vista_banco %}btn-success
+                                        {% elif abono.vista_banco == False %}btn-danger
+                                        {% else %}btn-outline-secondary{% endif %}"
+                                            title="Clic para cambiar Vista Banco">
+                                        <i class="bi bi-eye me-1"></i>
+                                        {% if abono.vista_banco %}Sí{% elif abono.vista_banco == False %}No{% else %}-{% endif %}
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="badge rounded-pill px-2 py-1
+                                    {% if abono.vista_banco %}bg-success
+                                    {% elif abono.vista_banco == False %}bg-danger
+                                    {% else %}bg-light text-secondary border{% endif %}">
+                                    {% if abono.vista_banco %}Sí{% elif abono.vista_banco == False %}No{% else %}-{% endif %}
+                                </span>
+                            {% endif %}
+                        </td>
+
                         <!-- Tasa -->
                         <td class="small text-muted text-end text-nowrap">
                             {% if abono.tasa != '-' %}{{ abono.tasa }}{% else %}-{% endif %}
@@ -266,33 +292,6 @@
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
-                        </td>
-
-                        <!-- Evidencias fotográficas -->
-                        <td class="text-center text-nowrap">
-                            <div class="d-inline-flex gap-1">
-                                {% if abono.foto %}
-                                    <button type="button" class="btn btn-sm btn-outline-dark px-2 py-1"
-                                        data-bs-toggle="modal" data-bs-target="#modalImagen"
-                                        data-imagen-url="{{ abono.foto.url }}"
-                                        data-imagen-titulo="Comprobante · {{ abono.tipo_label }} · Evento #{{ abono.evento.id }}"
-                                        title="Ver Comprobante">
-                                        <i class="bi bi-receipt"></i>
-                                    </button>
-                                {% endif %}
-                                {% if abono.foto_factura %}
-                                    <button type="button" class="btn btn-sm btn-outline-warning text-dark px-2 py-1"
-                                        data-bs-toggle="modal" data-bs-target="#modalImagen"
-                                        data-imagen-url="{{ abono.foto_factura.url }}"
-                                        data-imagen-titulo="Factura · {{ abono.tipo_label }} · Evento #{{ abono.evento.id }}"
-                                        title="Ver Factura">
-                                        <i class="bi bi-file-earmark-text"></i>
-                                    </button>
-                                {% endif %}
-                                {% if not abono.foto and not abono.foto_factura %}
-                                    <span class="text-muted small">-</span>
-                                {% endif %}
-                            </div>
                         </td>
 
                         <!-- Acciones -->

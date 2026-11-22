@@ -99,6 +99,7 @@ class Evento(models.Model):
     confirmado = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado")
     confirmado_por = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado por")
     confirmado_usuario = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado usuario")
+    vista_banco = models.BooleanField(null=True, blank=True, verbose_name="Vista Banco")
 
     # Nuevos campos solicitados Abono 2
     tasa_dia2 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Tasa del Día 2")
@@ -107,6 +108,7 @@ class Evento(models.Model):
     confirmado2 = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado 2")
     confirmado_por2 = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado por 2")
     confirmado_usuario2 = models.CharField(max_length=100, null=True, blank=True, verbose_name="Confirmado usuario 2")
+    vista_banco2 = models.BooleanField(null=True, blank=True, verbose_name="Vista Banco 2")
     
     descripcion = models.TextField(verbose_name="Descripción General", blank=True, null=True)
     fecha_inicio = models.DateField(default=timezone.now, verbose_name="Fecha de Reserva")

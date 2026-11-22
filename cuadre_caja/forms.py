@@ -281,7 +281,7 @@ class CierreCajaForm(forms.ModelForm):
 
 
 class EgresoCierreForm(forms.ModelForm):
-    """Fila de salida dentro del cierre (vuelto, salida, crédito, insumos o abono)."""
+    """Fila de movimiento dentro del cierre (vuelto, crédito, insumos o abono)."""
 
     tipo = forms.ChoiceField(
         label="Tipo",
@@ -289,7 +289,6 @@ class EgresoCierreForm(forms.ModelForm):
         choices=[
             ("", "Tipo"),
             (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
-            (TipoSalidaChoices.DEVOLUCION, "Salida"),
             (TipoSalidaChoices.CREDITO, "Crédito"),
             (TipoSalidaChoices.INSUMOS, "Insumos"),
             (TipoSalidaChoices.ABONO, "Abono"),
@@ -412,28 +411,16 @@ class EgresoCierreForm(forms.ModelForm):
             )
         )
 
+    def clean_monto(self):
+        # Un movimiento parcial puede no traer monto. La columna no acepta NULL,
+        # así que se guarda el mismo valor por defecto del modelo (0).
+        monto = self.cleaned_data.get("monto")
+        return monto if monto is not None else Decimal("0")
+
     def clean(self):
-        cleaned_data = super().clean()
-        tipo = cleaned_data.get("tipo")
-        moneda = cleaned_data.get("moneda")
-        monto = cleaned_data.get("monto")
-        imagen = cleaned_data.get("imagen")
-        datos = [
-            (cleaned_data.get(campo) or "").strip()
-            for campo in ("cedula", "telefono", "banco", "referencia")
-        ]
-
-        if not any([tipo, moneda, monto, imagen, *datos]):
-            return cleaned_data
-
-        if not tipo:
-            self.add_error("tipo", "Selecciona el tipo de salida.")
-        if not moneda:
-            self.add_error("moneda", "Selecciona la moneda.")
-        if monto is None or monto <= 0:
-            self.add_error("monto", "El monto debe ser mayor a cero.")
-
-        return cleaned_data
+        # Los movimientos pueden quedar vacíos o a medias: solo se exige que
+        # los valores escritos sean válidos (por ejemplo, la referencia numérica).
+        return super().clean()
 
     def clean_referencia(self):
         ref = (self.cleaned_data.get("referencia") or "").strip()

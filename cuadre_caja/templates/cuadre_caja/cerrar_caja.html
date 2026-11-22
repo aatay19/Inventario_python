@@ -34,6 +34,14 @@
         box-shadow: 0 10px 30px rgba(37, 99, 235, 0.22);
     }
 
+    /* Caja llamativa para Movimiento de caja (Naranja) */
+    .seccion-movimiento-caja {
+        background: linear-gradient(180deg, #ffedd5 0%, #fff7ed 100%);
+        border: 3px solid #f97316;
+        border-left: 8px solid #ea580c;
+        box-shadow: 0 10px 30px rgba(249, 115, 22, 0.22);
+    }
+
     /* Banners de encabezado destacados */
     .banner-moneda-bs {
         background: linear-gradient(135deg, #047857 0%, #059669 100%);
@@ -47,6 +55,13 @@
         color: #ffffff;
         border-radius: 12px;
         box-shadow: 0 4px 14px rgba(29, 78, 216, 0.28);
+    }
+
+    .banner-movimiento-caja {
+        background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(234, 88, 12, 0.28);
     }
 
     .tarjeta-metodo {
@@ -248,7 +263,7 @@
     </div>
 
     <div class="row g-4">
-        <div class="col-12 col-xl-8">
+        <div class="col-12 col-lg-8">
             {# ── Management form del formset de transacciones ── #}
             <input type="hidden" name="transacciones-TOTAL_FORMS" id="id_transacciones-TOTAL_FORMS"
                 value="{{ transacciones_total_forms }}">
@@ -342,8 +357,16 @@
                                                 {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                             </td>
                                             <td>
+                                                {% if tarjeta.valor == "PAGO_MOVIL" and not puede_editar_notas_pago_movil %}
+                                                {{ f.notas.as_hidden }}
+                                                <span class="form-control form-control-sm bg-light text-muted"
+                                                      title="Solo supervisora o soporte puede editar esta nota">
+                                                    {{ f.notas.value|default:"—" }}
+                                                </span>
+                                                {% else %}
                                                 {{ f.notas }}
                                                 {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                {% endif %}
                                             </td>
                                             {% if puede_eliminar_transacciones %}
                                             <td class="text-center">
@@ -444,8 +467,16 @@
                                                 {% for e in f.ref.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
                                             </td>
                                             <td>
+                                                {% if tarjeta.valor == "PAGO_MOVIL" and not puede_editar_notas_pago_movil %}
+                                                {{ f.notas.as_hidden }}
+                                                <span class="form-control form-control-sm bg-light text-muted"
+                                                      title="Solo supervisora o soporte puede editar esta nota">
+                                                    {{ f.notas.value|default:"—" }}
+                                                </span>
+                                                {% else %}
                                                 {{ f.notas }}
                                                 {% for e in f.notas.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                {% endif %}
                                             </td>
                                             {% if puede_eliminar_transacciones %}
                                             <td class="text-center">
@@ -498,20 +529,209 @@
                 </tr>
             </template>
 
-            <div class="row g-4">
-                <div class="col-12 col-md-6">
-                    <div class="card cc-card h-100">
-                        <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-                            <h5 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-secondary"></i>Montos en bolívares</h5>
-                            <p class="small text-muted mb-0 mt-1">Se completan automáticamente desde las transacciones en bolívares.</p>
+            {# ── Management form del formset de movimientos ── #}
+            <input type="hidden" name="egresos-TOTAL_FORMS" id="id_egresos-TOTAL_FORMS" value="{{ egresos_total_forms }}">
+            <input type="hidden" name="egresos-INITIAL_FORMS" value="{{ egresos_initial_forms }}">
+            <input type="hidden" name="egresos-MIN_NUM_FORMS" value="0">
+            <input type="hidden" name="egresos-MAX_NUM_FORMS" value="1000">
+
+            <div class="card cc-card mt-4">
+                <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-secondary"></i>Movimiento de caja</h5>
+                        <p class="small text-muted mb-0 mt-1">
+                            Movimientos del día. El vuelto de caja resta del total en Bs; Crédito e Insumos
+                            suman al total. Abono es informativo.
+                        </p>
+                    </div>
+                    <span class="badge bg-warning-subtle text-warning-emphasis">Vuelto resta · Crédito e Insumos suman</span>
+                </div>
+                <div class="card-body px-3 px-lg-4 pb-3">
+                    {% if egresos_formset.non_form_errors %}
+                    <div class="alert alert-danger py-2">
+                        {% for error in egresos_formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {# ══════ Movimientos de caja (siempre en Bs, color naranja) ══════ #}
+                    <div class="seccion-movimiento-caja rounded-4 p-3 p-md-4 mb-4">
+                        <div class="banner-movimiento-caja d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 mb-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-cash-stack fs-4 text-white"></i>
+                                <div>
+                                    <h5 class="mb-0 fw-bold text-white text-uppercase" style="letter-spacing: .03em;">
+                                        Movimientos de caja en Bolívares
+                                    </h5>
+                                    <small class="text-white-50">Todos los movimientos se registran en Bs</small>
+                                </div>
+                            </div>
+                            <span class="badge bg-white text-warning rounded-pill px-3 py-2 fs-6 fw-bold shadow-sm" style="color: #c2410c !important;">
+                                <i class="bi bi-check-circle-fill me-1"></i> BS
+                            </span>
                         </div>
-                        <div class="card-body px-3 px-lg-4 pb-3">
+
+                        <div class="d-flex flex-column gap-4">
+                            {% for tarjeta in tarjetas_egreso %}
+                            <div class="card cc-card tarjeta-metodo">
+                                <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-cash-coin text-secondary"></i>
+                                        <span class="fw-semibold text-dark">{{ tarjeta.etiqueta }}</span>
+                                        <span class="badge bg-secondary-subtle text-secondary-emphasis small">Bs</span>
+                                    </div>
+                                    {% if not tarjeta.corregir %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-teal btn-agregar-egreso"
+                                            data-tipo="{{ tarjeta.valor }}" data-moneda="{{ tarjeta.moneda }}"
+                                            style="border-color:#0f766e;color:#0f766e;">
+                                        <i class="bi bi-plus-lg me-1"></i>Añadir movimiento
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% if tarjeta.corregir %}
+                                <div class="alert alert-warning border-0 rounded-0 py-2 px-3 small mb-0">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Estas filas tienen datos pero no un tipo o moneda válidos. Corrígelos y vuelve a guardar: no se ha borrado nada.
+                                </div>
+                                {% endif %}
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="min-width:120px;">Cédula</th>
+                                                    <th style="min-width:130px;">Teléfono</th>
+                                                    <th style="min-width:140px;">Banco</th>
+                                                    <th class="text-end" style="min-width:120px;">Monto (Bs)</th>
+                                                    <th style="min-width:140px;">Referencia</th>
+                                                    <th style="min-width:170px;">Imagen</th>
+                                                    <th style="width:44px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="cuerpo-egreso" data-tipo="{{ tarjeta.valor }}" data-moneda="{{ tarjeta.moneda }}"{% if tarjeta.corregir %} data-corregir="1"{% endif %}>
+                                                {% for f in tarjeta.forms %}
+                                                <tr class="fila-egreso">
+                                                    <td>
+                                                        {% if tarjeta.corregir %}
+                                                        <div class="mb-1">{{ f.tipo }}{% for e in f.tipo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                                                        <div>{{ f.moneda }}{% for e in f.moneda.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                                                        {% else %}
+                                                        {{ f.tipo.as_hidden }}{{ f.moneda.as_hidden }}
+                                                        {% endif %}
+                                                        {{ f.cedula }}
+                                                        {% for e in f.cedula.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                    </td>
+                                                    <td>
+                                                        {{ f.telefono }}
+                                                        {% for e in f.telefono.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                    </td>
+                                                    <td>
+                                                        {{ f.banco }}
+                                                        {% for e in f.banco.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                    </td>
+                                                    <td>
+                                                        {{ f.monto }}
+                                                        {% for e in f.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                    </td>
+                                                    <td>
+                                                        {{ f.referencia }}
+                                                        {% for e in f.referencia.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                    </td>
+                                                    <td>
+                                                        {{ f.imagen }}
+                                                        {% for e in f.imagen.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="d-none">{{ f.DELETE }}</span>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-egreso" title="Quitar fila">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <div class="card cc-card h-100">
+                                <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+                                    <h5 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-secondary"></i>Montos de los movimientos (Bs)</h5>
+                                    <p class="small text-muted mb-0 mt-1">Se completan desde los movimientos registrados. Todos son en Bs.</p>
+                                </div>
+                                <div class="card-body px-3 px-lg-4 pb-3">
+                                    <table class="table align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Tipo de movimiento</th>
+                                                <th class="text-end" style="min-width:120px;">Monto Bs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for valor, etiqueta in tipos_movimiento %}
+                                            <tr class="fila-total-egreso" data-moneda="BS" data-tipo="{{ valor }}">
+                                                <td class="fw-semibold">{{ etiqueta }}</td>
+                                                <td class="text-end monto" id="suma-egreso-BS-{{ valor }}" data-total-egreso>0.00</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="fw-bold border-top">
+                                                <td>Total Bs</td>
+                                                <td class="text-end monto" id="suma-egreso-BS-total">0.00</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <template id="plantilla-egreso">
+                        <tr class="fila-egreso">
+                            <td>
+                                <input type="hidden" name="egresos-__prefix__-tipo" id="id_egresos-__prefix__-tipo" value="__tipo__">
+                                <input type="hidden" name="egresos-__prefix__-moneda" id="id_egresos-__prefix__-moneda" value="BS">
+                                {{ egresos_formset.empty_form.cedula }}
+                            </td>
+                            <td>{{ egresos_formset.empty_form.telefono }}</td>
+                            <td>{{ egresos_formset.empty_form.banco }}</td>
+                            <td>{{ egresos_formset.empty_form.monto }}</td>
+                            <td>{{ egresos_formset.empty_form.referencia }}</td>
+                            <td>{{ egresos_formset.empty_form.imagen }}</td>
+                            <td class="text-center">
+                                <span class="d-none">{{ egresos_formset.empty_form.DELETE }}</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-egreso" title="Quitar fila">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            {# ── Totales informativos (móviles a la derecha para ahorrar espacio) ── #}
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div class="card cc-card h-100">
+                        <div class="card-header bg-white border-0 pt-3 px-3">
+                            <h6 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-secondary"></i>Montos en bolívares</h6>
+                        </div>
+                        <div class="card-body px-3 pb-2">
                             <div class="table-responsive">
-                                <table class="table align-middle mb-0">
+                                <table class="table table-sm align-middle mb-0">
                                     <thead>
                                         <tr>
                                             <th>Método de pago</th>
-                                            <th class="text-end" style="min-width: 120px;">Monto Bs</th>
+                                            <th class="text-end" style="min-width: 100px;">Monto Bs</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -527,7 +747,7 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="2" class="text-center text-muted py-3">Sin métodos en bolívares.</td>
+                                            <td colspan="2" class="text-center text-muted py-2">Sin métodos en bolívares.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -543,19 +763,18 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-md-6">
+                <div class="col-12">
                     <div class="card cc-card h-100">
-                        <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-                            <h5 class="mb-0 fw-bold"><i class="bi bi-currency-dollar me-2 text-secondary"></i>Montos en dólares</h5>
-                            <p class="small text-muted mb-0 mt-1">Se completan automáticamente desde las transacciones en dólares.</p>
+                        <div class="card-header bg-white border-0 pt-3 px-3">
+                            <h6 class="mb-0 fw-bold"><i class="bi bi-currency-dollar me-2 text-secondary"></i>Montos en dólares</h6>
                         </div>
-                        <div class="card-body px-3 px-lg-4 pb-3">
+                        <div class="card-body px-3 pb-2">
                             <div class="table-responsive">
-                                <table class="table align-middle mb-0">
+                                <table class="table table-sm align-middle mb-0">
                                     <thead>
                                         <tr>
                                             <th>Método de pago</th>
-                                            <th class="text-end" style="min-width: 120px;">Monto USD</th>
+                                            <th class="text-end" style="min-width: 100px;">Monto USD</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -571,7 +790,7 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="2" class="text-center text-muted py-3">Sin métodos en dólares.</td>
+                                            <td colspan="2" class="text-center text-muted py-2">Sin métodos en dólares.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -588,115 +807,6 @@
                 </div>
             </div>
 
-            <div class="card cc-card mt-4">
-                <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <div>
-                        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-secondary"></i>Salidas</h5>
-                        <p class="small text-muted mb-0 mt-1">
-                            Movimientos del día. El vuelto de caja resta del total en Bs; Crédito e Insumos
-                            suman al total. Salida y Abono son informativos.
-                        </p>
-                    </div>
-                    <span class="badge bg-warning-subtle text-warning-emphasis">Vuelto resta · Crédito e Insumos suman</span>
-                </div>
-                <div class="card-body px-3 px-lg-4 pb-3">
-                    {{ egresos_formset.management_form }}
-
-                    {% if egresos_formset.non_form_errors %}
-                    <div class="alert alert-danger py-2">
-                        {% for error in egresos_formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
-                    </div>
-                    {% endif %}
-
-                    <div class="table-responsive">
-                        <table class="table align-middle mb-0" id="tabla-egresos">
-                            <thead>
-                                <tr>
-                                    <th style="min-width: 120px;">Tipo</th>
-                                    <th style="min-width: 120px;">Cédula</th>
-                                    <th style="min-width: 130px;">Teléfono</th>
-                                    <th style="min-width: 140px;">Banco</th>
-                                    <th style="min-width: 130px;">Moneda</th>
-                                    <th class="text-end" style="min-width: 120px;">Monto</th>
-                                    <th style="min-width: 140px;">Referencia</th>
-                                    <th style="min-width: 170px;">Imagen</th>
-                                    <th style="width: 44px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="cuerpo-egresos">
-                                {% for egreso_form in egresos_formset %}
-                                <tr class="fila-egreso">
-                                    <td>
-                                        {{ egreso_form.tipo }}
-                                        {% for error in egreso_form.tipo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.cedula }}
-                                        {% for error in egreso_form.cedula.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.telefono }}
-                                        {% for error in egreso_form.telefono.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.banco }}
-                                        {% for error in egreso_form.banco.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.moneda }}
-                                        {% for error in egreso_form.moneda.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.monto }}
-                                        {% for error in egreso_form.monto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.referencia }}
-                                        {% for error in egreso_form.referencia.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ egreso_form.imagen }}
-                                        {% for error in egreso_form.imagen.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="d-none">{{ egreso_form.DELETE }}</span>
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-egreso" title="Quitar fila">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <button type="button" class="btn btn-outline-success btn-sm mt-3" id="btn-agregar-egreso">
-                        <i class="bi bi-plus-lg me-1"></i> Agregar salida
-                    </button>
-
-                    <template id="plantilla-egreso">
-                        <tr class="fila-egreso">
-                            <td>{{ egresos_formset.empty_form.tipo }}</td>
-                            <td>{{ egresos_formset.empty_form.cedula }}</td>
-                            <td>{{ egresos_formset.empty_form.telefono }}</td>
-                            <td>{{ egresos_formset.empty_form.banco }}</td>
-                            <td>{{ egresos_formset.empty_form.moneda }}</td>
-                            <td>{{ egresos_formset.empty_form.monto }}</td>
-                            <td>{{ egresos_formset.empty_form.referencia }}</td>
-                            <td>{{ egresos_formset.empty_form.imagen }}</td>
-                            <td class="text-center">
-                                <span class="d-none">{{ egresos_formset.empty_form.DELETE }}</span>
-                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-egreso" title="Quitar fila">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-xl-4">
             <div class="card cc-card mb-4">
                 <div class="card-body">
                     <h6 class="fw-bold mb-3">Resumen del cierre</h6>
@@ -835,35 +945,53 @@
             return isNaN(n) ? 0 : n;
         }
 
-        // Movimientos registrados en la sección del cuadre.
-        // El vuelto de caja (EGRESO) resta; Crédito e Insumos suman al total en Bs.
-        // Los montos en USD se convierten con la tasa del día.
-        // Salida y Abono son informativos y no afectan el total.
+        // Movimientos registrados en la sección del cuadre (todos en Bs).
+        // El vuelto de caja (EGRESO) resta; Crédito e Insumos suman al total.
+        // Abono es informativo y no afecta el total.
         const TIPOS_QUE_RESTAN = new Set(['EGRESO']);
         const TIPOS_QUE_SUMAN = new Set(['CREDITO', 'INSUMOS']);
 
-        function calcularMovimientos() {
-            const tasa = numero(tasaInput.value);
-            const resultado = { restan: 0, suman: 0 };
+        // Solo supervisora/cuadre o soporte pueden editar notas de Pago Móvil.
+        const puedeEditarNotasPagoMovil = {{ puede_editar_notas_pago_movil|yesno:"true,false" }};
 
-            document.querySelectorAll('#cuerpo-egresos tr.fila-egreso').forEach(function (fila) {
-                const tipoEl = fila.querySelector('select[name$="-tipo"]');
-                const monedaEl = fila.querySelector('select[name$="-moneda"]');
+        function calcularMovimientos() {
+            const resultado = { restan: 0, suman: 0 };
+            const porTipo = {};
+
+            document.querySelectorAll('.cuerpo-egreso tr.fila-egreso').forEach(function (fila) {
+                const cuerpo = fila.closest('.cuerpo-egreso');
+                const tipo = cuerpo ? cuerpo.dataset.tipo : '';
                 const montoEl = fila.querySelector('input[name$="-monto"]');
-                if (!tipoEl || !monedaEl || !montoEl) return;
+                if (!tipo || !montoEl) return;
 
                 const monto = numero(montoEl.value);
                 if (!monto) return;
-                const convertido = monedaEl.value === 'USD' ? monto * tasa : monto;
 
-                if (TIPOS_QUE_RESTAN.has(tipoEl.value)) {
-                    resultado.restan += convertido;
-                } else if (TIPOS_QUE_SUMAN.has(tipoEl.value)) {
-                    resultado.suman += convertido;
+                if (!porTipo[tipo]) porTipo[tipo] = 0;
+                porTipo[tipo] += monto;
+
+                if (TIPOS_QUE_RESTAN.has(tipo)) {
+                    resultado.restan += monto;
+                } else if (TIPOS_QUE_SUMAN.has(tipo)) {
+                    resultado.suman += monto;
                 }
             });
 
+            resultado.porTipo = porTipo;
             return resultado;
+        }
+
+        function actualizarTotalesMovimiento(movimientos) {
+            let total = 0;
+            document.querySelectorAll('.fila-total-egreso[data-moneda="BS"]').forEach(function (fila) {
+                const tipo = fila.dataset.tipo;
+                const valor = movimientos.porTipo[tipo] || 0;
+                const celda = fila.querySelector('[data-total-egreso]');
+                if (celda) celda.textContent = valor.toFixed(2);
+                total += valor;
+            });
+            const celdaTotal = document.getElementById('suma-egreso-BS-total');
+            if (celdaTotal) celdaTotal.textContent = total.toFixed(2);
         }
 
         function recalcular() {
@@ -881,6 +1009,7 @@
 
             const tasa = numero(tasaInput.value);
             const movimientos = calcularMovimientos();
+            actualizarTotalesMovimiento(movimientos);
             const bruto = bs + (usd * tasa);
             const equivalente = bruto - movimientos.restan + movimientos.suman;
 
@@ -1534,32 +1663,65 @@
             return '';
         });
 
+        // ── Reindexar y gestionar filas de movimiento por tipo/moneda ────────
         const totalFormsEgresos = document.getElementById('id_egresos-TOTAL_FORMS');
-        const cuerpoEgresos = document.getElementById('cuerpo-egresos');
         const plantillaEgreso = document.getElementById('plantilla-egreso');
-        const btnAgregarEgreso = document.getElementById('btn-agregar-egreso');
 
-        if (btnAgregarEgreso && totalFormsEgresos && cuerpoEgresos && plantillaEgreso) {
-            btnAgregarEgreso.addEventListener('click', function () {
-                const indice = parseInt(totalFormsEgresos.value, 10) || 0;
-                const fila = plantillaEgreso.innerHTML.replace(/__prefix__/g, indice);
-                cuerpoEgresos.insertAdjacentHTML('beforeend', fila);
-                totalFormsEgresos.value = indice + 1;
-                recalcular();
+        function reindexarEgresos() {
+            const filas = document.querySelectorAll('.cuerpo-egreso tr.fila-egreso');
+            filas.forEach(function (fila, idx) {
+                fila.querySelectorAll('input, select, textarea').forEach(function (el) {
+                    if (el.name && el.name.startsWith('egresos-')) {
+                        el.name = el.name.replace(/^egresos-[^-]+-/, 'egresos-' + idx + '-');
+                    }
+                    if (el.id && el.id.startsWith('id_egresos-')) {
+                        el.id = el.id.replace(/^id_egresos-[^-]+-/, 'id_egresos-' + idx + '-');
+                    }
+                });
             });
+            if (totalFormsEgresos) totalFormsEgresos.value = filas.length;
+        }
 
-            cuerpoEgresos.addEventListener('click', function (evento) {
+        document.querySelectorAll('.btn-agregar-egreso').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const tipo = this.dataset.tipo;
+                const moneda = this.dataset.moneda;
+                const cuerpo = document.querySelector(
+                    '.cuerpo-egreso[data-tipo="' + tipo + '"][data-moneda="' + moneda + '"]'
+                );
+                if (!cuerpo || !plantillaEgreso) return;
+
+                const indice = parseInt(totalFormsEgresos.value, 10) || 0;
+                const html = plantillaEgreso.innerHTML
+                    .replace(/__prefix__/g, indice)
+                    .replace(/__tipo__/g, tipo);
+                cuerpo.insertAdjacentHTML('beforeend', html);
+                reindexarEgresos();
+                recalcular();
+                programarGuardadoBorrador();
+
+                const nuevaFila = cuerpo.lastElementChild;
+                const primerInput = nuevaFila
+                    ? nuevaFila.querySelector('select, input:not([type="hidden"])')
+                    : null;
+                if (primerInput) primerInput.focus();
+            });
+        });
+
+        document.querySelectorAll('.cuerpo-egreso').forEach(function (cuerpo) {
+            cuerpo.addEventListener('click', function (evento) {
                 const boton = evento.target.closest('.btn-quitar-egreso');
                 if (!boton) return;
-                const fila = boton.closest('tr');
+                const fila = boton.closest('tr.fila-egreso');
+                if (!fila) return;
                 const eliminar = fila.querySelector('input[type="checkbox"][name$="-DELETE"]');
-                if (eliminar) {
-                    eliminar.checked = true;
-                }
+                if (eliminar) eliminar.checked = true;
                 fila.remove();
+                reindexarEgresos();
                 recalcular();
+                programarGuardadoBorrador();
             });
-        }
+        });
 
         // ── Reindexar y gestionar filas de transacción por método ───────────
         const totalFormsTransacciones = document.getElementById('id_transacciones-TOTAL_FORMS');
@@ -1589,6 +1751,7 @@
         // Verifica que cada fila vaya numerada como corresponde y que
         // TOTAL_FORMS coincida con las filas visibles antes de enviar.
         function formularioListoParaEnviar() {
+            reindexarEgresos();
             reindexarTransacciones();
             reindexarImagenes();
             if (!totalFormsTransacciones) return true;
@@ -1646,44 +1809,6 @@
             return problemas;
         }
 
-        // Salidas con datos pero incompletas: el servidor las rechazaría y el
-        // cierre no se guardaría. Se avisa antes de enviar, sin borrar nada.
-        function filasEgresoIncompletas() {
-            const problemas = [];
-            document.querySelectorAll('#cuerpo-egresos tr.fila-egreso').forEach(function (fila, idx) {
-                const valor = function (sufijo) {
-                    const el = fila.querySelector('[name$="' + sufijo + '"]');
-                    return el ? String(el.value || '').trim() : '';
-                };
-                const tipo = valor('-tipo');
-                const moneda = valor('-moneda');
-                const monto = numero(valor('-monto'));
-                const archivo = fila.querySelector('input[type="file"]');
-                const tieneArchivo = archivo && archivo.files && archivo.files.length > 0;
-                const datos = [
-                    tipo,
-                    moneda,
-                    monto ? String(monto) : '',
-                    valor('-cedula'),
-                    valor('-telefono'),
-                    valor('-banco'),
-                    valor('-referencia'),
-                    tieneArchivo ? 'archivo' : ''
-                ];
-                // Fila completamente vacía: se ignora, igual que en el servidor.
-                if (!datos.some(function (dato) { return dato; })) return;
-
-                const faltas = [];
-                if (!tipo) faltas.push('tipo');
-                if (!moneda) faltas.push('moneda');
-                if (!monto) faltas.push('monto mayor a cero');
-                if (faltas.length) {
-                    problemas.push('Salida ' + (idx + 1) + ': falta ' + faltas.join(', '));
-                }
-            });
-            return problemas;
-        }
-
         // Imágenes con título pero sin archivo (o al revés): el servidor las
         // rechazaría. Se conserva lo escrito y se pide completar la fila.
         function imagenesIncompletas() {
@@ -1716,6 +1841,29 @@
                     .replace(/__prefix__/g, siguienteIndiceTransaccion())
                     .replace(/__metodo__/g, metodo);
                 tbody.insertAdjacentHTML('beforeend', html);
+
+                // En Pago Móvil la nota es de solo lectura para la cajera.
+                // Se conserva un hidden con el mismo name para no romper el formset.
+                if (metodo === 'PAGO_MOVIL' && !puedeEditarNotasPagoMovil) {
+                    const filaNueva = tbody.lastElementChild;
+                    const inputNotas = filaNueva
+                        ? filaNueva.querySelector('input[name$="-notas"]')
+                        : null;
+                    if (inputNotas) {
+                        const oculto = document.createElement('input');
+                        oculto.type = 'hidden';
+                        oculto.name = inputNotas.name;
+                        oculto.id = inputNotas.id;
+                        oculto.value = '';
+                        const texto = document.createElement('span');
+                        texto.className = 'form-control form-control-sm bg-light text-muted';
+                        texto.title = 'Solo supervisora o soporte puede editar esta nota';
+                        texto.textContent = '—';
+                        inputNotas.replaceWith(oculto);
+                        oculto.insertAdjacentElement('afterend', texto);
+                    }
+                }
+
                 reindexarTransacciones();
                 recalcularDesdeTransacciones();
                 programarGuardadoBorrador();
@@ -1765,19 +1913,20 @@
             }
         });
 
-        // Recalcular al cambiar cualquier campo dentro de una tabla de método
-        // o dentro de la tabla de vueltos de caja / devoluciones.
+        // Recalcular al cambiar cualquier campo de transacciones o de movimientos.
+        // Los movimientos ahora son tarjetas (.cuerpo-egreso); el antiguo
+        // "#tabla-egresos" ya no existe y por eso el total no se actualizaba.
         document.addEventListener('input', function (evento) {
             if (evento.target.closest('.cuerpo-metodo')) {
                 recalcularDesdeTransacciones();
-            } else if (evento.target.closest('#tabla-egresos')) {
+            } else if (evento.target.closest('.cuerpo-egreso')) {
                 recalcular();
             }
         });
         document.addEventListener('change', function (evento) {
             if (evento.target.closest('.cuerpo-metodo')) {
                 recalcularDesdeTransacciones();
-            } else if (evento.target.closest('#tabla-egresos')) {
+            } else if (evento.target.closest('.cuerpo-egreso')) {
                 recalcular();
             }
         });
@@ -1920,9 +2069,9 @@
                 return;
             }
 
-            // Salidas e imágenes incompletas: el servidor las rechazaría y se
-            // perdería el viaje (y en el caso de las imágenes, el archivo).
-            const incompletas = filasEgresoIncompletas().concat(imagenesIncompletas());
+            // Los movimientos pueden ir vacíos o incompletos; solo se revisan
+            // las imágenes, que sí perderían el archivo si faltara el título.
+            const incompletas = imagenesIncompletas();
             if (incompletas.length) {
                 Swal.fire({
                     title: 'Faltan datos',

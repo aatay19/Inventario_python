@@ -28,6 +28,7 @@ urlpatterns = [
     path('eventos/borrar_foto_factura_abono1/<int:pk>/', views.borrar_foto_factura_abono1, name='borrar_foto_factura_abono1'),
     path('eventos/borrar_foto_factura_abono2/<int:pk>/', views.borrar_foto_factura_abono2, name='borrar_foto_factura_abono2'),
     path('eventos/toggle_confirmado/<int:pk>/<int:abono_num>/', views.toggle_confirmado, name='toggle_confirmado'),
+    path('eventos/toggle_vista_banco/<int:pk>/<int:abono_num>/', views.toggle_vista_banco, name='toggle_vista_banco'),
 
     # Productos CRUD
     path('productos/', views.lista_productos, name='lista_productos'),

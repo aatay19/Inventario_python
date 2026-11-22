@@ -24,6 +24,7 @@ from .forms import (
     CierreHistorialFiltroForm,
     DepartamentoForm,
     EgresoGeneralForm,
+    EgresoCierreForm,
     EgresoCierreFormSet,
     CierreTransaccionForm,
     CierreTransaccionFormSet,
@@ -56,6 +57,14 @@ from .permissions import (
 
 # Tiempo durante el cual se considera activo un borrador de cuadre.
 BORRADOR_VIGENCIA = timedelta(minutes=45)
+
+# Tipos disponibles en la sección «Movimiento de caja» del cuadre.
+TIPOS_MOVIMIENTO = [
+    (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
+    (TipoSalidaChoices.CREDITO, "Crédito"),
+    (TipoSalidaChoices.INSUMOS, "Insumos"),
+    (TipoSalidaChoices.ABONO, "Abono"),
+]
 
 logger = logging.getLogger(__name__)
 
@@ -577,6 +586,98 @@ def _fila_transaccion_tiene_datos(form, campos=("banco", "monto", "ref", "notas"
         if str(valor or "").strip():
             return True
     return False
+
+
+def _proteger_notas_pago_movil(post):
+    """Evita que un perfil sin permiso guarde notas de transacciones Pago Móvil.
+
+    La validación del servidor es necesaria aunque la interfaz muestre el campo
+    de solo lectura: si no, un POST manipulado podría escribir la nota.
+    """
+    try:
+        total = int(post.get("transacciones-TOTAL_FORMS") or 0)
+    except (TypeError, ValueError):
+        return post
+    if total <= 0:
+        return post
+
+    datos = post.copy()
+    for indice in range(total):
+        prefijo = f"transacciones-{indice}-"
+        if datos.get(prefijo + "metodo_pago") == MetodoPagoChoices.PAGO_MOVIL:
+            datos[prefijo + "notas"] = ""
+    return datos
+
+
+def _fila_egreso_tiene_datos(form):
+    """True si la fila de movimiento tiene algo escrito, aunque el tipo sea inválido."""
+    for campo in (
+        "tipo", "moneda", "monto", "cedula", "telefono", "banco", "referencia"
+    ):
+        valor = form.data.get(form.add_prefix(campo), "")
+        if str(valor or "").strip():
+            return True
+    return bool(form.files.get(form.add_prefix("imagen")))
+
+
+def _tarjetas_egreso(egresos_formset, datos_post=None):
+    """Agrupa los formularios de movimientos por tipo (siempre en Bs).
+
+    En GET se crea una fila vacía por tipo para que cada tarjeta tenga su
+    propio campo, como ocurre con los métodos de pago. En POST se reubican las
+    filas enviadas sin perder ningún dato ni duplicar sus prefijos. Las filas
+    con moneda distinta de Bs se apartan para que se corrijan, no se descartan.
+    """
+    if datos_post is None:
+        indice = 0
+        agrupados = {}
+        for valor, _ in TIPOS_MOVIMIENTO:
+            agrupados[valor] = [
+                EgresoCierreForm(
+                    initial={"tipo": valor, "moneda": MONEDA_BS},
+                    prefix=f"egresos-{indice}",
+                )
+            ]
+            indice += 1
+        total_forms = indice
+        initial_forms = 0
+        sobrantes = []
+    else:
+        agrupados = {valor: [] for valor, _ in TIPOS_MOVIMIENTO}
+        sobrantes = []
+        for form in egresos_formset.forms:
+            tipo = datos_post.get(form.add_prefix("tipo"), "")
+            moneda = datos_post.get(form.add_prefix("moneda"), "")
+            if tipo in agrupados and moneda == MONEDA_BS:
+                agrupados[tipo].append(form)
+            elif _fila_egreso_tiene_datos(form):
+                sobrantes.append(form)
+        total_forms = egresos_formset.total_form_count()
+        initial_forms = egresos_formset.initial_form_count()
+
+    tarjetas = []
+    for valor, etiqueta in TIPOS_MOVIMIENTO:
+        tarjetas.append(
+            {
+                "valor": valor,
+                "etiqueta": etiqueta,
+                "moneda": MONEDA_BS,
+                "forms": agrupados[valor],
+                "corregir": False,
+            }
+        )
+    if sobrantes:
+        tarjetas.append(
+            {
+                "valor": "SIN_TIPO",
+                "etiqueta": "Movimiento a corregir (debe ser en Bs)",
+                "moneda": MONEDA_BS,
+                "forms": sobrantes,
+                "corregir": True,
+            }
+        )
+
+    return tarjetas, total_forms, initial_forms
 
 
 def _detalle_error_campo(form, field):
@@ -1248,9 +1349,14 @@ def cerrar_caja(request, caja_id, turno=None):
         # Las filas del formset se renumeran antes de validar para que ninguna
         # transacción se pierda si el navegador envía prefijos inconsistentes.
         datos_post = _normalizar_transacciones_post(request.POST)
+        if not es_supervisor_o_superior(request.user):
+            datos_post = _proteger_notas_pago_movil(datos_post)
         form = CierreCajaForm(datos_post, caja=caja, turno=turno)
         egresos_formset = EgresoCierreFormSet(
             datos_post, request.FILES, prefix="egresos", instance=CierreCaja()
+        )
+        tarjetas_egreso, egresos_total_forms, egresos_initial_forms = (
+            _tarjetas_egreso(egresos_formset, datos_post)
         )
         transacciones_formset = CierreTransaccionFormSet(
             datos_post, prefix="transacciones", instance=CierreCaja()
@@ -1383,6 +1489,9 @@ def cerrar_caja(request, caja_id, turno=None):
         egresos_formset = EgresoCierreFormSet(
             prefix="egresos", instance=CierreCaja()
         )
+        tarjetas_egreso, egresos_total_forms, egresos_initial_forms = (
+            _tarjetas_egreso(egresos_formset)
+        )
         imagenes_formset = ImagenCierreFormSet(
             prefix="imagenes", instance=CierreCaja()
         )
@@ -1495,6 +1604,7 @@ def cerrar_caja(request, caja_id, turno=None):
         transacciones_initial_forms = transacciones_formset.initial_form_count()
 
     rol = getattr(getattr(request.user, "perfilusuario", None), "rol", "") or ""
+    puede_editar_notas_pago_movil = es_supervisor_o_superior(request.user)
     puede_eliminar_transacciones = request.user.is_superuser or rol.lower() in {
         "supervisor_cuadre_caja",
         "supervisor_caja",
@@ -1514,6 +1624,10 @@ def cerrar_caja(request, caja_id, turno=None):
             "filas_bs": filas_bs,
             "filas_usd": filas_usd,
             "egresos_formset": egresos_formset,
+            "tarjetas_egreso": tarjetas_egreso,
+            "tipos_movimiento": TIPOS_MOVIMIENTO,
+            "egresos_total_forms": egresos_total_forms,
+            "egresos_initial_forms": egresos_initial_forms,
             "transacciones_formset": transacciones_formset,
             "tarjetas_metodo": tarjetas_metodo,
             "transacciones_total_forms": transacciones_total_forms,
@@ -1523,6 +1637,7 @@ def cerrar_caja(request, caja_id, turno=None):
             "MONEDA_USD": MONEDA_USD,
             "bancos_choices": BANCOS_CHOICES,
             "puede_eliminar_transacciones": puede_eliminar_transacciones,
+            "puede_editar_notas_pago_movil": puede_editar_notas_pago_movil,
             "borrador_revision": borrador_revision,
         },
     )

@@ -637,6 +637,30 @@ def toggle_confirmado(request, pk, abono_num):
     return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
 
 
+@login_required
+def toggle_vista_banco(request, pk, abono_num):
+    """Alterna el botón Sí/No de «Vista Banco» de un abono (solo admin/soporte)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = None
+    destino = next_url or None
+
+    rol = getattr(getattr(request.user, 'perfilusuario', None), 'rol', '')
+    if rol not in ('admin', 'soporte'):
+        messages.error(request, "No tienes permisos para modificar la vista banco.")
+        return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
+
+    if request.method == 'POST':
+        if abono_num == 1:
+            evento.vista_banco = not evento.vista_banco if evento.vista_banco is not None else True
+        elif abono_num == 2:
+            evento.vista_banco2 = not evento.vista_banco2 if evento.vista_banco2 is not None else True
+        evento.save(update_fields=['vista_banco', 'vista_banco2'])
+        messages.success(request, f"Vista Banco del Abono {abono_num} actualizada.")
+
+    return redirect(destino) if destino else redirect('parque:detalle_evento', pk=pk)
+
 
 @login_required
 def lista_productos(request):
@@ -873,6 +897,7 @@ def _obtener_abonos_filtrados(request):
                             'ref': ev.referencia_bancaria or '-',
                             'confirmado': ev.confirmado,
                             'confirmado_usuario': ev.confirmado_usuario or '',
+                            'vista_banco': ev.vista_banco,
                             'foto': ev.foto_abono1,
                             'foto_factura': ev.foto_factura_abono1,
                         })
@@ -909,6 +934,7 @@ def _obtener_abonos_filtrados(request):
                             'ref': ev.referencia_bancaria2 or '-',
                             'confirmado': ev.confirmado2,
                             'confirmado_usuario': ev.confirmado_usuario2 or '',
+                            'vista_banco': ev.vista_banco2,
                             'foto': ev.foto_abono2,
                             'foto_factura': ev.foto_factura_abono2,
                         })
