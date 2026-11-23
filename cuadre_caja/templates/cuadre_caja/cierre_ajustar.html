@@ -544,6 +544,8 @@
         {% endif %}
     </div>
 </div>
+
+{% include "cuadre_caja/inc/novedades_cierre.html" %}
 {% endblock %}
 
 {% block scripts %}
@@ -595,18 +597,42 @@
             if (celdaUsd) celdaUsd.textContent = formato(totalUsd);
         }
 
-        function alternarEliminacion(boton) {
-            const fila = boton.closest('tr.fila-transaccion');
-            if (!fila) return;
-            const eliminar = fila.querySelector('input[name$="-DELETE"]');
-            if (!eliminar) return;
-
+        function aplicarEliminacion(fila, eliminar, boton) {
             eliminar.checked = !eliminar.checked;
             fila.classList.toggle('fila-eliminada', eliminar.checked);
             boton.title = eliminar.checked ? 'Restaurar esta transacción' : 'Quitar esta transacción';
             boton.classList.toggle('btn-outline-secondary', eliminar.checked);
             boton.classList.toggle('btn-outline-danger', !eliminar.checked);
             recalcular();
+        }
+
+        function alternarEliminacion(boton) {
+            const fila = boton.closest('tr.fila-transaccion');
+            if (!fila) return;
+            const eliminar = fila.querySelector('input[name$="-DELETE"]');
+            if (!eliminar) return;
+
+            // Al marcar una transacción para eliminarla se pide confirmación.
+            // Al restaurarla no hace falta: la acción es reversible.
+            if (!eliminar.checked) {
+                Swal.fire({
+                    title: '¿Eliminar esta transacción?',
+                    html: '<p class="mb-0">La transacción se quitará del cierre al guardar los cambios. ¿Estás seguro de que quieres eliminarla?</p>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true
+                }).then(function (resultado) {
+                    if (!resultado.isConfirmed) return;
+                    aplicarEliminacion(fila, eliminar, boton);
+                });
+                return;
+            }
+
+            aplicarEliminacion(fila, eliminar, boton);
         }
 
         document.querySelectorAll('.btn-agregar-fila').forEach(function (boton) {

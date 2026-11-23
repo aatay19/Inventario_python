@@ -46,6 +46,7 @@ from .models import (
     MetodoPagoChoices,
     EgresoCierre,
     CierreTransaccion,
+    NovedadCierre,
     TipoSalidaChoices,
     TurnoChoices,
 )
@@ -470,6 +471,7 @@ def _reconstruir_borrador_desde_post(caja, hoy, turno, request, payload_post):
         borrador.nombre_cajera = nombre
         borrador.tasa = tasa
         borrador.observaciones = observaciones
+        borrador.novedades = _novedades_desde_post(payload_post)
         borrador.actualizado_en = timezone.now()
         borrador.revision = (borrador.revision or 0) + 1
         borrador.save()
@@ -919,6 +921,50 @@ def _serializar_transacciones(borrador):
     ]
 
 
+def _normalizar_novedades(lista, limite=500):
+    """Valida y normaliza las transacciones eliminadas del cuadre.
+
+    Solo se conservan las que tienen monto y/o referencia, tal como se
+    muestran en la sección «Novedades».
+    """
+    metodos = {valor for valor, _ in MetodoPagoChoices.choices}
+    resultado = []
+    for item in lista or []:
+        if not isinstance(item, dict):
+            continue
+        metodo = str(item.get("metodo_pago") or "").strip()[:20]
+        if metodo not in metodos:
+            continue
+        monto = _decimal(item.get("monto"), limite=MAX_DECIMAL_14)
+        ref = str(item.get("ref") or "").strip()[:100]
+        if monto <= 0 and not ref:
+            continue
+        resultado.append(
+            {
+                "metodo_pago": metodo,
+                "banco": str(item.get("banco") or "")[:100],
+                "monto": f"{max(monto, Decimal('0.00')):.2f}",
+                "ref": ref,
+                "notas": str(item.get("notas") or "")[:255],
+            }
+        )
+        if len(resultado) >= limite:
+            break
+    return resultado
+
+
+def _novedades_desde_post(post):
+    """Lee el JSON oculto con las transacciones eliminadas del formulario."""
+    crudo = post.get("novedades_json") or "[]"
+    try:
+        lista = json.loads(crudo)
+    except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+        return []
+    if not isinstance(lista, list):
+        return []
+    return _normalizar_novedades(lista)
+
+
 def _datos_estado_borrador(borrador):
     """Estado completo del borrador para sincronizar formularios abiertos."""
     usuario = borrador.usuario
@@ -935,6 +981,7 @@ def _datos_estado_borrador(borrador):
         "tasa": f"{borrador.tasa:.2f}" if borrador.tasa else "",
         "observaciones": borrador.observaciones,
         "transacciones": _serializar_transacciones(borrador),
+        "novedades": list(borrador.novedades or []),
     }
 
 
@@ -1163,6 +1210,9 @@ def borrador_guardar(request, caja_id, turno):
         borrador.nombre_cajera = str(payload.get("nombre_cajera") or "")[:100]
         borrador.tasa = _decimal(payload.get("tasa"), "0.01", limite=MAX_DECIMAL_14)
         borrador.observaciones = str(payload.get("observaciones") or "")
+        novedades = payload.get("novedades")
+        if isinstance(novedades, list):
+            borrador.novedades = _normalizar_novedades(novedades)
         borrador.revision = (borrador.revision or 0) + 1
         borrador.save()
 
@@ -1344,6 +1394,7 @@ def cerrar_caja(request, caja_id, turno=None):
 
     borrador_revision = 0
     borrador_actualizado = True
+    novedades_iniciales = []
 
     if request.method == "POST":
         # Las filas del formset se renumeran antes de validar para que ninguna
@@ -1351,6 +1402,7 @@ def cerrar_caja(request, caja_id, turno=None):
         datos_post = _normalizar_transacciones_post(request.POST)
         if not es_supervisor_o_superior(request.user):
             datos_post = _proteger_notas_pago_movil(datos_post)
+        novedades_iniciales = _novedades_desde_post(datos_post)
         form = CierreCajaForm(datos_post, caja=caja, turno=turno)
         egresos_formset = EgresoCierreFormSet(
             datos_post, request.FILES, prefix="egresos", instance=CierreCaja()
@@ -1399,6 +1451,19 @@ def cerrar_caja(request, caja_id, turno=None):
 
                     if transacciones_a_crear:
                         CierreTransaccion.objects.bulk_create(transacciones_a_crear, batch_size=500)
+
+                    if novedades_iniciales:
+                        NovedadCierre.objects.bulk_create(
+                            [
+                                NovedadCierre(
+                                    cierre=cierre,
+                                    usuario=request.user,
+                                    **novedad,
+                                )
+                                for novedad in novedades_iniciales
+                            ],
+                            batch_size=500,
+                        )
 
                     cierre.total_bs = total_bs
                     cierre.total_usd = total_usd
@@ -1459,6 +1524,7 @@ def cerrar_caja(request, caja_id, turno=None):
         metodo_filas = {}
         if borrador:
             borrador_revision = borrador.revision
+            novedades_iniciales = _normalizar_novedades(borrador.novedades)
             datos_iniciales = {
                 "nombre_cajera": borrador.nombre_cajera,
                 "tasa": borrador.tasa or None,
@@ -1638,6 +1704,10 @@ def cerrar_caja(request, caja_id, turno=None):
             "bancos_choices": BANCOS_CHOICES,
             "puede_eliminar_transacciones": puede_eliminar_transacciones,
             "puede_editar_notas_pago_movil": puede_editar_notas_pago_movil,
+            "novedades_iniciales": novedades_iniciales,
+            "metodos_etiquetas": {
+                valor: etiqueta for valor, etiqueta in MetodoPagoChoices.choices
+            },
             "borrador_revision": borrador_revision,
         },
     )
@@ -1648,9 +1718,33 @@ def _obtener_cierre_completo(cierre_id):
     return get_object_or_404(
         CierreCaja.objects.select_related(
             "caja__departamento", "usuario"
-        ).prefetch_related("detalles", "transacciones", "egresos", "imagenes"),
+        ).prefetch_related(
+            "detalles",
+            "transacciones",
+            "egresos",
+            "imagenes",
+            "novedades__usuario",
+        ),
         pk=cierre_id,
     )
+
+
+def _agrupar_novedades(novedades):
+    """Agrupa transacciones eliminadas por método de pago."""
+    grupos = []
+    for valor, etiqueta in MetodoPagoChoices.choices:
+        items = [n for n in novedades if n.metodo_pago == valor]
+        if items:
+            grupos.append(
+                {
+                    "valor": valor,
+                    "etiqueta": etiqueta,
+                    "moneda": MONEDA_POR_METODO.get(valor, MONEDA_BS),
+                    "items": items,
+                    "total": sum((n.monto for n in items), Decimal("0.00")),
+                }
+            )
+    return grupos
 
 
 def _datos_cierre(cierre):
@@ -1687,6 +1781,9 @@ def _datos_cierre(cierre):
 
     transacciones = list(cierre.transacciones.all())
     imagenes = list(cierre.imagenes.all())
+    novedades = list(cierre.novedades.all())
+
+    novedades_por_metodo = _agrupar_novedades(novedades)
 
     distribucion_bs, total_distribucion_bs = _montos_por_metodo(
         transacciones, detalles, MONEDA_BS
@@ -1737,6 +1834,9 @@ def _datos_cierre(cierre):
         "total_devoluciones_usd": total_devoluciones_usd,
         "transacciones": transacciones,
         "imagenes": imagenes,
+        "novedades": novedades,
+        "novedades_por_metodo": novedades_por_metodo,
+        "total_novedades": len(novedades),
     }
 
 
@@ -1817,6 +1917,30 @@ def _registrar_nota_ajuste(cierre, user, formset):
         f"{observaciones}\n{nota}" if observaciones else nota
     )
     cierre.save(update_fields=["observaciones"])
+
+
+def _registrar_novedades_eliminadas(cierre, user, eliminadas):
+    """Guarda como novedades las transacciones quitadas durante un ajuste."""
+    nuevas = []
+    for transaccion in eliminadas:
+        monto = transaccion.monto or Decimal("0.00")
+        ref = (transaccion.ref or "").strip()
+        # Solo interesan las que tenían monto y/o referencia.
+        if monto <= 0 and not ref:
+            continue
+        nuevas.append(
+            NovedadCierre(
+                cierre=cierre,
+                metodo_pago=transaccion.metodo_pago,
+                banco=transaccion.banco,
+                monto=monto,
+                ref=transaccion.ref,
+                notas=transaccion.notas,
+                usuario=user,
+            )
+        )
+    if nuevas:
+        NovedadCierre.objects.bulk_create(nuevas, batch_size=500)
 
 
 def _recalcular_totales_cierre(cierre):
@@ -1918,7 +2042,13 @@ def cierre_ajustar(request, cierre_id):
         if formset.is_valid():
             try:
                 with transaction.atomic():
+                    eliminadas = [
+                        form.instance
+                        for form in formset.deleted_forms
+                        if form.instance and form.instance.pk
+                    ]
                     formset.save()
+                    _registrar_novedades_eliminadas(cierre, request.user, eliminadas)
                     _recalcular_totales_cierre(cierre)
                     _registrar_nota_ajuste(cierre, request.user, formset)
                 messages.success(
@@ -2088,6 +2218,45 @@ def historial(request):
             "total_dias": paginator.count,
             "pagos_movil_no_confirmados": pagos_movil_no_confirmados,
             "cierres_ajuste": cierres_pagina,
+        },
+    )
+
+
+@cuadre_caja_required
+def novedades(request):
+    """Listado de novedades de todos los cierres, agrupadas por método."""
+    form = CierreHistorialFiltroForm(request.GET or None)
+    queryset = NovedadCierre.objects.select_related(
+        "cierre__caja__departamento", "usuario"
+    ).order_by("-creado_en", "-id")
+
+    if form.is_valid():
+        datos = form.cleaned_data
+        if datos.get("departamento"):
+            queryset = queryset.filter(
+                cierre__caja__departamento=datos["departamento"]
+            )
+        if datos.get("turno"):
+            queryset = queryset.filter(cierre__turno=datos["turno"])
+        if datos.get("cajera"):
+            queryset = queryset.filter(
+                cierre__nombre_cajera__icontains=datos["cajera"]
+            )
+        if datos.get("desde"):
+            queryset = queryset.filter(cierre__fecha__gte=datos["desde"])
+        if datos.get("hasta"):
+            queryset = queryset.filter(cierre__fecha__lte=datos["hasta"])
+
+    paginador = Paginator(queryset, 30)
+    pagina = paginador.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "cuadre_caja/novedades.html",
+        {
+            "form": form,
+            "pagina": pagina,
+            "grupos": _agrupar_novedades(list(pagina.object_list)),
+            "total_novedades": paginador.count,
         },
     )
 

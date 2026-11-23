@@ -523,6 +523,74 @@ class CierreTransaccion(models.Model):
         return self.monto if MONEDA_POR_METODO.get(self.metodo_pago) == MONEDA_USD else Decimal("0.00")
 
 
+class NovedadCierre(models.Model):
+    """Transacción eliminada del cuadre que se conserva como novedad.
+
+    Solo se registran las transacciones que tenían monto y/o referencia, para
+    dejar constancia de lo eliminado sin llenar el cierre de filas vacías.
+    """
+
+    cierre = models.ForeignKey(
+        CierreCaja,
+        on_delete=models.CASCADE,
+        related_name="novedades",
+        verbose_name="Cierre",
+    )
+    metodo_pago = models.CharField(
+        max_length=20,
+        choices=MetodoPagoChoices.choices,
+        verbose_name="Método de pago",
+    )
+    banco = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Banco o entidad",
+    )
+    monto = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name="Monto",
+    )
+    ref = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Referencia",
+    )
+    notas = models.TextField(blank=True, default="", verbose_name="Notas")
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="novedades_cierre",
+        verbose_name="Usuario",
+    )
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Eliminada en")
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "Novedad de cierre"
+        verbose_name_plural = "Novedades de cierre"
+
+    def __str__(self):
+        return f"{self.get_metodo_pago_display()} - {self.banco} - {self.monto}"
+
+    @property
+    def monto_bs(self):
+        if MONEDA_POR_METODO.get(self.metodo_pago) == MONEDA_BS:
+            return self.monto
+        return Decimal("0.00")
+
+    @property
+    def monto_usd(self):
+        if MONEDA_POR_METODO.get(self.metodo_pago) == MONEDA_USD:
+            return self.monto
+        return Decimal("0.00")
+
+
 class ImagenCierre(models.Model):
     """Imagen adjunta a un cierre (máximo 5 por cierre)."""
 
@@ -585,6 +653,11 @@ class BorradorCierre(models.Model):
         verbose_name="Tasa del día (Bs/USD)",
     )
     observaciones = models.TextField(blank=True, default="", verbose_name="Observaciones")
+    novedades = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Novedades (transacciones eliminadas)",
+    )
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado en")
     actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado en")
     revision = models.PositiveIntegerField(default=0, verbose_name="Revisión")

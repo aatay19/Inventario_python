@@ -1,6 +1,12 @@
+import json
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
 from django.db import DataError, IntegrityError, OperationalError
 from django.http import QueryDict
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
+from django.utils import timezone
 
 from .forms import (
     CierreCajaForm,
@@ -12,14 +18,22 @@ from .forms import (
     ImagenCierreForm,
     ImagenCierreFormSet,
 )
-from .models import CierreCaja
+from .models import (
+    Caja,
+    CierreCaja,
+    CierreTransaccion,
+    Departamento,
+    NovedadCierre,
+)
 from .views import (
     MAX_DECIMAL_14,
     _decimal,
     _describir_error_sistema,
     _formatear_errores_cierre,
     _mensaje_error_sistema,
+    _normalizar_novedades,
     _normalizar_transacciones_post,
+    _novedades_desde_post,
     _reconstruir_borrador_desde_post,
 )
 
@@ -501,3 +515,164 @@ class MetodoHeredadoTests(SimpleTestCase):
             "METODO_VIEJO", [valor for valor, _ in form.fields["metodo_pago"].choices]
         )
         self.assertIn('value="METODO_VIEJO"', str(form["metodo_pago"]))
+
+
+class NovedadesTests(SimpleTestCase):
+    """Las novedades conservan solo lo eliminado con monto y/o referencia."""
+
+    def test_solo_conserva_con_monto_o_referencia(self):
+        novedades = _normalizar_novedades(
+            [
+                {"metodo_pago": "EFECTIVO_BS", "monto": "10.50", "ref": ""},
+                {"metodo_pago": "PAGO_MOVIL", "monto": "0", "ref": "123"},
+                {"metodo_pago": "ZELLE", "monto": "0", "ref": ""},
+                {"metodo_pago": "METODO_INVALIDO", "monto": "5", "ref": "1"},
+            ]
+        )
+        self.assertEqual(
+            [n["metodo_pago"] for n in novedades], ["EFECTIVO_BS", "PAGO_MOVIL"]
+        )
+
+    def test_json_invalido_no_rompe_el_cierre(self):
+        self.assertEqual(
+            _novedades_desde_post({"novedades_json": "no-es-json"}), []
+        )
+        self.assertEqual(
+            _novedades_desde_post({"novedades_json": '{"no": "es lista"}'}), []
+        )
+
+
+class NovedadesGuardadoTests(TestCase):
+    """Las novedades eliminadas se conservan junto con el cierre."""
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_superuser(
+            username="novedades_test", email="", password="clave123"
+        )
+        departamento = Departamento.objects.create(
+            nombre="Prueba novedades", slug="prueba-novedades"
+        )
+        self.caja = Caja.objects.create(
+            departamento=departamento, nombre="Caja novedades", numero=99
+        )
+        self.client.force_login(self.usuario)
+
+    def test_novedades_se_guardan_con_el_cierre(self):
+        datos = {
+            "turno": "AM",
+            "nombre_cajera": "Cajera de prueba",
+            "tasa": "0.00",
+            "observaciones": "",
+            "novedades_json": json.dumps(
+                [
+                    {
+                        "metodo_pago": "EFECTIVO_BS",
+                        "banco": "Banesco",
+                        "monto": "50.00",
+                        "ref": "",
+                        "notas": "Monto eliminado",
+                    },
+                    {
+                        "metodo_pago": "ZELLE",
+                        "banco": "",
+                        "monto": "0",
+                        "ref": "ABC123",
+                        "notas": "",
+                    },
+                    # Sin monto ni referencia: no debe registrarse.
+                    {
+                        "metodo_pago": "PUNTO_VENTA",
+                        "banco": "",
+                        "monto": "0",
+                        "ref": "",
+                        "notas": "",
+                    },
+                ]
+            ),
+        }
+        datos.update(dict(_gestion(0)))
+        datos.update(
+            {
+                "egresos-TOTAL_FORMS": "0",
+                "egresos-INITIAL_FORMS": "0",
+                "egresos-MIN_NUM_FORMS": "0",
+                "egresos-MAX_NUM_FORMS": "1000",
+                "imagenes-TOTAL_FORMS": "0",
+                "imagenes-INITIAL_FORMS": "0",
+                "imagenes-MIN_NUM_FORMS": "0",
+                "imagenes-MAX_NUM_FORMS": "1000",
+            }
+        )
+
+        respuesta = self.client.post(
+            reverse("cuadre_caja:cerrar_caja", args=[self.caja.id]), datos
+        )
+        self.assertEqual(respuesta.status_code, 302)
+
+        cierre = CierreCaja.objects.get(caja=self.caja, turno="AM")
+        novedades = list(NovedadCierre.objects.filter(cierre=cierre).order_by("id"))
+        self.assertEqual(
+            [(n.metodo_pago, str(n.monto), n.ref) for n in novedades],
+            [("EFECTIVO_BS", "50.00", ""), ("ZELLE", "0.00", "ABC123")],
+        )
+        self.assertEqual(novedades[0].usuario, self.usuario)
+
+        detalle = self.client.get(
+            reverse("cuadre_caja:cierre_detalle", args=[cierre.id])
+        )
+        self.assertContains(detalle, "Novedades")
+        self.assertContains(detalle, "ABC123")
+
+        inicio = self.client.get(reverse("cuadre_caja:index"))
+        self.assertContains(inicio, reverse("cuadre_caja:novedades"))
+
+        listado = self.client.get(reverse("cuadre_caja:novedades"))
+        self.assertContains(listado, "ABC123")
+
+    def test_ajuste_que_quita_transaccion_crea_novedad(self):
+        cierre = CierreCaja.objects.create(
+            caja=self.caja,
+            fecha=timezone.localdate(),
+            turno="PM",
+            nombre_cajera="Cajera de prueba",
+            usuario=self.usuario,
+        )
+        transaccion = CierreTransaccion.objects.create(
+            cierre=cierre,
+            metodo_pago="PAGO_MOVIL",
+            banco="Mercantil",
+            monto=Decimal("75.00"),
+            ref="REF9",
+        )
+        datos = {
+            "transacciones-TOTAL_FORMS": "1",
+            "transacciones-INITIAL_FORMS": "1",
+            "transacciones-MIN_NUM_FORMS": "0",
+            "transacciones-MAX_NUM_FORMS": "5000",
+            "transacciones-0-id": str(transaccion.id),
+            "transacciones-0-metodo_pago": "PAGO_MOVIL",
+            "transacciones-0-banco": "Mercantil",
+            "transacciones-0-monto": "75.00",
+            "transacciones-0-ref": "REF9",
+            "transacciones-0-notas": "",
+            "transacciones-0-confirmado_banco": "",
+            "transacciones-0-DELETE": "on",
+        }
+
+        respuesta = self.client.post(
+            reverse("cuadre_caja:cierre_ajustar", args=[cierre.id]), datos
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertFalse(CierreTransaccion.objects.filter(pk=transaccion.pk).exists())
+
+        novedad = NovedadCierre.objects.get(cierre=cierre)
+        self.assertEqual(
+            (novedad.metodo_pago, str(novedad.monto), novedad.ref, novedad.usuario),
+            ("PAGO_MOVIL", "75.00", "REF9", self.usuario),
+        )
+
+        ajuste = self.client.get(
+            reverse("cuadre_caja:cierre_ajustar", args=[cierre.id])
+        )
+        self.assertContains(ajuste, "Novedades")
+        self.assertContains(ajuste, "REF9")

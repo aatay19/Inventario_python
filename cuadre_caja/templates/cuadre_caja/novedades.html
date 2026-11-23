@@ -1,0 +1,138 @@
+{% extends "cuadre_caja/layout/base_cuadre.html" %}
+
+{% block title %}Novedades | Cuadre de Caja{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="cc-title mb-1">Novedades</h1>
+        <p class="text-muted mb-0">Transacciones eliminadas del cuadre que tenían monto y/o referencia.</p>
+    </div>
+    <span class="cc-chip bg-danger-subtle text-danger-emphasis">
+        <i class="bi bi-exclamation-triangle me-1"></i> {{ total_novedades }} novedad{{ total_novedades|pluralize:"es" }}
+    </span>
+</div>
+
+<div class="card cc-card mb-4">
+    <div class="card-body p-3 p-lg-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold">{{ form.departamento.label }}</label>
+                {{ form.departamento }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.turno.label }}</label>
+                {{ form.turno }}
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small fw-semibold">{{ form.cajera.label }}</label>
+                {{ form.cajera }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.desde.label }}</label>
+                {{ form.desde }}
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">{{ form.hasta.label }}</label>
+                {{ form.hasta }}
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-funnel me-1"></i> Filtrar
+                </button>
+                <a href="{% url 'cuadre_caja:novedades' %}" class="btn btn-light border">
+                    <i class="bi bi-x-lg me-1"></i> Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% for grupo in grupos %}
+<div class="card cc-card mb-4 border-start border-4 border-danger">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span class="badge bg-light text-secondary border">{{ grupo.etiqueta }}</span>
+            <span class="small text-muted">
+                {{ grupo.items|length }} transacción{{ grupo.items|length|pluralize:"es" }}
+                · Total: {{ grupo.moneda }} {{ grupo.total|floatformat:2 }}
+            </span>
+        </div>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha cierre</th>
+                        <th>Caja</th>
+                        <th>Banco / Entidad</th>
+                        <th class="text-end">Monto ({{ grupo.moneda }})</th>
+                        <th>Referencia</th>
+                        <th>Notas</th>
+                        <th>Eliminada por</th>
+                        <th>Fecha</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for novedad in grupo.items %}
+                    <tr>
+                        <td class="text-nowrap">{{ novedad.cierre.fecha|date:"d/m/Y" }}</td>
+                        <td>
+                            {{ novedad.cierre.caja.departamento.nombre }}
+                            · {{ novedad.cierre.caja.nombre }}
+                            ({{ novedad.cierre.get_turno_display }})
+                        </td>
+                        <td>{{ novedad.banco|default:"—" }}</td>
+                        <td class="text-end monto">{{ novedad.monto|floatformat:2 }}</td>
+                        <td>{{ novedad.ref|default:"—" }}</td>
+                        <td>{{ novedad.notas|default:"—" }}</td>
+                        <td>{{ novedad.usuario.get_full_name|default:novedad.usuario.username|default:"—" }}</td>
+                        <td class="text-nowrap">{{ novedad.creado_en|date:"d/m/Y H:i" }}</td>
+                        <td class="text-nowrap">
+                            <a href="{% url 'cuadre_caja:cierre_detalle' novedad.cierre_id %}"
+                                class="btn btn-sm btn-outline-primary" title="Ver comprobante">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="card cc-card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox fs-1 text-muted"></i>
+        <p class="mb-0 mt-2 text-muted">No hay novedades registradas.</p>
+    </div>
+</div>
+{% endfor %}
+
+{% if pagina.paginator.num_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+        <li class="page-item {% if not pagina.has_previous %}disabled{% endif %}">
+            {% if pagina.has_previous %}
+            <a class="page-link" href="{% querystring page=pagina.previous_page_number %}">Anterior</a>
+            {% else %}
+            <span class="page-link">Anterior</span>
+            {% endif %}
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+        </li>
+        <li class="page-item {% if not pagina.has_next %}disabled{% endif %}">
+            {% if pagina.has_next %}
+            <a class="page-link" href="{% querystring page=pagina.next_page_number %}">Siguiente</a>
+            {% else %}
+            <span class="page-link">Siguiente</span>
+            {% endif %}
+        </li>
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

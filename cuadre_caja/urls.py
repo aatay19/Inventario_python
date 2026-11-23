@@ -70,6 +70,7 @@ urlpatterns = [
         name="pago_movil_confirmar",
     ),
     path("historial/", views.historial, name="historial"),
+    path("novedades/", views.novedades, name="novedades"),
     path("reportes/", views.reportes, name="reportes"),
     path(
         "reportes/dinero-cajas/",

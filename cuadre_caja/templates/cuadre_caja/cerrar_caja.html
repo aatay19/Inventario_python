@@ -529,6 +529,25 @@
                 </tr>
             </template>
 
+            {# ── Novedades: transacciones eliminadas con monto y/o referencia ── #}
+            {{ metodos_etiquetas|json_script:"datos-metodos-novedades" }}
+            {{ novedades_iniciales|json_script:"datos-novedades-iniciales" }}
+            <input type="hidden" name="novedades_json" id="id_novedades_json" value="[]">
+            <div class="card cc-card mt-4 d-none" id="card-novedades">
+                <div class="card-header bg-white border-0 pt-3 pb-2 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h5 class="mb-0 fw-bold">
+                            <i class="bi bi-exclamation-triangle me-2 text-danger"></i>Novedades
+                        </h5>
+                        <p class="small text-muted mb-0 mt-1">
+                            Transacciones eliminadas del cuadre que tenían monto y/o referencia.
+                        </p>
+                    </div>
+                    <span class="badge bg-danger-subtle text-danger-emphasis" id="novedades-contador">0 eliminadas</span>
+                </div>
+                <div class="card-body px-3 px-lg-4 pb-3" id="novedades-contenido"></div>
+            </div>
+
             {# ── Management form del formset de movimientos ── #}
             <input type="hidden" name="egresos-TOTAL_FORMS" id="id_egresos-TOTAL_FORMS" value="{{ egresos_total_forms }}">
             <input type="hidden" name="egresos-INITIAL_FORMS" value="{{ egresos_initial_forms }}">
@@ -1118,6 +1137,150 @@
 
         recalcularDesdeTransacciones();
 
+        // ── Novedades: transacciones eliminadas con monto y/o referencia ──
+        const metodosEtiquetas = JSON.parse(
+            document.getElementById('datos-metodos-novedades').textContent
+        );
+        let novedades = JSON.parse(
+            document.getElementById('datos-novedades-iniciales').textContent
+        );
+        const novedadesInput = document.getElementById('id_novedades_json');
+        const cardNovedades = document.getElementById('card-novedades');
+        const contenidoNovedades = document.getElementById('novedades-contenido');
+        const contadorNovedades = document.getElementById('novedades-contador');
+        const monedaNovedad = {
+            EFECTIVO_BS: 'Bs',
+            PUNTO_VENTA: 'Bs',
+            PAGO_MOVIL: 'Bs',
+            BIO_PAGO: 'Bs',
+            TRANSFERENCIA: 'Bs',
+            CASHEA: 'USD',
+            EFECTIVO_USD: 'USD',
+            ZELLE: 'USD'
+        };
+
+        function escaparHtml(texto) {
+            return String(texto == null ? '' : texto)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function firmaNovedades(lista) {
+            return (lista || []).map(function (n) {
+                return [
+                    n.metodo_pago || '',
+                    n.banco || '',
+                    numero(n.monto).toFixed(2),
+                    n.ref || '',
+                    n.notas || ''
+                ].join('|');
+            }).sort().join('##');
+        }
+
+        let firmaNovedadesGuardada = firmaNovedades(novedades);
+
+        function renderNovedades() {
+            if (novedadesInput) {
+                novedadesInput.value = JSON.stringify(novedades.map(function (n) {
+                    return {
+                        metodo_pago: n.metodo_pago || '',
+                        banco: n.banco || '',
+                        monto: numero(n.monto),
+                        ref: n.ref || '',
+                        notas: n.notas || ''
+                    };
+                }));
+            }
+            if (!contenidoNovedades || !cardNovedades) return;
+
+            cardNovedades.classList.toggle('d-none', novedades.length === 0);
+            if (contadorNovedades) {
+                contadorNovedades.textContent = novedades.length +
+                    (novedades.length === 1 ? ' eliminada' : ' eliminadas');
+            }
+            if (!novedades.length) {
+                contenidoNovedades.innerHTML = '';
+                return;
+            }
+
+            const orden = Object.keys(metodosEtiquetas || {});
+            const grupos = {};
+            novedades.forEach(function (n) {
+                const metodo = n.metodo_pago || '';
+                (grupos[metodo] = grupos[metodo] || []).push(n);
+            });
+            const metodos = orden.filter(function (metodo) {
+                return grupos[metodo] && grupos[metodo].length;
+            }).concat(Object.keys(grupos).filter(function (metodo) {
+                return orden.indexOf(metodo) === -1;
+            }));
+
+            contenidoNovedades.innerHTML = metodos.map(function (metodo, indice) {
+                const items = grupos[metodo];
+                const etiqueta = metodosEtiquetas[metodo] || metodo || 'Sin método';
+                const moneda = monedaNovedad[metodo] || '';
+                const total = items.reduce(function (suma, n) {
+                    return suma + numero(n.monto);
+                }, 0);
+                const filas = items.map(function (n) {
+                    return '<tr>' +
+                        '<td>' + escaparHtml(n.banco || '—') + '</td>' +
+                        '<td class="text-end monto">' + numero(n.monto).toFixed(2) + '</td>' +
+                        '<td>' + escaparHtml(n.ref || '—') + '</td>' +
+                        '<td>' + escaparHtml(n.notas || '—') + '</td>' +
+                        '</tr>';
+                }).join('');
+
+                return '<div class="' + (indice < metodos.length - 1 ? 'mb-4' : '') + '">' +
+                    '<div class="d-flex flex-wrap align-items-center gap-2 mb-2">' +
+                        '<span class="badge bg-light text-secondary border">' + escaparHtml(etiqueta) + '</span>' +
+                        '<span class="small text-muted">' + items.length +
+                            (items.length === 1 ? ' transacción' : ' transacciones') +
+                            ' · Total: ' + (moneda ? moneda + ' ' : '') + total.toFixed(2) +
+                        '</span>' +
+                    '</div>' +
+                    '<div class="table-responsive">' +
+                        '<table class="table table-sm align-middle mb-0">' +
+                            '<thead class="table-light"><tr>' +
+                                '<th>Banco / Entidad</th>' +
+                                '<th class="text-end">Monto' + (moneda ? ' (' + moneda + ')' : '') + '</th>' +
+                                '<th>Referencia</th>' +
+                                '<th>Notas</th>' +
+                            '</tr></thead>' +
+                            '<tbody>' + filas + '</tbody>' +
+                        '</table>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        // Agrega una fila eliminada a Novedades solo si tenía monto y/o referencia.
+        function agregarNovedadDeFila(fila) {
+            if (!fila) return;
+            const metodoEl = fila.querySelector('input[name$="-metodo_pago"], select[name$="-metodo_pago"]');
+            if (!metodoEl || !metodoEl.value) return;
+            const inputMonto = fila.querySelector('input[name$="-monto"]');
+            const inputRef = fila.querySelector('input[name$="-ref"]');
+            const selectBanco = fila.querySelector('select[name$="-banco"]');
+            const inputNotas = fila.querySelector('input[name$="-notas"]');
+            const monto = numero(inputMonto ? inputMonto.value : 0);
+            const ref = String(inputRef ? inputRef.value : '').trim();
+            if (monto <= 0 && !ref) return;
+            novedades.push({
+                metodo_pago: metodoEl.value,
+                banco: selectBanco ? selectBanco.value : '',
+                monto: monto,
+                ref: ref,
+                notas: inputNotas ? inputNotas.value : ''
+            });
+            renderNovedades();
+        }
+
+        renderNovedades();
+
         // Borrador compartido: guarda el avance del cuadre sin registrarlo,
         // para que el resumen del departamento se actualice en tiempo real.
         const borradorUrl = form.dataset.borradorUrl || '';
@@ -1185,7 +1348,16 @@
                 nombre_cajera: nombreCajeraInput ? nombreCajeraInput.value : '',
                 tasa: tasaInput ? tasaInput.value : '',
                 observaciones: observacionesInput ? observacionesInput.value : '',
-                transacciones: transacciones
+                transacciones: transacciones,
+                novedades: novedades.map(function (n) {
+                    return {
+                        metodo_pago: n.metodo_pago || '',
+                        banco: n.banco || '',
+                        monto: numero(n.monto),
+                        ref: n.ref || '',
+                        notas: n.notas || ''
+                    };
+                })
             };
         }
 
@@ -1195,7 +1367,8 @@
         firmaGuardada = firmaTransacciones(ultimoGuardado);
 
         function hayCambiosLocales() {
-            return firmaTransacciones(datosBorrador().transacciones) !== firmaGuardada;
+            return firmaTransacciones(datosBorrador().transacciones) !== firmaGuardada ||
+                firmaNovedades(novedades) !== firmaNovedadesGuardada;
         }
 
         function avisarCambioRemotoPendiente(texto) {
@@ -1214,6 +1387,7 @@
             // eliminó la última transacción).
             if (
                 !datos.transacciones.length &&
+                !(datos.novedades && datos.novedades.length) &&
                 !datos.nombre_cajera.trim() &&
                 revisionActual === 0
             ) {
@@ -1290,6 +1464,7 @@
                     reintentosConflicto = 0;
                     ultimoGuardado = datos.transacciones;
                     firmaGuardada = firmaTransacciones(datos.transacciones);
+                    firmaNovedadesGuardada = firmaNovedades(datos.novedades || []);
                     const hora = new Date().toLocaleTimeString('es-VE', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -1319,6 +1494,7 @@
 
         function hayDatosEnFormulario() {
             if (datosBorrador().transacciones.length) return true;
+            if (novedades.length) return true;
             if (nombreCajeraInput && nombreCajeraInput.value.trim()) return true;
             if (tasaInput && tasaInput.value.trim()) return true;
             if (observacionesInput && observacionesInput.value.trim()) return true;
@@ -1577,6 +1753,9 @@
 
             const diff = compararTransacciones(ultimoGuardado, remotas);
             aplicarTransaccionesRemotas(remotas);
+            novedades = Array.isArray(borrador.novedades) ? borrador.novedades.slice() : [];
+            renderNovedades();
+            firmaNovedadesGuardada = firmaNovedades(novedades);
             revisionActual = borrador.revision || revisionActual;
 
             const mensaje = mensajeCambio(diff, borrador);
@@ -1883,12 +2062,26 @@
             const btn = evento.target.closest('.btn-quitar-fila');
             if (!btn) return;
             const fila = btn.closest('tr.fila-transaccion');
-            if (fila) {
+            if (!fila) return;
+
+            Swal.fire({
+                title: '¿Eliminar esta transacción?',
+                html: '<p class="mb-0">La transacción se quitará del cuadre. ¿Estás seguro de que quieres eliminarla?</p>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true
+            }).then(function (resultado) {
+                if (!resultado.isConfirmed) return;
+                agregarNovedadDeFila(fila);
                 fila.remove();
                 reindexarTransacciones();
                 recalcularDesdeTransacciones();
                 programarGuardadoBorrador();
-            }
+            });
         });
         {% endif %}
 

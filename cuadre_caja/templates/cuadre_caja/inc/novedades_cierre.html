@@ -1,0 +1,68 @@
+{% if novedades_por_metodo %}
+<div class="card cc-card mb-4 border-start border-4 border-danger">
+    <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-exclamation-triangle me-2 text-danger"></i>Novedades
+                </h5>
+                <p class="small text-muted mb-0">
+                    Transacciones eliminadas del cuadre que tenían monto y/o referencia.
+                </p>
+            </div>
+            <span class="badge bg-danger-subtle text-danger-emphasis">
+                {{ total_novedades }} eliminada{{ total_novedades|pluralize:"s" }}
+            </span>
+        </div>
+    </div>
+    <div class="card-body px-3 px-lg-4 pb-3">
+        {% for grupo in novedades_por_metodo %}
+        <div class="{% if not forloop.last %}mb-4{% endif %}">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="badge bg-light text-secondary border">{{ grupo.etiqueta }}</span>
+                <span class="small text-muted">
+                    {{ grupo.items|length }} transacción{{ grupo.items|length|pluralize:"es" }}
+                    · Total: {{ grupo.moneda }} {{ grupo.total|floatformat:2 }}
+                </span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Banco / Entidad</th>
+                            <th class="text-end">Monto ({{ grupo.moneda }})</th>
+                            <th>Referencia</th>
+                            <th>Notas</th>
+                            <th>Eliminada por</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for novedad in grupo.items %}
+                        <tr>
+                            <td>{{ novedad.banco|default:"—" }}</td>
+                            <td class="text-end monto">{{ novedad.monto|floatformat:2 }}</td>
+                            <td>{{ novedad.ref|default:"—" }}</td>
+                            <td>{{ novedad.notas|default:"—" }}</td>
+                            <td>
+                                {% if novedad.usuario %}
+                                    {% if novedad.usuario.get_full_name %}
+                                        {{ novedad.usuario.get_full_name }}
+                                    {% else %}
+                                        {{ novedad.usuario.username }}
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td class="text-nowrap">{{ novedad.creado_en|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
