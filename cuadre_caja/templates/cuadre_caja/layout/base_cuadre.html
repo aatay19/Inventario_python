@@ -95,6 +95,18 @@
             font-weight: 700;
         }
 
+        /* Los montos se escriben, no se ajustan con las flechas spin. */
+        input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
         .dep-icon {
             width: 44px;
             height: 44px;
@@ -211,6 +223,15 @@
     </script>
 
     <script>
+        // Las flechas arriba/abajo no deben cambiar los montos.
+        document.addEventListener('keydown', function (e) {
+            if (e.target && e.target.matches &&
+                e.target.matches('input[type="number"]') &&
+                (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                e.preventDefault();
+            }
+        });
+
         // Restringe los campos de referencia a solo números
         document.addEventListener('input', function (e) {
             if (e.target && e.target.matches && e.target.matches('input[name$="-ref"], input[name$="-referencia"], input[name="referencia"], input[name="ref"]')) {

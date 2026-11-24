@@ -137,7 +137,7 @@
             <div class="card-body">
                 <div class="stat-label mb-1">Total en Bs</div>
                 <div class="stat-valor">Bs {{ total_general.total_equivalente_bs|floatformat:2 }}</div>
-                <div class="small text-muted">Vueltos restados y créditos/insumos sumados</div>
+                <div class="small text-muted">Vueltos restados; insumos sumados (no se incluyen créditos ni abonos)</div>
             </div>
         </div>
     </div>
@@ -149,8 +149,8 @@
             <div class="col-12 col-lg-5">
                 <div class="stat-label mb-1">Total de vueltos de caja de los cuadres</div>
                 <p class="small text-muted mb-0">
-                    Registrados en la sección “Movimiento de caja” de cada cuadre del periodo.
-                    El vuelto de caja se resta del total en Bs de cada cuadre.
+                    Registrados en la sección “Movimientos de caja” de cada cuadre del periodo.
+                    El vuelto devuelto a clientes se descuenta del total en Bs de cada cuadre.
                 </p>
             </div>
             <div class="col-6 col-lg-3">
@@ -174,10 +174,11 @@
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-start gap-2">
         <div>
             <h5 class="mb-0 fw-bold">
-                <i class="bi bi-plus-circle me-2 text-primary"></i>Créditos e insumos de los cuadres
+                <i class="bi bi-plus-circle me-2 text-primary"></i>Insumos de los cuadres
             </h5>
             <p class="small text-muted mb-0">
-                Registrados en la sección “Movimiento de caja” de cada cuadre del periodo. Suman al total en Bs de cada cuadre.
+                Registrados en la sección “Movimientos de caja” de cada cuadre del periodo. Se suman al total en Bs de cada cuadre.
+                Créditos y abonos no se incluyen en este reporte.
             </p>
         </div>
         <span class="badge bg-primary-subtle text-primary-emphasis">
@@ -249,7 +250,7 @@
         </p>
         {% endif %}
         {% else %}
-        <p class="text-muted small mb-0">No hay créditos ni insumos en los cuadres del periodo.</p>
+        <p class="text-muted small mb-0">No hay insumos en los cuadres del periodo.</p>
         {% endif %}
     </div>
 </div>
@@ -290,7 +291,7 @@
             <div class="col-12 col-lg-5">
                 <div class="stat-label mb-1">Abonos del periodo</div>
                 <p class="small text-muted mb-0">
-                    Son solamente informativos: no se restan de ningún total.
+                    Registros independientes del cuadre: solo informativos, no suman ni restan en este reporte.
                 </p>
             </div>
             <div class="col-6 col-lg-3">

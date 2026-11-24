@@ -88,7 +88,13 @@
                         <td class="text-end monto">{{ novedad.monto|floatformat:2 }}</td>
                         <td>{{ novedad.ref|default:"—" }}</td>
                         <td>{{ novedad.notas|default:"—" }}</td>
-                        <td>{{ novedad.usuario.get_full_name|default:novedad.usuario.username|default:"—" }}</td>
+                        <td>
+                            {% if novedad.usuario %}
+                                {{ novedad.usuario.get_full_name|default:novedad.usuario.username }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
                         <td class="text-nowrap">{{ novedad.creado_en|date:"d/m/Y H:i" }}</td>
                         <td class="text-nowrap">
                             <a href="{% url 'cuadre_caja:cierre_detalle' novedad.cierre_id %}"

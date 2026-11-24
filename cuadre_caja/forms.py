@@ -393,23 +393,29 @@ class EgresoCierreForm(forms.ModelForm):
         _conservar_banco_heredado(self.fields["banco"], banco)
 
     def has_changed(self):
-        """Ignora las filas completamente vacías del formset."""
+        """Ignora las filas vacías: tipo y moneda viajan ocultos en todas ellas."""
         if not self.is_bound:
             return False
         if self.files.get(self.add_prefix("imagen")):
             return True
-        return any(
+        if any(
             (self.data.get(self.add_prefix(campo)) or "").strip()
             for campo in (
-                "tipo",
                 "cedula",
                 "telefono",
                 "banco",
-                "moneda",
                 "monto",
                 "referencia",
             )
-        )
+        ):
+            return True
+        # Solo cuentan tipo/moneda si son distintos de los valores por defecto
+        # (así se conservan las filas marcadas para corregir).
+        tipo = (self.data.get(self.add_prefix("tipo")) or "").strip()
+        moneda = (self.data.get(self.add_prefix("moneda")) or "").strip()
+        if tipo and tipo not in dict(self.fields["tipo"].choices):
+            return True
+        return bool(moneda and moneda != MONEDA_BS)
 
     def clean_monto(self):
         # Un movimiento parcial puede no traer monto. La columna no acepta NULL,

@@ -61,10 +61,26 @@ BORRADOR_VIGENCIA = timedelta(minutes=45)
 
 # Tipos disponibles en la sección «Movimiento de caja» del cuadre.
 TIPOS_MOVIMIENTO = [
-    (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
-    (TipoSalidaChoices.CREDITO, "Crédito"),
-    (TipoSalidaChoices.INSUMOS, "Insumos"),
-    (TipoSalidaChoices.ABONO, "Abono"),
+    (
+        TipoSalidaChoices.EGRESO,
+        "Vuelto de caja",
+        "Dinero devuelto a clientes. Se descuenta del total en Bs de la caja.",
+    ),
+    (
+        TipoSalidaChoices.CREDITO,
+        "Crédito",
+        "Ventas o cobros a crédito del día. Se suman al total en Bs de la caja.",
+    ),
+    (
+        TipoSalidaChoices.INSUMOS,
+        "Insumos",
+        "Insumos registrados en el día. Se suman al total en Bs de la caja.",
+    ),
+    (
+        TipoSalidaChoices.ABONO,
+        "Abono",
+        "Pagos recibidos a cuenta de clientes. Se suman al total en Bs de la caja.",
+    ),
 ]
 
 logger = logging.getLogger(__name__)
@@ -472,6 +488,8 @@ def _reconstruir_borrador_desde_post(caja, hoy, turno, request, payload_post):
         borrador.tasa = tasa
         borrador.observaciones = observaciones
         borrador.novedades = _novedades_desde_post(payload_post)
+        if "egresos-TOTAL_FORMS" in payload_post:
+            borrador.movimientos = _movimientos_desde_post(payload_post)
         borrador.actualizado_en = timezone.now()
         borrador.revision = (borrador.revision or 0) + 1
         borrador.save()
@@ -622,30 +640,109 @@ def _fila_egreso_tiene_datos(form):
     return bool(form.files.get(form.add_prefix("imagen")))
 
 
-def _tarjetas_egreso(egresos_formset, datos_post=None):
+# Campos del movimiento que se conservan en el borrador (la imagen no se puede
+# serializar en JSON: el navegador no permite restaurar un archivo ya elegido).
+CAMPOS_MOVIMIENTO_BORRADOR = (
+    "tipo", "moneda", "cedula", "telefono", "banco", "monto", "referencia"
+)
+LONGITUDES_MOVIMIENTO_BORRADOR = {
+    "tipo": 12,
+    "moneda": 2,
+    "cedula": 20,
+    "telefono": 30,
+    "banco": 100,
+    "referencia": 100,
+}
+
+
+def _normalizar_movimientos(lista, limite=500):
+    """Valida los movimientos guardados en un borrador.
+
+    Se conservan las filas con monto o cualquier dato escrito. Tipo y moneda
+    viajan ocultos en todas las filas, por eso solos no cuentan como dato.
+    """
+    resultado = []
+    for item in lista or []:
+        if not isinstance(item, dict):
+            continue
+        fila = {
+            campo: str(item.get(campo) or "").strip()[:LONGITUDES_MOVIMIENTO_BORRADOR[campo]]
+            for campo in LONGITUDES_MOVIMIENTO_BORRADOR
+        }
+        monto = _decimal(item.get("monto"), limite=MAX_DECIMAL_14)
+        if monto < 0:
+            monto = Decimal("0.00")
+        fila["monto"] = f"{monto:.2f}" if monto else ""
+        if not fila["moneda"]:
+            fila["moneda"] = MONEDA_BS
+        if not any(
+            [monto > 0, fila["cedula"], fila["telefono"], fila["banco"], fila["referencia"]]
+        ):
+            continue
+        resultado.append(fila)
+        if len(resultado) >= limite:
+            break
+    return resultado
+
+
+def _movimientos_desde_post(post):
+    """Lee el formset de movimientos de un POST para resguardarlo en el borrador."""
+    try:
+        total = int(post.get("egresos-TOTAL_FORMS", "0") or 0)
+    except (TypeError, ValueError):
+        return []
+    movimientos = []
+    for indice in range(max(total, 0)):
+        prefijo = f"egresos-{indice}"
+        if post.get(f"{prefijo}-DELETE"):
+            continue
+        movimientos.append(
+            {
+                campo: post.get(f"{prefijo}-{campo}", "")
+                for campo in CAMPOS_MOVIMIENTO_BORRADOR
+            }
+        )
+    return _normalizar_movimientos(movimientos)
+
+
+def _tarjetas_egreso(egresos_formset, datos_post=None, movimientos_iniciales=None):
     """Agrupa los formularios de movimientos por tipo (siempre en Bs).
 
-    En GET se crea una fila vacía por tipo para que cada tarjeta tenga su
-    propio campo, como ocurre con los métodos de pago. En POST se reubican las
-    filas enviadas sin perder ningún dato ni duplicar sus prefijos. Las filas
-    con moneda distinta de Bs se apartan para que se corrijan, no se descartan.
+    En GET se restauran primero los movimientos del borrador y luego se deja
+    una fila vacía por tipo, como ocurre con los métodos de pago. En POST se
+    reubican las filas enviadas sin perder ningún dato ni duplicar sus prefijos.
+    Las filas con moneda distinta de Bs se apartan para que se corrijan.
     """
     if datos_post is None:
         indice = 0
-        agrupados = {}
-        for valor, _ in TIPOS_MOVIMIENTO:
-            agrupados[valor] = [
+        agrupados = {valor: [] for valor, _, _ in TIPOS_MOVIMIENTO}
+        sobrantes = []
+        for movimiento in movimientos_iniciales or []:
+            if not isinstance(movimiento, dict):
+                continue
+            tipo = str(movimiento.get("tipo") or "")
+            moneda = str(movimiento.get("moneda") or MONEDA_BS)
+            form = EgresoCierreForm(
+                initial={campo: movimiento.get(campo, "") for campo in CAMPOS_MOVIMIENTO_BORRADOR},
+                prefix=f"egresos-{indice}",
+            )
+            if tipo in agrupados and moneda == MONEDA_BS:
+                agrupados[tipo].append(form)
+            else:
+                sobrantes.append(form)
+            indice += 1
+        for valor, _, _ in TIPOS_MOVIMIENTO:
+            agrupados[valor].append(
                 EgresoCierreForm(
                     initial={"tipo": valor, "moneda": MONEDA_BS},
                     prefix=f"egresos-{indice}",
                 )
-            ]
+            )
             indice += 1
         total_forms = indice
         initial_forms = 0
-        sobrantes = []
     else:
-        agrupados = {valor: [] for valor, _ in TIPOS_MOVIMIENTO}
+        agrupados = {valor: [] for valor, _, _ in TIPOS_MOVIMIENTO}
         sobrantes = []
         for form in egresos_formset.forms:
             tipo = datos_post.get(form.add_prefix("tipo"), "")
@@ -658,11 +755,12 @@ def _tarjetas_egreso(egresos_formset, datos_post=None):
         initial_forms = egresos_formset.initial_form_count()
 
     tarjetas = []
-    for valor, etiqueta in TIPOS_MOVIMIENTO:
+    for valor, etiqueta, descripcion in TIPOS_MOVIMIENTO:
         tarjetas.append(
             {
                 "valor": valor,
                 "etiqueta": etiqueta,
+                "descripcion": descripcion,
                 "moneda": MONEDA_BS,
                 "forms": agrupados[valor],
                 "corregir": False,
@@ -673,6 +771,7 @@ def _tarjetas_egreso(egresos_formset, datos_post=None):
             {
                 "valor": "SIN_TIPO",
                 "etiqueta": "Movimiento a corregir (debe ser en Bs)",
+                "descripcion": "Corrige el tipo y la moneda para que el movimiento cuente en el total.",
                 "moneda": MONEDA_BS,
                 "forms": sobrantes,
                 "corregir": True,
@@ -982,6 +1081,7 @@ def _datos_estado_borrador(borrador):
         "observaciones": borrador.observaciones,
         "transacciones": _serializar_transacciones(borrador),
         "novedades": list(borrador.novedades or []),
+        "movimientos": list(borrador.movimientos or []),
     }
 
 
@@ -1213,6 +1313,9 @@ def borrador_guardar(request, caja_id, turno):
         novedades = payload.get("novedades")
         if isinstance(novedades, list):
             borrador.novedades = _normalizar_novedades(novedades)
+        movimientos = payload.get("movimientos")
+        if isinstance(movimientos, list):
+            borrador.movimientos = _normalizar_movimientos(movimientos)
         borrador.revision = (borrador.revision or 0) + 1
         borrador.save()
 
@@ -1395,6 +1498,7 @@ def cerrar_caja(request, caja_id, turno=None):
     borrador_revision = 0
     borrador_actualizado = True
     novedades_iniciales = []
+    movimientos_iniciales = []
 
     if request.method == "POST":
         # Las filas del formset se renumeran antes de validar para que ninguna
@@ -1525,6 +1629,7 @@ def cerrar_caja(request, caja_id, turno=None):
         if borrador:
             borrador_revision = borrador.revision
             novedades_iniciales = _normalizar_novedades(borrador.novedades)
+            movimientos_iniciales = _normalizar_movimientos(borrador.movimientos)
             datos_iniciales = {
                 "nombre_cajera": borrador.nombre_cajera,
                 "tasa": borrador.tasa or None,
@@ -1556,7 +1661,9 @@ def cerrar_caja(request, caja_id, turno=None):
             prefix="egresos", instance=CierreCaja()
         )
         tarjetas_egreso, egresos_total_forms, egresos_initial_forms = (
-            _tarjetas_egreso(egresos_formset)
+            _tarjetas_egreso(
+                egresos_formset, movimientos_iniciales=movimientos_iniciales
+            )
         )
         imagenes_formset = ImagenCierreFormSet(
             prefix="imagenes", instance=CierreCaja()
@@ -2462,10 +2569,11 @@ def reportes(request):
     totales_vueltos["total_bs"] = totales_vueltos["total_bs"] or Decimal("0.00")
     totales_vueltos["total_usd"] = totales_vueltos["total_usd"] or Decimal("0.00")
 
-    # Créditos e insumos registrados dentro de los cuadres filtrados: suman al total.
+    # En reportes solo se contabilizan los insumos como movimientos que suman.
+    # Créditos y abonos siguen sumando en el cuadre, pero no en este reporte.
     movimientos_adicionales = EgresoCierre.objects.filter(
         cierre__in=cierres,
-        tipo__in=[TipoSalidaChoices.CREDITO, TipoSalidaChoices.INSUMOS],
+        tipo=TipoSalidaChoices.INSUMOS,
     ).select_related("cierre__caja")
     totales_adicionales = movimientos_adicionales.aggregate(
         cantidad=Count("id"),
@@ -2480,10 +2588,7 @@ def reportes(request):
     )
 
     desglose_adicionales = []
-    for valor, etiqueta in (
-        (TipoSalidaChoices.CREDITO, "Crédito"),
-        (TipoSalidaChoices.INSUMOS, "Insumos"),
-    ):
+    for valor, etiqueta in ((TipoSalidaChoices.INSUMOS, "Insumos"),):
         filtro = movimientos_adicionales.filter(tipo=valor)
         totales_tipo = filtro.aggregate(
             cantidad=Count("id"),
@@ -2524,7 +2629,7 @@ def reportes(request):
         totales_independientes["total_usd"] or Decimal("0.00")
     )
 
-    # Abonos independientes: solamente informativos, no restan de ningún total.
+    # Abonos independientes (fuera de un cuadre): solo informativos, no suman ni restan.
     abonos_independientes = independientes.filter(tipo=TipoSalidaChoices.ABONO)
     totales_abonos = abonos_independientes.aggregate(
         cantidad=Count("id"),

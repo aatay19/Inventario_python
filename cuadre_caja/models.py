@@ -165,7 +165,7 @@ class CierreCaja(models.Model):
 
     @property
     def total_equivalente_bs(self):
-        """Transacciones + créditos e insumos − vueltos de caja, en Bs."""
+        """Transacciones + créditos, insumos y abonos − vueltos de caja, en Bs."""
         if self.tasa:
             bruto = self.total_bs + (self.total_usd * self.tasa)
         else:
@@ -245,15 +245,19 @@ class TipoSalidaChoices(models.TextChoices):
 # Efecto de cada tipo de egreso del cuadre sobre el total equivalente.
 TIPOS_QUE_RESTAN = frozenset({TipoSalidaChoices.EGRESO})
 TIPOS_QUE_SUMAN = frozenset(
-    {TipoSalidaChoices.CREDITO, TipoSalidaChoices.INSUMOS}
+    {
+        TipoSalidaChoices.CREDITO,
+        TipoSalidaChoices.INSUMOS,
+        TipoSalidaChoices.ABONO,
+    }
 )
 
 
 class EgresoCierre(models.Model):
-    """Salida registrada durante el día (vuelto de caja, salida, crédito, insumos o abono).
+    """Movimiento registrado durante el día dentro de un cuadre de caja.
 
-    El vuelto de caja (Egreso) resta del total general en Bs; Crédito e Insumos
-    suman. Salida y Abono son informativos y no afectan el total.
+    El vuelto de caja (Egreso) resta del total general en Bs; Crédito, Insumos
+    y Abono suman. La Salida es informativa y no afecta el total.
     """
 
     cierre = models.ForeignKey(
@@ -333,7 +337,7 @@ class EgresoCierre(models.Model):
 
     @property
     def es_ingreso_adicional(self):
-        """Indica si el registro suma al total en Bs (Crédito o Insumos)."""
+        """Indica si el registro suma al total en Bs (Crédito, Insumos o Abono)."""
         return self.tipo in TIPOS_QUE_SUMAN
 
     @property
@@ -348,8 +352,9 @@ class EgresoCierre(models.Model):
 class EgresoGeneral(models.Model):
     """Egreso, devolución o abono registrado fuera de un cuadre de caja.
 
-    El abono tiene los mismos campos, pero es solamente informativo: no se
-    resta de ningún total, a diferencia del vuelto de caja.
+    El abono tiene los mismos campos, pero al registrar fuera de un cuadre es
+    solamente informativo: no se resta de ningún total, a diferencia del vuelto
+    de caja. Dentro del cuadre, el abono sí suma al total.
     """
 
     tipo = models.CharField(
@@ -657,6 +662,11 @@ class BorradorCierre(models.Model):
         default=list,
         blank=True,
         verbose_name="Novedades (transacciones eliminadas)",
+    )
+    movimientos = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Movimientos de caja del borrador",
     )
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado en")
     actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado en")

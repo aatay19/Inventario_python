@@ -557,13 +557,13 @@
             <div class="card cc-card mt-4">
                 <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div>
-                        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-secondary"></i>Movimiento de caja</h5>
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-secondary"></i>Movimientos de caja</h5>
                         <p class="small text-muted mb-0 mt-1">
-                            Movimientos del día. El vuelto de caja resta del total en Bs; Crédito e Insumos
-                            suman al total. Abono es informativo.
+                            Registros del día en bolívares. El vuelto devuelto a clientes se descuenta;
+                            los créditos, insumos y abonos se suman. La salida solo queda registrada.
                         </p>
                     </div>
-                    <span class="badge bg-warning-subtle text-warning-emphasis">Vuelto resta · Crédito e Insumos suman</span>
+                    <span class="badge bg-warning-subtle text-warning-emphasis">Vuelto resta · Crédito, Insumos y Abono suman</span>
                 </div>
                 <div class="card-body px-3 px-lg-4 pb-3">
                     {% if egresos_formset.non_form_errors %}
@@ -607,6 +607,9 @@
                                     </button>
                                     {% endif %}
                                 </div>
+                                {% if tarjeta.descripcion %}
+                                <div class="small text-muted px-3 px-lg-4 pt-1">{{ tarjeta.descripcion }}</div>
+                                {% endif %}
                                 {% if tarjeta.corregir %}
                                 <div class="alert alert-warning border-0 rounded-0 py-2 px-3 small mb-0">
                                     <i class="bi bi-exclamation-triangle me-1"></i>
@@ -682,27 +685,29 @@
                             <div class="card cc-card h-100">
                                 <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
                                     <h5 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-secondary"></i>Montos de los movimientos (Bs)</h5>
-                                    <p class="small text-muted mb-0 mt-1">Se completan desde los movimientos registrados. Todos son en Bs.</p>
+                                    <p class="small text-muted mb-0 mt-1">Se completan automáticamente con los registros anteriores. El vuelto se descuenta; crédito, insumos y abono se suman.</p>
                                 </div>
                                 <div class="card-body px-3 px-lg-4 pb-3">
                                     <table class="table align-middle mb-0">
                                         <thead>
                                             <tr>
                                                 <th>Tipo de movimiento</th>
+                                                <th>Descripción</th>
                                                 <th class="text-end" style="min-width:120px;">Monto Bs</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for valor, etiqueta in tipos_movimiento %}
+                                            {% for valor, etiqueta, descripcion in tipos_movimiento %}
                                             <tr class="fila-total-egreso" data-moneda="BS" data-tipo="{{ valor }}">
                                                 <td class="fw-semibold">{{ etiqueta }}</td>
+                                                <td class="small text-muted">{{ descripcion }}</td>
                                                 <td class="text-end monto" id="suma-egreso-BS-{{ valor }}" data-total-egreso>0.00</td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>
                                         <tfoot>
                                             <tr class="fw-bold border-top">
-                                                <td>Total Bs</td>
+                                                <td colspan="2">Total Bs</td>
                                                 <td class="text-end monto" id="suma-egreso-BS-total">0.00</td>
                                             </tr>
                                         </tfoot>
@@ -847,11 +852,11 @@
                     </div>
                     <div class="resumen-adicionales mb-2" id="caja-adicionales">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
-                            <span class="fw-bold"><i class="bi bi-plus-circle me-1"></i>Crédito e Insumos</span>
+                            <span class="fw-bold"><i class="bi bi-plus-circle me-1"></i>Crédito, Insumos y Abono</span>
                             <span class="badge bg-primary-subtle text-primary-emphasis">Suman al total en Bs</span>
                         </div>
                         <div class="adicionales-numero text-primary text-center monto my-1" id="resumen-adicionales">+ 0.00</div>
-                        <div class="small text-muted text-center" id="nota-adicionales">Sin créditos ni insumos registrados todavía</div>
+                        <div class="small text-muted text-center" id="nota-adicionales">Sin créditos, insumos ni abonos registrados todavía</div>
                     </div>
                     <div class="resumen-total-bs mb-3">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
@@ -965,10 +970,9 @@
         }
 
         // Movimientos registrados en la sección del cuadre (todos en Bs).
-        // El vuelto de caja (EGRESO) resta; Crédito e Insumos suman al total.
-        // Abono es informativo y no afecta el total.
+        // Vuelto resta; Crédito, Insumos y Abono suman al total de la caja.
         const TIPOS_QUE_RESTAN = new Set(['EGRESO']);
-        const TIPOS_QUE_SUMAN = new Set(['CREDITO', 'INSUMOS']);
+        const TIPOS_QUE_SUMAN = new Set(['CREDITO', 'INSUMOS', 'ABONO']);
 
         // Solo supervisora/cuadre o soporte pueden editar notas de Pago Móvil.
         const puedeEditarNotasPagoMovil = {{ puede_editar_notas_pago_movil|yesno:"true,false" }};
@@ -1056,13 +1060,13 @@
             if (notaAdicionales) {
                 notaAdicionales.textContent = movimientos.suman > 0
                     ? 'Ya sumados al total en Bs'
-                    : 'Sin créditos ni insumos registrados todavía';
+                    : 'Sin créditos, insumos ni abonos registrados todavía';
             }
             if (calculoEquivalente) {
                 calculoEquivalente.textContent = (movimientos.restan || movimientos.suman)
                     ? 'Bs ' + bruto.toFixed(2)
                         + (movimientos.restan > 0 ? ' - ' + movimientos.restan.toFixed(2) + ' vuelto' : '')
-                        + (movimientos.suman > 0 ? ' + ' + movimientos.suman.toFixed(2) + ' crédito/insumos' : '')
+                        + (movimientos.suman > 0 ? ' + ' + movimientos.suman.toFixed(2) + ' crédito/insumos/abono' : '')
                     : 'Sin movimientos que afecten el total';
             }
             totalEquivalente.textContent = equivalente.toFixed(2);
@@ -1181,6 +1185,22 @@
         }
 
         let firmaNovedadesGuardada = firmaNovedades(novedades);
+
+        function firmaMovimientos(lista) {
+            return JSON.stringify((lista || []).map(function (m) {
+                return {
+                    tipo: m.tipo || '',
+                    moneda: m.moneda || 'BS',
+                    cedula: m.cedula || '',
+                    telefono: m.telefono || '',
+                    banco: m.banco || '',
+                    monto: numero(m.monto).toFixed(2),
+                    referencia: m.referencia || ''
+                };
+            }));
+        }
+
+        let firmaMovimientosGuardada = '';
 
         function renderNovedades() {
             if (novedadesInput) {
@@ -1344,11 +1364,42 @@
                 });
             });
 
+            const movimientos = [];
+            document.querySelectorAll('.cuerpo-egreso tr.fila-egreso').forEach(function (fila) {
+                const borrar = fila.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (borrar && borrar.checked) return;
+
+                const valor = function (sufijo) {
+                    const campo = fila.querySelector('[name$="-' + sufijo + '"]');
+                    return campo ? campo.value : '';
+                };
+                const movimiento = {
+                    tipo: valor('tipo'),
+                    moneda: valor('moneda') || 'BS',
+                    cedula: valor('cedula'),
+                    telefono: valor('telefono'),
+                    banco: valor('banco'),
+                    monto: valor('monto'),
+                    referencia: valor('referencia')
+                };
+                if (
+                    !numero(movimiento.monto) &&
+                    !String(movimiento.cedula).trim() &&
+                    !String(movimiento.telefono).trim() &&
+                    !String(movimiento.banco).trim() &&
+                    !String(movimiento.referencia).trim()
+                ) {
+                    return;
+                }
+                movimientos.push(movimiento);
+            });
+
             return {
                 nombre_cajera: nombreCajeraInput ? nombreCajeraInput.value : '',
                 tasa: tasaInput ? tasaInput.value : '',
                 observaciones: observacionesInput ? observacionesInput.value : '',
                 transacciones: transacciones,
+                movimientos: movimientos,
                 novedades: novedades.map(function (n) {
                     return {
                         metodo_pago: n.metodo_pago || '',
@@ -1363,12 +1414,16 @@
 
         // Último estado confirmado por el servidor; sirve para saber qué cambió
         // el otro usuario y no confundirlo con lo que se está escribiendo aquí.
-        ultimoGuardado = datosBorrador().transacciones;
+        const estadoInicialBorrador = datosBorrador();
+        ultimoGuardado = estadoInicialBorrador.transacciones;
         firmaGuardada = firmaTransacciones(ultimoGuardado);
+        firmaMovimientosGuardada = firmaMovimientos(estadoInicialBorrador.movimientos);
 
         function hayCambiosLocales() {
-            return firmaTransacciones(datosBorrador().transacciones) !== firmaGuardada ||
-                firmaNovedades(novedades) !== firmaNovedadesGuardada;
+            const datos = datosBorrador();
+            return firmaTransacciones(datos.transacciones) !== firmaGuardada ||
+                firmaNovedades(novedades) !== firmaNovedadesGuardada ||
+                firmaMovimientos(datos.movimientos) !== firmaMovimientosGuardada;
         }
 
         function avisarCambioRemotoPendiente(texto) {
@@ -1387,6 +1442,7 @@
             // eliminó la última transacción).
             if (
                 !datos.transacciones.length &&
+                !(datos.movimientos && datos.movimientos.length) &&
                 !(datos.novedades && datos.novedades.length) &&
                 !datos.nombre_cajera.trim() &&
                 revisionActual === 0
@@ -1464,6 +1520,7 @@
                     reintentosConflicto = 0;
                     ultimoGuardado = datos.transacciones;
                     firmaGuardada = firmaTransacciones(datos.transacciones);
+                    firmaMovimientosGuardada = firmaMovimientos(datos.movimientos || []);
                     firmaNovedadesGuardada = firmaNovedades(datos.novedades || []);
                     const hora = new Date().toLocaleTimeString('es-VE', {
                         hour: '2-digit',
@@ -1499,16 +1556,8 @@
             if (tasaInput && tasaInput.value.trim()) return true;
             if (observacionesInput && observacionesInput.value.trim()) return true;
 
-            const egresos = document.getElementById('cuerpo-egresos');
-            if (egresos) {
-                for (const fila of egresos.querySelectorAll('tr')) {
-                    for (const campo of fila.querySelectorAll('input, select, textarea')) {
-                        if (campo.type === 'checkbox' || campo.type === 'file') continue;
-                        if (campo.name && campo.name.endsWith('-DELETE')) continue;
-                        if (campo.value && campo.value.trim()) return true;
-                    }
-                }
-            }
+            if (datosBorrador().movimientos.length) return true;
+
             const imagenes = document.getElementById('cuerpo-imagenes');
             if (imagenes) {
                 for (const fila of imagenes.querySelectorAll('.fila-imagen')) {
@@ -1735,6 +1784,50 @@
             firmaGuardada = firmaTransacciones(ultimoGuardado);
         }
 
+        function insertarFilaMovimiento(cuerpo, tipo) {
+            if (!plantillaEgreso || !totalFormsEgresos) return null;
+            const indice = parseInt(totalFormsEgresos.value, 10) || 0;
+            const html = plantillaEgreso.innerHTML
+                .replace(/__prefix__/g, indice)
+                .replace(/__tipo__/g, tipo);
+            cuerpo.insertAdjacentHTML('beforeend', html);
+            totalFormsEgresos.value = indice + 1;
+            return cuerpo.lastElementChild;
+        }
+
+        function aplicarMovimientosRemotos(remotos) {
+            document.querySelectorAll('.cuerpo-egreso').forEach(function (cuerpo) {
+                if (cuerpo.dataset.corregir) return;
+                cuerpo.innerHTML = '';
+            });
+            if (totalFormsEgresos) totalFormsEgresos.value = 0;
+
+            (remotos || []).forEach(function (movimiento) {
+                const tipo = movimiento.tipo || '';
+                const cuerpo = document.querySelector(
+                    '.cuerpo-egreso[data-tipo="' + tipo + '"][data-moneda="BS"]'
+                );
+                if (!cuerpo || cuerpo.dataset.corregir) return;
+                const fila = insertarFilaMovimiento(cuerpo, tipo);
+                if (!fila) return;
+                ['cedula', 'telefono', 'banco', 'monto', 'referencia'].forEach(function (campo) {
+                    const input = fila.querySelector('[name$="-' + campo + '"]');
+                    if (input) input.value = movimiento[campo] || '';
+                });
+            });
+
+            document.querySelectorAll('.cuerpo-egreso').forEach(function (cuerpo) {
+                if (cuerpo.dataset.corregir) return;
+                if (!cuerpo.querySelector('tr.fila-egreso')) {
+                    insertarFilaMovimiento(cuerpo, cuerpo.dataset.tipo);
+                }
+            });
+
+            reindexarEgresos();
+            recalcular();
+            firmaMovimientosGuardada = firmaMovimientos(datosBorrador().movimientos);
+        }
+
         function aplicarCambioRemoto(borrador) {
             const remotas = borrador.transacciones || [];
 
@@ -1753,6 +1846,7 @@
 
             const diff = compararTransacciones(ultimoGuardado, remotas);
             aplicarTransaccionesRemotas(remotas);
+            aplicarMovimientosRemotos(borrador.movimientos || []);
             novedades = Array.isArray(borrador.novedades) ? borrador.novedades.slice() : [];
             renderNovedades();
             firmaNovedadesGuardada = firmaNovedades(novedades);
@@ -2284,7 +2378,7 @@
                     '<div><strong>Total Bs:</strong> ' + resumenBs.textContent + '</div>' +
                     '<div><strong>Total USD:</strong> ' + resumenUsd.textContent + '</div>' +
                     '<div class="text-danger fs-5"><strong>Vuelto que resta:</strong> ' + (resumenVueltos ? resumenVueltos.textContent : '0.00') + '</div>' +
-                    '<div class="text-primary fs-5"><strong>Crédito e Insumos que suman:</strong> ' + (resumenAdicionales ? resumenAdicionales.textContent : '0.00') + '</div>' +
+                    '<div class="text-primary fs-5"><strong>Crédito, Insumos y Abono que suman:</strong> ' + (resumenAdicionales ? resumenAdicionales.textContent : '0.00') + '</div>' +
                     '<hr class="my-2">' +
                     '<div class="fs-4"><strong>Total en Bs:</strong> ' + totalEquivalente.textContent + '</div>' +
                     '</div>',

@@ -88,7 +88,7 @@
                     {% for error in form.tipo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                     <div class="form-text text-info-emphasis d-none" id="nota-abono">
                         <i class="bi bi-info-circle me-1"></i>
-                        El abono es un registro informativo: no se resta de ningún total.
+                        Fuera del cuadre el abono es informativo: no suma ni resta. Dentro del cuadre, sí se suma al total.
                     </div>
                 </div>
                 <div class="col-12 col-md-9">
@@ -241,7 +241,11 @@
                             {% endif %}
                         </td>
                         <td class="pe-3">
-                            {{ egreso.usuario.first_name|default:egreso.usuario.username|default:"—" }}
+                            {% if egreso.usuario %}
+                                {{ egreso.usuario.get_full_name|default:egreso.usuario.first_name|default:egreso.usuario.username }}
+                            {% else %}
+                                —
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

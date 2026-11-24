@@ -180,7 +180,13 @@
             </div>
             <div class="col-12 col-md-6 col-lg-3">
                 <div class="stat-label">Registrado por</div>
-                <div class="fw-bold">{{ cierre.usuario.first_name|default:cierre.usuario.username|default:"—" }}</div>
+                <div class="fw-bold">
+                    {% if cierre.usuario %}
+                        {{ cierre.usuario.get_full_name|default:cierre.usuario.first_name|default:cierre.usuario.username }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
                 <div class="stat-label">Fecha de registro</div>
@@ -326,7 +332,7 @@
                 {% endif %}
                 {% if total_adicionales_bs %}
                 <div class="small text-primary">
-                    Incluye Crédito e Insumos que suman: + Bs {{ total_adicionales_bs|floatformat:2 }}
+                    Incluye Crédito, Insumos y Abono que suman: + Bs {{ total_adicionales_bs|floatformat:2 }}
                 </div>
                 {% endif %}
                 <div class="small text-muted">USD {{ cierre.total_equivalente_usd|floatformat:2 }}</div>
@@ -347,9 +353,9 @@
 {% if egresos %}
 <div class="card cc-card mb-4 border-start border-4 border-warning">
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-warning"></i>Salidas</h5>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-warning"></i>Movimientos de caja</h5>
         <p class="small text-muted mb-0">
-            El vuelto de caja resta del total en Bs; Crédito e Insumos suman. Salida y Abono son informativos.
+            Dinero devuelto a clientes (vuelto de caja) se descuenta del total en Bs. Créditos, insumos y abonos se suman. Las salidas de efectivo solo quedan registradas.
         </p>
     </div>
     <div class="card-body px-3 px-lg-4 pb-3">
@@ -410,7 +416,7 @@
                     {% endif %}
                     {% if total_adicionales_bs or total_adicionales_usd %}
                     <tr class="fw-bold border-top">
-                        <td colspan="5">Total Crédito e Insumos (se suman al total en Bs)</td>
+                        <td colspan="5">Total Crédito, Insumos y Abono (se suman al total en Bs)</td>
                         <td class="text-end monto">
                             Bs {{ total_adicionales_bs|floatformat:2 }} · USD {{ total_adicionales_usd|floatformat:2 }}
                         </td>
@@ -420,7 +426,7 @@
                     {% endif %}
                     {% if total_devoluciones_bs or total_devoluciones_usd %}
                     <tr class="fw-bold border-top">
-                        <td colspan="5">Total informativos (Salida y Abono)</td>
+                        <td colspan="5">Total informativo (Salida de efectivo)</td>
                         <td class="text-end monto">
                             Bs {{ total_devoluciones_bs|floatformat:2 }} · USD {{ total_devoluciones_usd|floatformat:2 }}
                         </td>

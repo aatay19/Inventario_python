@@ -19,10 +19,13 @@ from .forms import (
     ImagenCierreFormSet,
 )
 from .models import (
+    BorradorCierre,
     Caja,
     CierreCaja,
     CierreTransaccion,
     Departamento,
+    EgresoCierre,
+    MONEDA_BS,
     NovedadCierre,
 )
 from .views import (
@@ -676,3 +679,134 @@ class NovedadesGuardadoTests(TestCase):
         )
         self.assertContains(ajuste, "Novedades")
         self.assertContains(ajuste, "REF9")
+
+    def test_detalle_funciona_sin_usuario_registrado(self):
+        cierre = CierreCaja.objects.create(
+            caja=self.caja,
+            fecha=timezone.localdate(),
+            turno="PM",
+            nombre_cajera="Cajera de prueba",
+            usuario=None,
+        )
+        respuesta = self.client.get(
+            reverse("cuadre_caja:cierre_detalle", args=[cierre.id])
+        )
+        self.assertEqual(respuesta.status_code, 200)
+
+
+class MovimientosCajaTests(TestCase):
+    """El abono del cuadre se comporta como un ingreso adicional."""
+
+    def test_abono_suma_al_total_del_cierre(self):
+        usuario = get_user_model().objects.create_superuser(
+            username="abono_test", email="", password="clave123"
+        )
+        departamento = Departamento.objects.create(
+            nombre="Prueba abono", slug="prueba-abono"
+        )
+        caja = Caja.objects.create(
+            departamento=departamento, nombre="Caja abono", numero=98
+        )
+        cierre = CierreCaja.objects.create(
+            caja=caja,
+            fecha=timezone.localdate(),
+            turno="AM",
+            nombre_cajera="Cajera de prueba",
+            tasa=Decimal("1.00"),
+            total_bs=Decimal("100.00"),
+            total_usd=Decimal("0.00"),
+            usuario=usuario,
+        )
+        abono = EgresoCierre.objects.create(
+            cierre=cierre,
+            tipo="ABONO",
+            moneda=MONEDA_BS,
+            monto=Decimal("25.00"),
+        )
+
+        self.assertTrue(abono.es_ingreso_adicional)
+        self.assertFalse(abono.es_vuelto)
+        self.assertEqual(cierre.total_ingresos_adicionales_bs, Decimal("25.00"))
+        self.assertEqual(cierre.total_equivalente_bs, Decimal("125.00"))
+
+    def test_filas_vacias_no_crean_movimientos(self):
+        usuario = get_user_model().objects.create_superuser(
+            username="movimientos_vacios_test", email="", password="clave123"
+        )
+        departamento = Departamento.objects.create(
+            nombre="Prueba vacíos", slug="prueba-vacios"
+        )
+        caja = Caja.objects.create(
+            departamento=departamento, nombre="Caja vacíos", numero=97
+        )
+        cierre = CierreCaja.objects.create(
+            caja=caja,
+            fecha=timezone.localdate(),
+            turno="PM",
+            nombre_cajera="Cajera de prueba",
+            usuario=usuario,
+        )
+        datos = {
+            "egresos-TOTAL_FORMS": "2",
+            "egresos-INITIAL_FORMS": "0",
+            "egresos-MIN_NUM_FORMS": "0",
+            "egresos-MAX_NUM_FORMS": "1000",
+            "egresos-0-tipo": "ABONO",
+            "egresos-0-moneda": MONEDA_BS,
+            "egresos-1-tipo": "CREDITO",
+            "egresos-1-moneda": MONEDA_BS,
+        }
+        formset = EgresoCierreFormSet(datos, instance=cierre)
+        self.assertTrue(formset.is_valid(), formset.errors)
+        formset.save()
+        self.assertEqual(EgresoCierre.objects.filter(cierre=cierre).count(), 0)
+
+    def test_movimientos_del_borrador_se_restauran_al_recargar(self):
+        usuario = get_user_model().objects.create_superuser(
+            username="movimientos_borrador_test", email="", password="clave123"
+        )
+        departamento = Departamento.objects.create(
+            nombre="Prueba borrador movimientos", slug="prueba-borrador-movimientos"
+        )
+        caja = Caja.objects.create(
+            departamento=departamento, nombre="Caja borrador", numero=96
+        )
+        self.client.force_login(usuario)
+        payload = {
+            "nombre_cajera": "Ana",
+            "tasa": "1.00",
+            "observaciones": "",
+            "transacciones": [],
+            "novedades": [],
+            "movimientos": [
+                {
+                    "tipo": "ABONO",
+                    "moneda": MONEDA_BS,
+                    "cedula": "V-123",
+                    "telefono": "04140000000",
+                    "banco": "Banesco",
+                    "monto": "25.00",
+                    "referencia": "12345",
+                }
+            ],
+        }
+        respuesta = self.client.post(
+            reverse("cuadre_caja:borrador_guardar", args=[caja.id, "AM"]),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(respuesta.status_code, 200)
+
+        borrador = BorradorCierre.objects.get(
+            caja=caja, fecha=timezone.localdate(), turno="AM"
+        )
+        self.assertEqual(borrador.movimientos[0]["monto"], "25.00")
+        self.assertEqual(borrador.movimientos[0]["referencia"], "12345")
+
+        recarga = self.client.get(
+            reverse("cuadre_caja:cerrar_caja_turno", args=[caja.id, "AM"])
+        )
+        self.assertEqual(recarga.status_code, 200)
+        contenido = recarga.content.decode()
+        self.assertIn('value="25.00"', contenido)
+        self.assertIn('value="12345"', contenido)
