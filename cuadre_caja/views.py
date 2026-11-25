@@ -60,26 +60,12 @@ from .permissions import (
 BORRADOR_VIGENCIA = timedelta(minutes=45)
 
 # Tipos disponibles en la sección «Movimiento de caja» del cuadre.
+# Crédito e insumos se registran como transacciones en Bs.
 TIPOS_MOVIMIENTO = [
     (
         TipoSalidaChoices.EGRESO,
         "Vuelto de caja",
         "Dinero devuelto a clientes. Se descuenta del total en Bs de la caja.",
-    ),
-    (
-        TipoSalidaChoices.CREDITO,
-        "Crédito",
-        "Ventas o cobros a crédito del día. Se suman al total en Bs de la caja.",
-    ),
-    (
-        TipoSalidaChoices.INSUMOS,
-        "Insumos",
-        "Insumos registrados en el día. Se suman al total en Bs de la caja.",
-    ),
-    (
-        TipoSalidaChoices.ABONO,
-        "Abono",
-        "Pagos recibidos a cuenta de clientes. Se suman al total en Bs de la caja.",
     ),
 ]
 
@@ -1971,10 +1957,32 @@ def _datos_cierre(cierre):
 
 
 @cuadre_caja_required
+@require_POST
+def cierre_cuadre_actualizar(request, cierre_id):
+    """Actualiza el cuadre Sí/No. Solo lo pueden modificar admin y soporte."""
+    if not _es_admin_o_soporte(request.user):
+        messages.error(request, "Solo soporte o administrador pueden modificar el cuadre.")
+        return redirect("cuadre_caja:cierre_detalle", cierre_id=cierre_id)
+
+    cierre = get_object_or_404(CierreCaja, pk=cierre_id)
+    cuadre = (request.POST.get("cuadre") or "").upper()
+    if cuadre not in {"SI", "NO"}:
+        messages.error(request, "Selecciona una opción válida para el cuadre.")
+        return redirect("cuadre_caja:cierre_detalle", cierre_id=cierre_id)
+
+    cierre.cuadre_si_no = cuadre
+    cierre.save(update_fields=["cuadre_si_no"])
+    messages.success(request, "Cuadre actualizado correctamente.")
+    return redirect("cuadre_caja:cierre_detalle", cierre_id=cierre_id)
+
+
+@cuadre_caja_required
 def cierre_detalle(request, cierre_id):
     """Comprobante de un cierre registrado."""
     cierre = _obtener_cierre_completo(cierre_id)
-    return render(request, "cuadre_caja/cierre_detalle.html", _datos_cierre(cierre))
+    contexto = _datos_cierre(cierre)
+    contexto["puede_editar_cuadre"] = _es_admin_o_soporte(request.user)
+    return render(request, "cuadre_caja/cierre_detalle.html", contexto)
 
 
 def _errores_formset_ajuste(formset):
@@ -2675,6 +2683,7 @@ def reportes(request):
 
     conteo = Counter()
     total_bs_por_metodo = defaultdict(lambda: Decimal("0.00"))
+    total_usd_por_metodo = defaultdict(lambda: Decimal("0.00"))
     transacciones_por_cierre = {}
     for transaccion in transacciones:
         transacciones_por_cierre.setdefault(
@@ -2695,25 +2704,35 @@ def reportes(request):
                 monto_bs = registro.monto_bs or Decimal("0.00")
                 monto_usd = registro.monto_usd or Decimal("0.00")
                 total_bs_por_metodo[registro.metodo_pago] += monto_bs
-                if monto_usd and cierre.tasa:
+                total_usd_por_metodo[registro.metodo_pago] += monto_usd
+                if cierre.tasa:
                     total_bs_por_metodo[registro.metodo_pago] += (
                         monto_usd * cierre.tasa
+                    )
+                    total_usd_por_metodo[registro.metodo_pago] += (
+                        monto_bs / cierre.tasa
                     )
             else:
                 monto = registro.monto or Decimal("0.00")
                 if MONEDA_POR_METODO.get(registro.metodo_pago) == MONEDA_USD:
+                    total_usd_por_metodo[registro.metodo_pago] += monto
                     if cierre.tasa:
                         total_bs_por_metodo[registro.metodo_pago] += (
                             monto * cierre.tasa
                         )
                 else:
                     total_bs_por_metodo[registro.metodo_pago] += monto
+                    if cierre.tasa:
+                        total_usd_por_metodo[registro.metodo_pago] += (
+                            monto / cierre.tasa
+                        )
 
     conteo_metodos = [
         {
             "metodo": etiqueta,
             "cantidad": conteo[valor],
             "total_bs": total_bs_por_metodo[valor],
+            "total_usd": total_usd_por_metodo[valor],
         }
         for valor, etiqueta in MetodoPagoChoices.choices
         if conteo.get(valor)

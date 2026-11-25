@@ -58,6 +58,8 @@ class TurnoChoices(models.TextChoices):
 class MetodoPagoChoices(models.TextChoices):
     EFECTIVO_BS = "EFECTIVO_BS", "Efectivo Bs"
     EFECTIVO_USD = "EFECTIVO_USD", "Efectivo USD"
+    CREDITO = "CREDITO", "Crédito"
+    INSUMOS = "INSUMOS", "Insumos"
     PUNTO_VENTA = "PUNTO_VENTA", "Punto de Venta"
     PAGO_MOVIL = "PAGO_MOVIL", "Pago Móvil"
     ZELLE = "ZELLE", "Zelle"
@@ -79,6 +81,8 @@ MONEDA_POR_METODO = {
     MetodoPagoChoices.BIO_PAGO.value: MONEDA_BS,
     MetodoPagoChoices.TRANSFERENCIA.value: MONEDA_BS,
     MetodoPagoChoices.CASHEA.value: MONEDA_USD,
+    MetodoPagoChoices.CREDITO.value: MONEDA_BS,
+    MetodoPagoChoices.INSUMOS.value: MONEDA_BS,
 }
 
 
@@ -125,6 +129,17 @@ class CierreCaja(models.Model):
         verbose_name="Registrado por",
     )
     fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de registro")
+    cuadre_si_no = models.CharField(
+        max_length=2,
+        choices=[("", "Sin definir"), ("SI", "Sí"), ("NO", "No")],
+        blank=True,
+        default="",
+        verbose_name="Cuadre",
+    )
+
+    @property
+    def cuadre_aprobado(self):
+        return self.cuadre_si_no == "SI"
 
     class Meta:
         ordering = ["-fecha", "-fecha_registro"]
@@ -160,12 +175,16 @@ class CierreCaja(models.Model):
 
     @property
     def total_ingresos_adicionales_bs(self):
-        """Créditos e insumos del cierre que suman al total, expresados en Bs."""
+        """Ingresos adicionales históricos que suman al total, expresados en Bs.
+
+        Créditos e insumos ya se registran como transacciones en Bs; este valor
+        solo conserva los movimientos antiguos guardados como EgresoCierre.
+        """
         return self._total_egresos_por_tipo(TIPOS_QUE_SUMAN)
 
     @property
     def total_equivalente_bs(self):
-        """Transacciones + créditos, insumos y abonos − vueltos de caja, en Bs."""
+        """Transacciones (con crédito e insumos) − vueltos de caja, en Bs."""
         if self.tasa:
             bruto = self.total_bs + (self.total_usd * self.tasa)
         else:
@@ -243,6 +262,8 @@ class TipoSalidaChoices(models.TextChoices):
 
 
 # Efecto de cada tipo de egreso del cuadre sobre el total equivalente.
+# TIPOS_QUE_SUMAN solo se usa para cierres antiguos: los nuevos créditos e
+# insumos entran por las transacciones en Bs.
 TIPOS_QUE_RESTAN = frozenset({TipoSalidaChoices.EGRESO})
 TIPOS_QUE_SUMAN = frozenset(
     {
@@ -256,8 +277,10 @@ TIPOS_QUE_SUMAN = frozenset(
 class EgresoCierre(models.Model):
     """Movimiento registrado durante el día dentro de un cuadre de caja.
 
-    El vuelto de caja (Egreso) resta del total general en Bs; Crédito, Insumos
-    y Abono suman. La Salida es informativa y no afecta el total.
+    Solo el vuelto de caja (Egreso) se registra aquí y resta del total en Bs.
+    Crédito e Insumos son ahora métodos de transacción y Abono ya no se ofrece;
+    ambos se conservan únicamente en registros históricos. La Salida es
+    informativa y no afecta el total.
     """
 
     cierre = models.ForeignKey(
@@ -337,7 +360,7 @@ class EgresoCierre(models.Model):
 
     @property
     def es_ingreso_adicional(self):
-        """Indica si el registro suma al total en Bs (Crédito, Insumos o Abono)."""
+        """Indica si suma al total en Bs (Crédito, Insumos o Abono histórico)."""
         return self.tipo in TIPOS_QUE_SUMAN
 
     @property

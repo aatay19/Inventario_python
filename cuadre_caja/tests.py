@@ -695,7 +695,7 @@ class NovedadesGuardadoTests(TestCase):
 
 
 class MovimientosCajaTests(TestCase):
-    """El abono del cuadre se comporta como un ingreso adicional."""
+    """Los abonos históricos del cuadre siguen contando como ingresos adicionales."""
 
     def test_abono_suma_al_total_del_cierre(self):
         usuario = get_user_model().objects.create_superuser(
@@ -751,9 +751,9 @@ class MovimientosCajaTests(TestCase):
             "egresos-INITIAL_FORMS": "0",
             "egresos-MIN_NUM_FORMS": "0",
             "egresos-MAX_NUM_FORMS": "1000",
-            "egresos-0-tipo": "ABONO",
+            "egresos-0-tipo": "EGRESO",
             "egresos-0-moneda": MONEDA_BS,
-            "egresos-1-tipo": "CREDITO",
+            "egresos-1-tipo": "EGRESO",
             "egresos-1-moneda": MONEDA_BS,
         }
         formset = EgresoCierreFormSet(datos, instance=cierre)
@@ -780,7 +780,7 @@ class MovimientosCajaTests(TestCase):
             "novedades": [],
             "movimientos": [
                 {
-                    "tipo": "ABONO",
+                    "tipo": "EGRESO",
                     "moneda": MONEDA_BS,
                     "cedula": "V-123",
                     "telefono": "04140000000",
@@ -810,6 +810,214 @@ class MovimientosCajaTests(TestCase):
         contenido = recarga.content.decode()
         self.assertIn('value="25.00"', contenido)
         self.assertIn('value="12345"', contenido)
+
+
+class CreditoInsumosComoTransaccionTests(TestCase):
+    """Crédito e insumos son transacciones en Bs; el vuelto es el único movimiento."""
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_superuser(
+            username="transacciones_bs_test", email="", password="clave123"
+        )
+        self.departamento = Departamento.objects.create(
+            nombre="Prueba transacciones Bs", slug="prueba-transacciones-bs"
+        )
+        self.caja = Caja.objects.create(
+            departamento=self.departamento, nombre="Caja Bs", numero=95
+        )
+        self.client.force_login(self.usuario)
+
+    def test_credito_e_insumos_aparecen_en_transacciones_y_no_en_movimientos(self):
+        respuesta = self.client.get(
+            reverse("cuadre_caja:cerrar_caja", args=[self.caja.id])
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        metodos = {
+            tarjeta["valor"]: tarjeta for tarjeta in respuesta.context["tarjetas_metodo"]
+        }
+        for valor in ("CREDITO", "INSUMOS"):
+            self.assertEqual(metodos[valor]["moneda"], MONEDA_BS)
+            self.assertFalse(metodos[valor]["corregir"])
+        metodos_bs = [
+            tarjeta["valor"]
+            for tarjeta in respuesta.context["tarjetas_metodo"]
+            if tarjeta["moneda"] == MONEDA_BS
+        ]
+        self.assertEqual(
+            metodos_bs[:4], ["EFECTIVO_BS", "CREDITO", "INSUMOS", "PUNTO_VENTA"]
+        )
+        tipos = [tipo[0] for tipo in respuesta.context["tipos_movimiento"]]
+        self.assertEqual(tipos, ["EGRESO"])
+        self.assertContains(respuesta, 'id="cuerpo-CREDITO"')
+        self.assertContains(respuesta, 'id="cuerpo-INSUMOS"')
+        self.assertNotContains(respuesta, 'id="suma-egreso-BS-CREDITO"')
+
+    def test_transaccion_de_credito_suma_al_total_del_cierre(self):
+        datos = {
+            "turno": "AM",
+            "nombre_cajera": "Cajera de prueba",
+            "tasa": "1.00",
+            "observaciones": "",
+            "novedades_json": "[]",
+        }
+        datos.update(dict(_gestion(1)))
+        datos.update(
+            {
+                "transacciones-0-metodo_pago": "CREDITO",
+                "transacciones-0-banco": "Banesco",
+                "transacciones-0-monto": "100.00",
+                "transacciones-0-ref": "",
+                "transacciones-0-notas": "",
+                "egresos-TOTAL_FORMS": "0",
+                "egresos-INITIAL_FORMS": "0",
+                "egresos-MIN_NUM_FORMS": "0",
+                "egresos-MAX_NUM_FORMS": "1000",
+                "imagenes-TOTAL_FORMS": "0",
+                "imagenes-INITIAL_FORMS": "0",
+                "imagenes-MIN_NUM_FORMS": "0",
+                "imagenes-MAX_NUM_FORMS": "1000",
+            }
+        )
+
+        respuesta = self.client.post(
+            reverse("cuadre_caja:cerrar_caja", args=[self.caja.id]), datos
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        cierre = CierreCaja.objects.get(caja=self.caja, turno="AM")
+        self.assertEqual(cierre.total_bs, Decimal("100.00"))
+        self.assertEqual(cierre.total_equivalente_bs, Decimal("100.00"))
+
+
+class CuadreSiNoTests(TestCase):
+    """El cuadre Sí/No solo lo edita soporte/admin y lo ve supervisora."""
+
+    def setUp(self):
+        self.departamento = Departamento.objects.create(
+            nombre="Prueba cuadre", slug="prueba-cuadre"
+        )
+        self.caja = Caja.objects.create(
+            departamento=self.departamento, nombre="Caja cuadre", numero=96
+        )
+        self.cierre = CierreCaja.objects.create(
+            caja=self.caja,
+            fecha=timezone.localdate(),
+            turno="AM",
+            nombre_cajera="Cajera prueba",
+            tasa=Decimal("1.00"),
+        )
+        self.url_detalle = reverse("cuadre_caja:cierre_detalle", args=[self.cierre.id])
+        self.url_actualizar = reverse(
+            "cuadre_caja:cierre_cuadre_actualizar", args=[self.cierre.id]
+        )
+
+    def _login(self, rol, superuser=False):
+        usuario = get_user_model().objects.create_user(
+            username=f"cuadre_{rol}", password="clave123"
+        )
+        perfil = usuario.perfilusuario
+        perfil.rol = rol
+        perfil.save()
+        if superuser:
+            usuario.is_superuser = True
+            usuario.save()
+        self.client.force_login(usuario)
+
+    def test_no_muestra_firmas_y_muestra_cuadre_para_supervisora(self):
+        self._login("supervisor_cuadre_caja")
+        respuesta = self.client.get(self.url_detalle)
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertNotContains(respuesta, "Firma de la cajera")
+        self.assertNotContains(respuesta, "Firma de supervisión")
+        self.assertContains(respuesta, "Cuadre: Sin definir")
+
+    def test_supervisora_no_puede_modificar_cuadre(self):
+        self._login("supervisor_cuadre_caja")
+        respuesta = self.client.post(self.url_actualizar, {"cuadre": "SI"})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.cierre.refresh_from_db()
+        self.assertEqual(self.cierre.cuadre_si_no, "")
+
+    def test_admin_puede_modificar_cuadre(self):
+        self._login("admin", superuser=True)
+        respuesta = self.client.post(self.url_actualizar, {"cuadre": "SI"})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.cierre.refresh_from_db()
+        self.assertEqual(self.cierre.cuadre_si_no, "SI")
+        respuesta = self.client.get(self.url_detalle)
+        self.assertContains(respuesta, "CUADRE: SI")
+
+    def test_soporte_puede_modificar_cuadre(self):
+        self._login("soporte")
+        respuesta = self.client.post(self.url_actualizar, {"cuadre": "NO"})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.cierre.refresh_from_db()
+        self.assertEqual(self.cierre.cuadre_si_no, "NO")
+
+    def test_historial_muestra_cuadre_de_caja_segun_si_no(self):
+        self._login("supervisor_cuadre_caja")
+        self.cierre.cuadre_si_no = "SI"
+        self.cierre.save(update_fields=["cuadre_si_no"])
+
+        respuesta = self.client.get(reverse("cuadre_caja:historial"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Cuadre de caja")
+        self.assertContains(respuesta, '<span class="badge bg-success">SÍ</span>')
+
+        self.cierre.cuadre_si_no = "NO"
+        self.cierre.save(update_fields=["cuadre_si_no"])
+        respuesta = self.client.get(reverse("cuadre_caja:historial"))
+        self.assertContains(respuesta, '<span class="badge bg-danger">NO</span>')
+
+
+class ConteoMetodosReporteTests(TestCase):
+    """El conteo por método del reporte muestra los totales en dólares."""
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user(
+            username="reporte_conteo_test", password="clave123"
+        )
+        self.usuario.perfilusuario.rol = "supervisor_cuadre_caja"
+        self.usuario.perfilusuario.save()
+        departamento = Departamento.objects.create(
+            nombre="Prueba reporte", slug="prueba-reporte"
+        )
+        caja = Caja.objects.create(
+            departamento=departamento, nombre="Caja reporte", numero=94
+        )
+        self.client.force_login(self.usuario)
+        cierre = CierreCaja.objects.create(
+            caja=caja,
+            fecha=timezone.localdate(),
+            turno="AM",
+            nombre_cajera="Cajera prueba",
+            tasa=Decimal("40.00"),
+        )
+        CierreTransaccion.objects.create(
+            cierre=cierre, metodo_pago="EFECTIVO_BS", monto=Decimal("200.00")
+        )
+        CierreTransaccion.objects.create(
+            cierre=cierre, metodo_pago="EFECTIVO_USD", monto=Decimal("10.00")
+        )
+
+    def test_conteo_por_metodo_usa_dolares(self):
+        respuesta = self.client.get(reverse("cuadre_caja:reportes"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        metodos = {item["metodo"]: item for item in respuesta.context["conteo_metodos"]}
+        self.assertEqual(metodos["Efectivo Bs"]["total_usd"], Decimal("5.00"))
+        self.assertEqual(metodos["Efectivo USD"]["total_usd"], Decimal("10.00"))
+        self.assertEqual(metodos["Efectivo Bs"]["total_bs"], Decimal("200.00"))
+        self.assertEqual(metodos["Efectivo USD"]["total_bs"], Decimal("400.00"))
+        self.assertContains(respuesta, "Bs 200,00")
+        self.assertContains(respuesta, "$ 5,00")
+        self.assertContains(respuesta, "$ 10,00")
 
 
 class TotalesPorRolTests(TestCase):

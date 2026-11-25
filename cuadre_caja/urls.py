@@ -50,6 +50,11 @@ urlpatterns = [
     ),
     path("cierre/<int:cierre_id>/", views.cierre_detalle, name="cierre_detalle"),
     path(
+        "cierre/<int:cierre_id>/cuadre/",
+        views.cierre_cuadre_actualizar,
+        name="cierre_cuadre_actualizar",
+    ),
+    path(
         "cierre/<int:cierre_id>/ajustar/",
         views.cierre_ajustar,
         name="cierre_ajustar",

@@ -355,7 +355,7 @@
     <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
         <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-warning"></i>Movimientos de caja</h5>
         <p class="small text-muted mb-0">
-            Dinero devuelto a clientes (vuelto de caja) se descuenta del total en Bs. Créditos, insumos y abonos se suman. Las salidas de efectivo solo quedan registradas.
+            Solo se registran los vueltos devueltos a clientes, que se descuentan del total en Bs. Créditos e insumos se registran como transacciones en Bs.
         </p>
     </div>
     <div class="card-body px-3 px-lg-4 pb-3">
@@ -507,12 +507,38 @@
 </div>
 {% endif %}
 
+{% if cierre.cuadre_si_no == "SI" %}
+<div class="alert alert-success py-2 mt-5 no-print">
+    <i class="bi bi-check-circle me-1"></i> CUADRE: SI
+</div>
+{% elif cierre.cuadre_si_no == "NO" %}
+<div class="alert alert-danger py-2 mt-5 no-print">
+    <i class="bi bi-x-circle me-1"></i> CUADRE: NO
+</div>
+{% endif %}
+
 <div class="row g-4 mt-5 firmas-cierre">
-    <div class="col-6">
-        <div class="border-top pt-2 text-center small text-muted">Firma de la cajera</div>
-    </div>
-    <div class="col-6">
-        <div class="border-top pt-2 text-center small text-muted">Firma de supervisión</div>
+    <div class="col-12">
+        {% if puede_editar_cuadre %}
+        <form method="post" action="{% url 'cuadre_caja:cierre_cuadre_actualizar' cierre.id %}"
+              class="d-flex flex-wrap align-items-center justify-content-center gap-2 no-print">
+            {% csrf_token %}
+            <label class="fw-bold mb-0" for="cuadre-si-no">Cuadre:</label>
+            <select class="form-select w-auto" id="cuadre-si-no" name="cuadre">
+                <option value="" {% if not cierre.cuadre_si_no %}selected{% endif %}>Sin definir</option>
+                <option value="SI" {% if cierre.cuadre_si_no == "SI" %}selected{% endif %}>Sí</option>
+                <option value="NO" {% if cierre.cuadre_si_no == "NO" %}selected{% endif %}>No</option>
+            </select>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check2 me-1"></i> Guardar
+            </button>
+        </form>
+        {% else %}
+        <div class="text-center fw-bold">
+            Cuadre: {{ cierre.get_cuadre_si_no_display }}
+            {% if not cierre.cuadre_si_no %}<span class="text-muted fw-normal">(sin definir)</span>{% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 

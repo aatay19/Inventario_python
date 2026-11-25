@@ -92,26 +92,6 @@
         opacity: 0.55;
     }
 
-    /* Resumen: caja destacada de créditos e insumos (suman al total en Bs) */
-    .resumen-adicionales {
-        background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
-        border: 1.5px solid #3b82f6;
-        border-left: 5px solid #1d4ed8;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
-        padding: 0.5rem 0.75rem;
-    }
-
-    .resumen-adicionales .adicionales-numero {
-        font-size: 1.05rem;
-        font-weight: 700;
-        line-height: 1.4;
-    }
-
-    .resumen-adicionales.adicionales-vacio {
-        opacity: 0.55;
-    }
-
     /* Resumen: caja destacada del total final en Bs (ya con vueltos restados) */
     .resumen-total-bs {
         background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 100%);
@@ -559,11 +539,11 @@
                     <div>
                         <h5 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2 text-secondary"></i>Movimientos de caja</h5>
                         <p class="small text-muted mb-0 mt-1">
-                            Registros del día en bolívares. El vuelto devuelto a clientes se descuenta;
-                            los créditos, insumos y abonos se suman. La salida solo queda registrada.
+                            Registros del día en bolívares. El vuelto devuelto a clientes se descuenta
+                            del total de la caja.
                         </p>
                     </div>
-                    <span class="badge bg-warning-subtle text-warning-emphasis">Vuelto resta · Crédito, Insumos y Abono suman</span>
+                    <span class="badge bg-warning-subtle text-warning-emphasis">Solo vuelto de caja</span>
                 </div>
                 <div class="card-body px-3 px-lg-4 pb-3">
                     {% if egresos_formset.non_form_errors %}
@@ -685,7 +665,7 @@
                             <div class="card cc-card h-100">
                                 <div class="card-header bg-white border-0 pt-3 px-3 px-lg-4">
                                     <h5 class="mb-0 fw-bold"><i class="bi bi-currency-exchange me-2 text-secondary"></i>Montos de los movimientos (Bs)</h5>
-                                    <p class="small text-muted mb-0 mt-1">Se completan automáticamente con los registros anteriores. El vuelto se descuenta; crédito, insumos y abono se suman.</p>
+                                    <p class="small text-muted mb-0 mt-1">Se completan automáticamente con los registros anteriores. El vuelto se descuenta del total; crédito e insumos se registran en las transacciones en Bs.</p>
                                 </div>
                                 <div class="card-body px-3 px-lg-4 pb-3">
                                     <table class="table align-middle mb-0">
@@ -850,14 +830,6 @@
                         <div class="vueltos-numero text-danger text-center monto my-1" id="resumen-vueltos">- 0.00</div>
                         <div class="small text-muted text-center" id="nota-vueltos">Sin vueltos registrados todavía</div>
                     </div>
-                    <div class="resumen-adicionales mb-2" id="caja-adicionales">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
-                            <span class="fw-bold"><i class="bi bi-plus-circle me-1"></i>Crédito, Insumos y Abono</span>
-                            <span class="badge bg-primary-subtle text-primary-emphasis">Suman al total en Bs</span>
-                        </div>
-                        <div class="adicionales-numero text-primary text-center monto my-1" id="resumen-adicionales">+ 0.00</div>
-                        <div class="small text-muted text-center" id="nota-adicionales">Sin créditos, insumos ni abonos registrados todavía</div>
-                    </div>
                     <div class="resumen-total-bs mb-3">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
                             <span class="fw-bold"><i class="bi bi-calculator me-1"></i>Total en Bs</span>
@@ -958,9 +930,6 @@
         const resumenVueltos = document.getElementById('resumen-vueltos');
         const cajaVueltos = document.getElementById('caja-vueltos');
         const notaVueltos = document.getElementById('nota-vueltos');
-        const resumenAdicionales = document.getElementById('resumen-adicionales');
-        const cajaAdicionales = document.getElementById('caja-adicionales');
-        const notaAdicionales = document.getElementById('nota-adicionales');
         const calculoEquivalente = document.getElementById('calculo-equivalente');
         const totalEquivalente = document.getElementById('total-equivalente');
 
@@ -969,16 +938,14 @@
             return isNaN(n) ? 0 : n;
         }
 
-        // Movimientos registrados en la sección del cuadre (todos en Bs).
-        // Vuelto resta; Crédito, Insumos y Abono suman al total de la caja.
-        const TIPOS_QUE_RESTAN = new Set(['EGRESO']);
-        const TIPOS_QUE_SUMAN = new Set(['CREDITO', 'INSUMOS', 'ABONO']);
+        // Único movimiento de caja: el vuelto, que resta del total en Bs.
+        const TIPO_VUELTO = 'EGRESO';
 
         // Solo supervisora/cuadre o soporte pueden editar notas de Pago Móvil.
         const puedeEditarNotasPagoMovil = {{ puede_editar_notas_pago_movil|yesno:"true,false" }};
 
         function calcularMovimientos() {
-            const resultado = { restan: 0, suman: 0 };
+            const resultado = { restan: 0 };
             const porTipo = {};
 
             document.querySelectorAll('.cuerpo-egreso tr.fila-egreso').forEach(function (fila) {
@@ -993,10 +960,8 @@
                 if (!porTipo[tipo]) porTipo[tipo] = 0;
                 porTipo[tipo] += monto;
 
-                if (TIPOS_QUE_RESTAN.has(tipo)) {
+                if (tipo === TIPO_VUELTO) {
                     resultado.restan += monto;
-                } else if (TIPOS_QUE_SUMAN.has(tipo)) {
-                    resultado.suman += monto;
                 }
             });
 
@@ -1034,7 +999,7 @@
             const movimientos = calcularMovimientos();
             actualizarTotalesMovimiento(movimientos);
             const bruto = bs + (usd * tasa);
-            const equivalente = bruto - movimientos.restan + movimientos.suman;
+            const equivalente = bruto - movimientos.restan;
 
             totalBs.textContent = bs.toFixed(2);
             totalUsd.textContent = usd.toFixed(2);
@@ -1051,22 +1016,9 @@
                     ? 'Ya descontados del total en Bs'
                     : 'Sin vueltos registrados todavía';
             }
-            if (resumenAdicionales) {
-                resumenAdicionales.textContent = '+ ' + movimientos.suman.toFixed(2);
-            }
-            if (cajaAdicionales) {
-                cajaAdicionales.classList.toggle('adicionales-vacio', movimientos.suman <= 0);
-            }
-            if (notaAdicionales) {
-                notaAdicionales.textContent = movimientos.suman > 0
-                    ? 'Ya sumados al total en Bs'
-                    : 'Sin créditos, insumos ni abonos registrados todavía';
-            }
             if (calculoEquivalente) {
-                calculoEquivalente.textContent = (movimientos.restan || movimientos.suman)
-                    ? 'Bs ' + bruto.toFixed(2)
-                        + (movimientos.restan > 0 ? ' - ' + movimientos.restan.toFixed(2) + ' vuelto' : '')
-                        + (movimientos.suman > 0 ? ' + ' + movimientos.suman.toFixed(2) + ' crédito/insumos/abono' : '')
+                calculoEquivalente.textContent = movimientos.restan > 0
+                    ? 'Bs ' + bruto.toFixed(2) + ' - ' + movimientos.restan.toFixed(2) + ' vuelto'
                     : 'Sin movimientos que afecten el total';
             }
             totalEquivalente.textContent = equivalente.toFixed(2);
@@ -1079,6 +1031,8 @@
             PAGO_MOVIL: 'bs',
             BIO_PAGO: 'bs',
             TRANSFERENCIA: 'bs',
+            CREDITO: 'bs',
+            INSUMOS: 'bs',
             CASHEA: 'usd',
             EFECTIVO_USD: 'usd',
             ZELLE: 'usd',
@@ -1158,6 +1112,8 @@
             PAGO_MOVIL: 'Bs',
             BIO_PAGO: 'Bs',
             TRANSFERENCIA: 'Bs',
+            CREDITO: 'Bs',
+            INSUMOS: 'Bs',
             CASHEA: 'USD',
             EFECTIVO_USD: 'USD',
             ZELLE: 'USD'
@@ -2378,7 +2334,6 @@
                     '<div><strong>Total Bs:</strong> ' + resumenBs.textContent + '</div>' +
                     '<div><strong>Total USD:</strong> ' + resumenUsd.textContent + '</div>' +
                     '<div class="text-danger fs-5"><strong>Vuelto que resta:</strong> ' + (resumenVueltos ? resumenVueltos.textContent : '0.00') + '</div>' +
-                    '<div class="text-primary fs-5"><strong>Crédito, Insumos y Abono que suman:</strong> ' + (resumenAdicionales ? resumenAdicionales.textContent : '0.00') + '</div>' +
                     '<hr class="my-2">' +
                     '<div class="fs-4"><strong>Total en Bs:</strong> ' + totalEquivalente.textContent + '</div>' +
                     '</div>',

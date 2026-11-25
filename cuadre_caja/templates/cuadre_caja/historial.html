@@ -141,6 +141,7 @@
                                 <th class="ps-3">Caja</th>
                                 <th>Turno</th>
                                 <th>Cajera</th>
+                                <th class="text-center">Cuadre de caja</th>
                                 <th class="text-end">Total Bs</th>
                                 <th class="text-end">Total USD</th>
                                 <th class="text-end">Total en Bs</th>
@@ -161,6 +162,15 @@
                                 </td>
                                 <td><span class="badge bg-light text-secondary border">{{ cierre.get_turno_display }}</span></td>
                                 <td>{{ cierre.nombre_cajera }}</td>
+                                <td class="text-center">
+                                    {% if cierre.cuadre_si_no == "SI" %}
+                                    <span class="badge bg-success">SÍ</span>
+                                    {% elif cierre.cuadre_si_no == "NO" %}
+                                    <span class="badge bg-danger">NO</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Sin definir</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end monto">{{ cierre.total_bs|floatformat:2 }}</td>
                                 <td class="text-end monto">{{ cierre.total_usd|floatformat:2 }}</td>
                                 <td class="text-end monto">{{ cierre.total_equivalente_bs|floatformat:2 }}</td>

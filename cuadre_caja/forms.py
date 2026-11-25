@@ -281,7 +281,7 @@ class CierreCajaForm(forms.ModelForm):
 
 
 class EgresoCierreForm(forms.ModelForm):
-    """Fila de movimiento dentro del cierre (vuelto, crédito, insumos o abono)."""
+    """Fila de movimiento dentro del cierre: solo vuelto de caja."""
 
     tipo = forms.ChoiceField(
         label="Tipo",
@@ -289,9 +289,6 @@ class EgresoCierreForm(forms.ModelForm):
         choices=[
             ("", "Tipo"),
             (TipoSalidaChoices.EGRESO, "Vuelto de caja"),
-            (TipoSalidaChoices.CREDITO, "Crédito"),
-            (TipoSalidaChoices.INSUMOS, "Insumos"),
-            (TipoSalidaChoices.ABONO, "Abono"),
         ],
         widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
