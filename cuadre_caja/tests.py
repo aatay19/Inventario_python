@@ -810,3 +810,136 @@ class MovimientosCajaTests(TestCase):
         contenido = recarga.content.decode()
         self.assertIn('value="25.00"', contenido)
         self.assertIn('value="12345"', contenido)
+
+
+class TotalesPorRolTests(TestCase):
+    """Sin totales en el resumen de cajas; visibles en el formulario de cuadre."""
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user(
+            username="cuadre_totales_test", password="clave123"
+        )
+        self.usuario.perfilusuario.rol = "cuadre_caja"
+        self.usuario.perfilusuario.save()
+        departamento = Departamento.objects.create(
+            nombre="Prueba totales", slug="prueba-totales"
+        )
+        self.caja = Caja.objects.create(
+            departamento=departamento, nombre="Caja totales", numero=97
+        )
+        self.client.force_login(self.usuario)
+
+    def test_rol_cuadre_caja_ve_los_totales_del_formulario(self):
+        respuesta = self.client.get(
+            reverse("cuadre_caja:cerrar_caja", args=[self.caja.id])
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'id="total-bs"')
+        self.assertContains(respuesta, 'id="total-usd"')
+        self.assertContains(respuesta, 'id="total-equivalente"')
+        self.assertContains(respuesta, "Resumen del cierre")
+
+    def test_supervisor_tambien_ve_los_totales_del_formulario(self):
+        self.usuario.perfilusuario.rol = "supervisor_cuadre_caja"
+        self.usuario.perfilusuario.save()
+
+        respuesta = self.client.get(
+            reverse("cuadre_caja:cerrar_caja", args=[self.caja.id])
+        )
+
+        self.assertContains(respuesta, 'id="total-equivalente"')
+
+    def test_cierre_se_guarda_con_el_formulario_visible(self):
+        datos = {
+            "turno": "AM",
+            "nombre_cajera": "Cajera de prueba",
+            "tasa": "1.00",
+            "observaciones": "",
+            "novedades_json": "[]",
+        }
+        datos.update(dict(_gestion(0)))
+        datos.update(
+            {
+                "egresos-TOTAL_FORMS": "0",
+                "egresos-INITIAL_FORMS": "0",
+                "egresos-MIN_NUM_FORMS": "0",
+                "egresos-MAX_NUM_FORMS": "1000",
+                "imagenes-TOTAL_FORMS": "0",
+                "imagenes-INITIAL_FORMS": "0",
+                "imagenes-MIN_NUM_FORMS": "0",
+                "imagenes-MAX_NUM_FORMS": "1000",
+            }
+        )
+
+        respuesta = self.client.post(
+            reverse("cuadre_caja:cerrar_caja", args=[self.caja.id]), datos
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        cierre = CierreCaja.objects.get(caja=self.caja, turno="AM")
+        self.assertEqual(cierre.usuario, self.usuario)
+
+    def _crear_cierre_con_montos(self):
+        return CierreCaja.objects.create(
+            caja=self.caja,
+            fecha=timezone.localdate(),
+            turno="AM",
+            nombre_cajera="Cajera de prueba",
+            usuario=self.usuario,
+            tasa=Decimal("100.00"),
+            total_bs=Decimal("123.45"),
+            total_usd=Decimal("9.50"),
+        )
+
+    def test_resumen_de_cajas_oculta_los_totales_al_rol_cuadre_caja(self):
+        self._crear_cierre_con_montos()
+
+        respuesta = self.client.get(
+            reverse(
+                "cuadre_caja:departamento_detalle",
+                args=[self.caja.departamento.slug],
+            )
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(respuesta.context["ocultar_totales"])
+        self.assertNotContains(respuesta, '<th class="text-end">Total Bs</th>')
+        self.assertNotContains(respuesta, 'data-campo="bs"')
+        self.assertNotContains(respuesta, "123.45")
+        self.assertContains(respuesta, "Cerrado")
+
+    def test_estado_json_oculta_los_totales_al_rol_cuadre_caja(self):
+        self._crear_cierre_con_montos()
+
+        respuesta = self.client.get(
+            reverse(
+                "cuadre_caja:departamento_estado",
+                args=[self.caja.departamento.slug],
+            )
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        caja = respuesta.json()["cajas"][str(self.caja.id)]
+        self.assertTrue(caja["turnos"]["AM"]["registrado"])
+        self.assertEqual(caja["turnos"]["AM"]["total_bs"], "")
+        self.assertEqual(caja["turnos"]["AM"]["total_usd"], "")
+        self.assertEqual(caja["total_bs"], "")
+        self.assertEqual(caja["total_usd"], "")
+
+    def test_resumen_de_cajas_muestra_totales_al_supervisor(self):
+        self._crear_cierre_con_montos()
+        self.usuario.perfilusuario.rol = "supervisor_cuadre_caja"
+        self.usuario.perfilusuario.save()
+
+        respuesta = self.client.get(
+            reverse(
+                "cuadre_caja:departamento_detalle",
+                args=[self.caja.departamento.slug],
+            )
+        )
+
+        self.assertFalse(respuesta.context["ocultar_totales"])
+        self.assertContains(respuesta, '<th class="text-end">Total Bs</th>')
+        self.assertContains(respuesta, 'data-campo="bs"')
+        self.assertEqual(respuesta.context["cajas"][0]["total_bs"], Decimal("123.45"))

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -37,6 +38,41 @@ def _limpiar_imagenes_reemplazadas(evento, nombres_anteriores):
         if not archivo or archivo.name != nombre:
             if default_storage.exists(nombre):
                 default_storage.delete(nombre)
+
+
+def _decimal_valor(valor):
+    """Convierte valores del carrito a Decimal sin propagar errores de formato."""
+    try:
+        return Decimal(str(valor))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal('0')
+
+
+def _datos_item_detalle(item):
+    """Normaliza un ítem del carrito a precio unitario, cantidad y subtotal.
+
+    El carrito envía ``precio`` como total del ítem y, cuando está disponible,
+    ``precio_unitario_original`` como precio unitario. Al editar un evento se
+    recalcula el unitario desde el subtotal guardado para no duplicar montos.
+    """
+    datos = item if isinstance(item, dict) else {}
+    cantidad = int(datos.get('cantidad') or 1)
+    if cantidad < 1:
+        cantidad = 1
+
+    precio_total = _decimal_valor(datos.get('precio'))
+    precio_unitario = _decimal_valor(datos.get('precio_unitario_original'))
+    if precio_unitario <= 0:
+        precio_unitario = precio_total / cantidad
+
+    return {
+        'tipo_item': datos.get('tipo', ''),
+        'item_id': int(datos.get('id') or 0),
+        'nombre_item': datos.get('nombre', ''),
+        'cantidad': cantidad,
+        'precio_unitario': precio_unitario,
+        'subtotal': precio_unitario * cantidad,
+    }
 
 
 def actualizar_estados_eventos():
@@ -133,13 +169,7 @@ def crear_evento(request):
                         items = json.loads(items_json)
                         for item in items:
                             detalle = DetalleEvento.objects.create(
-                                evento=evento,
-                                tipo_item=item['tipo'],
-                                item_id=item['id'],
-                                nombre_item=item['nombre'],
-                                cantidad=item['cantidad'],
-                                precio_unitario=item['precio'],
-                                subtotal=item['precio']
+                                evento=evento, **_datos_item_detalle(item)
                             )
                             total_calculado += detalle.subtotal
                     
@@ -187,13 +217,7 @@ def editar_evento(request, pk):
                         items = json.loads(items_json)
                         for item in items:
                             detalle = DetalleEvento.objects.create(
-                                evento=evento,
-                                tipo_item=item['tipo'],
-                                item_id=item['id'],
-                                nombre_item=item['nombre'],
-                                cantidad=item['cantidad'],
-                                precio_unitario=item['precio'],
-                                subtotal=item['precio']
+                                evento=evento, **_datos_item_detalle(item)
                             )
                             total_calculado += detalle.subtotal
                     
@@ -215,9 +239,11 @@ def editar_evento(request, pk):
     
     detalles_actuales = []
     for d in evento.detalles.all():
+        precio_unitario = float(d.subtotal) / d.cantidad if d.cantidad else float(d.precio_unitario)
         detalles_actuales.append({
             'tipo': d.tipo_item, 'id': d.item_id, 'nombre': d.nombre_item,
-            'cantidad': d.cantidad, 'precio': float(d.precio_unitario)
+            'cantidad': d.cantidad, 'precio': float(d.subtotal),
+            'precio_unitario_original': precio_unitario,
         })
 
     return render(request, 'parque/eventos/form.html', {

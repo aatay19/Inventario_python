@@ -417,12 +417,12 @@
         let existing = cart.find(i => i.tipo === tipo && i.id === id);
 
         if (existing) {
-            existing.cantidad += cantidad;
-            if (tipo === 'BRAZALETE') {
-                existing.precio += (inputVal * cantidad);
-            } else {
-                existing.precio += inputVal; 
-            }
+            const unitarioActual = existing.precio_unitario_original || (existing.precio / existing.cantidad);
+            const unitarioNuevo = tipo === 'BRAZALETE' ? inputVal : inputVal / cantidad;
+            const cantidadFinal = existing.cantidad + cantidad;
+            existing.precio = (unitarioActual * existing.cantidad) + (unitarioNuevo * cantidad);
+            existing.cantidad = cantidadFinal;
+            existing.precio_unitario_original = existing.precio / cantidadFinal;
         } else {
             cart.push({
                 tipo: tipo,
@@ -460,12 +460,17 @@
     }
 
     function changeQuantity(index, delta) {
-        cart[index].cantidad += delta;
-        if (cart[index].cantidad <= 0) {
+        const item = cart[index];
+        const cantidadFinal = item.cantidad + delta;
+        if (cantidadFinal <= 0) {
             removeItem(index);
-        } else {
-            renderCart();
+            return;
         }
+        const unitario = item.precio_unitario_original || (item.precio / item.cantidad);
+        item.cantidad = cantidadFinal;
+        item.precio = unitario * cantidadFinal;
+        item.precio_unitario_original = unitario;
+        renderCart();
     }
 
     function renderCart() {

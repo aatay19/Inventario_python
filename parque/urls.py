@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.calendario, name='inicio'),
     path('calendario/', views.calendario, name='calendario'),
     path('proximos-eventos/', views.proximo_eventos, name='proximo_eventos'),
+    path('estadisticas/', views.estadisticas_parque, name='estadisticas_parque'),
     # path('dashboard/', views.dashboard, name='dashboard'),
     
     # Eventos CRUD

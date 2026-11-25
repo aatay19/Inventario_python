@@ -1006,6 +1006,11 @@ def _rol_usuario(user):
     return getattr(perfil, "rol", "") or ""
 
 
+def _ocultar_totales_para(user):
+    """Solo el rol Cuadre de Caja (sin ser admin ni superuser) no ve totales."""
+    return not getattr(user, "is_superuser", False) and _rol_usuario(user).lower() == "cuadre_caja"
+
+
 def _serializar_transacciones(borrador):
     """Transacciones del borrador tal como las consume el formulario."""
     return [
@@ -1160,6 +1165,7 @@ def departamento_detalle(request, slug):
             "hoy": hoy,
             "total_cajas": len(datos),
             "cierres_hoy": sum(len(item["cierres_hoy"]) for item in datos),
+            "ocultar_totales": _ocultar_totales_para(request.user),
         },
     )
 
@@ -1172,6 +1178,7 @@ def departamento_estado(request, slug):
     hoy = timezone.localdate()
     cajas = list(departamento.cajas.filter(activo=True).order_by("numero"))
     es_supervisor = es_supervisor_o_superior(request.user)
+    ocultar_totales = _ocultar_totales_para(request.user)
 
     cierres_por_caja = {}
     for cierre in CierreCaja.objects.filter(caja__in=cajas, fecha=hoy).prefetch_related(
@@ -1203,9 +1210,12 @@ def departamento_estado(request, slug):
                 turnos[turno] = {
                     "registrado": True,
                     "cajera": cierre.nombre_cajera,
-                    "total_bs": f"{cierre.total_bs:.2f}",
-                    "total_usd": f"{cierre.total_usd:.2f}",
-                    "total_equivalente_bs": f"{cierre.total_equivalente_bs:.2f}" if es_supervisor else "",
+                    "total_bs": "" if ocultar_totales else f"{cierre.total_bs:.2f}",
+                    "total_usd": "" if ocultar_totales else f"{cierre.total_usd:.2f}",
+                    "total_equivalente_bs": (
+                        "" if ocultar_totales or not es_supervisor
+                        else f"{cierre.total_equivalente_bs:.2f}"
+                    ),
                 }
             else:
                 turnos[turno] = {"registrado": False}
@@ -1214,15 +1224,28 @@ def departamento_estado(request, slug):
         borradores_caja = {}
         for turno in (TurnoChoices.AM, TurnoChoices.PM):
             res_borrador = _resumen_borrador(borradores_hoy.get((caja.id, turno)))
-            if res_borrador and not es_supervisor:
-                res_borrador["total_equivalente_bs"] = ""
+            if res_borrador:
+                if ocultar_totales:
+                    res_borrador["total_bs"] = ""
+                    res_borrador["total_usd"] = ""
+                if not es_supervisor:
+                    res_borrador["total_equivalente_bs"] = ""
             borradores_caja[turno] = res_borrador
 
         datos[str(caja.id)] = {
             "turnos": turnos,
-            "total_bs": f"{sum((c.total_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}" if es_supervisor else "",
-            "total_usd": f"{sum((c.total_usd for c in cierres_hoy.values()), Decimal('0.00')):.2f}" if es_supervisor else "",
-            "total_equivalente_bs": f"{sum((c.total_equivalente_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}" if es_supervisor else "",
+            "total_bs": (
+                f"{sum((c.total_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}"
+                if es_supervisor and not ocultar_totales else ""
+            ),
+            "total_usd": (
+                f"{sum((c.total_usd for c in cierres_hoy.values()), Decimal('0.00')):.2f}"
+                if es_supervisor and not ocultar_totales else ""
+            ),
+            "total_equivalente_bs": (
+                f"{sum((c.total_equivalente_bs for c in cierres_hoy.values()), Decimal('0.00')):.2f}"
+                if es_supervisor and not ocultar_totales else ""
+            ),
             "borradores": borradores_caja,
         }
 

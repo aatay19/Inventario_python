@@ -112,10 +112,12 @@
                                 <tr>
                                     <th>Turno</th>
                                     <th>Status</th>
+                                    {% if not ocultar_totales %}
                                     <th class="text-end">Total Bs</th>
                                     <th class="text-end">Total USD</th>
                                     {% if cuadre_es_supervisor %}
                                     <th class="text-end">Total general</th>
+                                    {% endif %}
                                     {% endif %}
                                 </tr>
                             </thead>
@@ -138,6 +140,7 @@
                                         </span>
                                         {% endif %}
                                     </td>
+                                    {% if not ocultar_totales %}
                                     <td class="text-end js-turno" data-turno="AM" data-campo="bs">
                                         {% if item.cierres_hoy.AM %}{{ item.cierres_hoy.AM.total_bs|floatformat:2 }}
                                         {% elif item.borradores.AM %}<span class="text-warning-emphasis js-borrador-bs" data-turno="AM">{{ item.borradores.AM.total_bs|default:"0.00" }}</span>
@@ -154,6 +157,7 @@
                                         {% elif item.borradores.AM %}<span class="text-warning-emphasis js-borrador-equiv" data-turno="AM">{{ item.borradores.AM.total_equivalente_bs|default:"0.00" }}</span>
                                         {% else %}&mdash;{% endif %}
                                     </td>
+                                    {% endif %}
                                     {% endif %}
                                 </tr>
                                 {# --- Fila PM --- #}
@@ -174,6 +178,7 @@
                                         </span>
                                         {% endif %}
                                     </td>
+                                    {% if not ocultar_totales %}
                                     <td class="text-end js-turno" data-turno="PM" data-campo="bs">
                                         {% if item.cierres_hoy.PM %}{{ item.cierres_hoy.PM.total_bs|floatformat:2 }}
                                         {% elif item.borradores.PM %}<span class="text-warning-emphasis js-borrador-bs" data-turno="PM">{{ item.borradores.PM.total_bs|default:"0.00" }}</span>
@@ -191,9 +196,10 @@
                                         {% else %}&mdash;{% endif %}
                                     </td>
                                     {% endif %}
+                                    {% endif %}
                                 </tr>
                             </tbody>
-                            {% if cuadre_es_supervisor %}
+                            {% if cuadre_es_supervisor and not ocultar_totales %}
                             <tfoot>
                                 <tr class="fw-bold border-top">
                                     <td colspan="2">Total caja</td>

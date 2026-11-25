@@ -20,6 +20,13 @@
             </a>
         </li>
 
+        <!-- Estadísticas -->
+        <li class="nav-item mb-1">
+            <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'estadisticas_parque' %}active-park{% endif %}" href="{% url 'parque:estadisticas_parque' %}">
+                <i class="bi bi-bar-chart-line me-3 opacity-75"></i> Estadísticas
+            </a>
+        </li>
+
         <!-- Abonos Realizados -->
         <li class="nav-item mb-1">
             <a class="nav-link d-flex align-items-center px-3 py-2 {% if request.resolver_match.url_name == 'lista_abonos' %}active-park{% endif %}" href="{% url 'parque:lista_abonos' %}">
